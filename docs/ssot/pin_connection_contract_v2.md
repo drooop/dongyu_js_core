@@ -2,7 +2,7 @@
 title: "PIN Connection Contract v2"
 doc_type: ssot
 status: active
-updated: 2026-05-10
+updated: 2026-07-01
 source: user
 iteration: 0356-pin-connection-contract-realignment
 ---
@@ -11,7 +11,7 @@ iteration: 0356-pin-connection-contract-realignment
 
 本文件冻结 0356 后的目标引脚合同。它覆盖早期文档中把跨模型路由声明为 `pin.connect.model`、把同 Cell 端点写成 `(self, pin)` / `(func, func:in)` 的写法。0363 增补控制总线 / 管理总线边界引脚拆分目标合同。
 
-0424 principal-scoped subtable namespace 目标合同见 `docs/ssot/principal_scoped_subtable_namespace_v1.md`。该合同新增跨 ModelTable namespace 的 host-owned boundary 语义，但不恢复 `pin.connect.model`，也不改变 `pin.connect.cell` 只能同表内连接的规则。
+0424 principal-scoped subtable namespace 目标合同见 `docs/ssot/principal_scoped_subtable_namespace_v1.md`。0431 修正后，跨 ModelTable namespace 的父侧索引用 `model.subtableconnection` 表达，子侧身份用 `model.subtable` 表达；该合同不恢复 `pin.connect.model`，也不改变 `pin.connect.cell` 只能同表内连接的规则。
 
 0357 已完成 runtime 硬切：当前输入面不再接受旧写法。旧写法只能出现在历史文档或负向测试中，不得作为新模型、新文档或新通过路径的输入面。
 
@@ -100,7 +100,7 @@ Conflict behavior:
 | `pin.connect.label` | 同一个 Cell 内多个引脚之间的连接 | 任意 Cell |
 | `pin.connect.cell` | 同一个模型内多个 Cell 的引脚之间的连接 | 当前模型 root `(0,0,0)` |
 
-`pin.connect.model` 已从目标合同中移除。跨模型通信必须通过 `model.submt` hosting Cell 暴露出来的父模型内 Cell 引脚、子模型 root `(0,0,0)` 的边界引脚，以及父模型内的 `pin.connect.cell` 完成，不再存在单独的跨模型连接 label.t。
+`pin.connect.model` 已从目标合同中移除。跨模型通信必须通过父侧 `model.submtconnection` Cell 暴露出来的父模型内 Cell 引脚、子模型 root `(0,0,0)` 的边界引脚，以及父模型内的 `pin.connect.cell` 完成，不再存在单独的跨模型连接 label.t。
 
 ---
 
@@ -181,8 +181,8 @@ Conflict behavior:
 子模型对外只允许通过子模型 root `(0,0,0)` 的引脚：
 
 - 子模型内部 Cell → 子模型 root `(0,0,0)` 引脚。
-- 子模型 root `(0,0,0)` 引脚 → 父模型 hosting Cell 上由 `model.submt` 暴露的引脚。
-- 父模型再使用父模型自己的 `pin.connect.cell` 把 hosting Cell 接到父模型内其他 Cell。
+- 子模型 root `(0,0,0)` 引脚 → 父模型 `model.submtconnection` Cell 上暴露的引脚。
+- 父模型再使用父模型自己的 `pin.connect.cell` 把 connection Cell 接到父模型内其他 Cell。
 
 禁止：
 
@@ -192,13 +192,13 @@ Conflict behavior:
 
 ## 6.1 子模型表边界（0424 target）
 
-`model.subtable` 挂载的是一张 child ModelTable namespace，不是一个 child model。
+`model.subtable` 声明一张 child ModelTable namespace；父侧索引由 `model.subtableconnection` 表达。它不是一个 child model。
 
 目标规则：
 
 - child table 内部继续使用本合同的普通 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 与 `pin.connect.label` / `pin.connect.cell`。
 - child table 内的 `pin.connect.cell` 仍只能连接同一个 `table_id` 内的 Cell。
-- host table 到 child table 的连接只能经过 host-owned hosting Cell 和 child table root `(0,0,0)` 的 boundary pins。
+- host table 到 child table 的连接只能经过 host-owned `model.subtableconnection` Cell 和 child table root `(0,0,0)` 的 boundary pins。
 - 任何端点格式都不得在 `pin.connect.cell` 中携带 `table_id`、裸跨表 `model_id` 或 `[modelId, pin]`。
 - durable route diagnostics and payload records that cross this boundary must use table-qualified `ModelRef = { table_id, model_id }`.
 
@@ -213,12 +213,14 @@ Conflict behavior:
 ```json
 [
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "Code.Python" },
-  { "id": 0, "p": 1, "r": 0, "c": 0, "k": "model_type", "t": "model.submt", "v": 1 },
-  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "Data.Array" }
+  { "id": 0, "p": 1, "r": 0, "c": 0, "k": "model_type", "t": "model.submtconnection", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.submt", "v": "Data.Array" }
 ]
 ```
 
 传输中的模型数据默认是临时数据：`format is ModelTable-like, persistence is explicit materialization`。只有接收方明确执行 materialization 时，才会变成正式持久模型表数据。
+
+正式 bus / pin transport 使用 `pin_payload.v2` Temporary ModelTable record array。业务 records 必须在同一数组中出现，并由 `payload_model_id` 指向；不得把 ModelTable records 嵌套到 `payload.v`、`bundle_payload.v` 或其他 `json` label 中。
 
 当模型数据传递到函数的 `{functionName}:in` 时，运行时应把传入记录数组构造成临时模型对象 `input_model`，并与函数所在模型对象 `model` 一起传入函数。函数只能通过受控 API 产生正式副作用。
 

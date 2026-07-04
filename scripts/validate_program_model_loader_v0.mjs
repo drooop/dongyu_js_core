@@ -114,9 +114,9 @@ function connectAllowlistCase() {
     v: [{ from: [0, 'event_in'], to: [[1, 'input']] }],
   });
 
-  const cellGraph = runtime.cellConnectGraph.get('0|1|0|0');
+  const cellGraph = runtime.cellConnectGraph.get(runtime._cellConnectGraphKey(root, 1, 0, 0));
   assert(cellGraph && cellGraph.has('self:event'), 'connect: missing pin.connect.label route');
-  const cellTargets = runtime.cellConnectionRoutes.get('0|0|0|0|event');
+  const cellTargets = runtime.cellConnectionRoutes.get(runtime._cellConnectionRouteKey(root, 0, 0, 0, 'event'));
   assert(Array.isArray(cellTargets) && cellTargets.length === 1, 'connect: missing pin.connect.cell route');
   assert(
     cellTargets[0].model_id === 0 &&
@@ -131,7 +131,7 @@ function connectAllowlistCase() {
 
   // Legacy generic "connect" should not create structured routes.
   runtime.addLabel(root, 0, 0, 0, { k: 'LEGACY_CONNECT', t: 'connect', v: {} });
-  assert(!runtime.cellConnectionRoutes.has('0|0|0|0|LEGACY_CONNECT'), 'connect: legacy connect unexpectedly routed');
+  assert(!runtime.cellConnectionRoutes.has(runtime._cellConnectionRouteKey(root, 0, 0, 0, 'LEGACY_CONNECT')), 'connect: legacy connect unexpectedly routed');
   return { key: 'connect_allowlist', status: 'PASS' };
 }
 

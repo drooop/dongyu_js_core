@@ -2,13 +2,13 @@
 title: "Slide App Runtime Developer Guide"
 doc_type: user-guide
 status: active
-updated: 2026-06-10
+updated: 2026-07-02
 source: ai
 ---
 
 # Slide App Runtime Developer Guide
 
-这份手册说明当前滑动 APP 的完整开发和运行链路。它不是新规约，而是把仓库里已经实现的 current truth 写成开发者可操作说明。
+这份手册说明滑动 APP 的完整开发和运行链路。未特别标注为“历史背景”的内容描述当前目标实现；新安装的滑动 APP 会作为独立 App table 挂载，宿主侧用 `model.subtableconnection` 建立索引，App table 自己的 root 用 `model.subtable` 声明身份。
 
 0384 已把 Workspace Manager 的安装按钮从“UI Server 本地复制 source model”改成“从 provider 请求 bundle 后再安装”。provider-owned 安装现在是 current truth：Workspace Manager 只维护资产索引，实际滑动 APP bundle 必须由 provider worker 返回。
 
@@ -19,7 +19,7 @@ source: ai
 | 编写 | 开发者怎样把 APP 写成模型表 | root metadata、UI 投影层、可选程序层、可选外发层都写成 ModelTable records |
 | 安装 | zip 怎样变成 Workspace 里的一个 APP | 直接 ZIP 走 `zip -> /api/media/upload -> mxc://... -> importer truth -> importer click pin -> materialize / mount`；Workspace Manager 的 provider-owned 安装走 0384 current contract |
 | 运行 | 用户点按钮后怎样到达后端目标单元格 | 前端发 `bus_event_v2`，server 默认写 Model 0 `pin.bus.cb.in`，再由 pin route 进入目标模型 |
-| 外发 | APP 怎样发双总线消息 | app root `pin.out -> host / mount relay -> Model 0 mt_bus_send -> pin.bus.cb.out`；显式管理语义才使用 `pin.bus.mb.out` |
+| 外发 | APP 怎样发双总线消息 | app root `pin.out -> host connection relay -> Model 0 mt_bus_send -> pin.bus.cb.out`；显式管理语义才使用 `pin.bus.mb.out` |
 
 正式业务数据在传输过程中使用临时 ModelTable record array。这个数组“像模型表”，但不会自动落盘；只有安装、导入或 owner materialization 这类显式动作才会把它变成正式模型表 truth。
 
@@ -187,16 +187,16 @@ my-slide-app.zip
 | `t` | label type |
 | `v` | label value |
 
-安装时 server 会做这些事：
+当前 App instance table 安装器会做这些事：
 
 1. 从 media cache 读取 `mxc://...` 对应 zip。
 2. 校验 `app_payload.json`。
 3. 为本次安装分配 App instance `table_id`。
 4. 把 package records materialize 到这张 App instance table，包内 `model_id` 保持局部。
-5. 在 host Model 0 的 Workspace mount 区写 `model.subtable`，把 APP table 挂到 Workspace。
+5. 在 host Model 0 的 Workspace index 区写 `model.subtableconnection`，指向 APP table；APP table 自己的 Model 0 root 声明 `model.subtable`。
 6. 把桌面 registry、任务栈和打开状态记录为 table-qualified `ModelRef = { table_id, model_id }`。
 
-安装完成不代表前端启动时就下载了整个 APP 模型体。0418 起，UI Server 的浏览器端默认先加载 `bootstrap` 投影：桌面、app registry、route state 和必要系统模型。0425 起，用户从桌面打开某个滑动 APP 时，前端按 `visible_model_ref={table_id,model_id}` 请求 `visible` profile，把这个 APP instance table 内的模型体加载进浏览器投影缓存。
+安装完成不代表前端启动时就下载了整个 APP 模型体。UI Server 的浏览器端默认先加载 `bootstrap` 投影：桌面、app registry、route state 和必要系统模型。用户从桌面打开某个滑动 APP 时，前端按 `visible_model_ref={table_id,model_id}` 请求 `visible` profile，把这个 APP instance table 内的模型体加载进浏览器投影缓存。
 
 这条规则对开发者有三个影响：
 
@@ -228,22 +228,22 @@ Workspace Manager 的安装按钮不再从 UI Server 本地模型复制 `source_
 
 1. 只接受目录中的 canonical row，拒绝前端伪造 row。
 2. 从 Model 0 `mqtt_topic_base` 计算请求 topic：`UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<provider_worker_id>/<provider_model_id>/<provider_bundle_pin>`，并从 `reply_target_*` 计算 `response_topic`。
-3. 经 Model 0 bus out 发送 `pin_payload.v1 message_role=request`。
-4. nested `payload` 写成 `slide_app_bundle_request.v1`，至少包含 `asset_id`。
+3. 经 Model 0 bus out 发送 `pin_payload.v2 message_role=request`。
+4. `payload_model_id` 指向 `slide_app_bundle_request.v1` 业务 records，至少包含 `asset_id`。
 5. 在本地记录 pending install state：`op_id`、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target`。
 
-provider 返回时必须把 response packet 的 `topic` 改为 request 中的 `response_topic`，并把 nested `payload` 写成 `slide_app_bundle_response.v1`：
+provider 返回时必须把 response packet 的 `topic` 改为 request 中的 `response_topic`，并把 `payload_model_id` 指向的业务 records 写成 `slide_app_bundle_response.v1`：
 
 | label | 类型 | 说明 |
 |---|---|---|
 | `__mt_payload_kind` | `str` | 固定为 `slide_app_bundle_response.v1` |
 | `asset_id` | `str` | 必须与 pending install 一致 |
-| `bundle_payload` | `json` | provider 返回的滑动 APP ModelTable record array |
+| `bundle_record_id_offset` | `int` | 实际 bundle records 在同一 Temporary ModelTable array 中的起始 id |
 | `bundle_sha256` | `str` | 可选，用于审计 |
 
 UI Server 在 materialize 前必须确认 response 和 pending install 完全对应：`op_id` 或 request correlation、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target` 都必须匹配。任何过期、错资产、错 endpoint、错 reply target 或 malformed response 都只能写可见失败状态，不能创建新模型。
 
-provider 返回的 `bundle_payload` 和用户上传 ZIP 里的 `app_payload.json` 使用同一套 import validator。bundle 内的 `remote_bus_endpoint_v1` 只描述安装后 APP 运行时的业务外发目标，不描述本次 bundle download request。
+provider 回包中的 bundle records 和用户上传 ZIP 里的 `app_payload.json` 使用同一套 import validator。bundle 内的 `remote_bus_endpoint_v1` 只描述安装后 APP 运行时的业务外发目标，不描述本次 bundle download request。
 
 ## 5. 安装时哪些引脚会自动建立
 
@@ -269,26 +269,26 @@ provider 返回的 `bundle_payload` 和用户上传 ZIP 里的 `app_payload.json
 }
 ```
 
-安装后宿主自动补：
+安装后宿主会自动补：
 
 | 位置 | 自动 label | 作用 |
 |---|---|---|
 | imported root `(0,0,0)` | `__host_ingress_submit` `pin.in` | imported APP 的宿主入口 relay |
 | imported root `(0,0,0)` | `__host_ingress_submit_route` `pin.connect.cell` | relay 到声明的 `submit_request` |
 | Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>` `pin.bus.cb.in` | 宿主入口 |
-| Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>_route` `pin.connect.cell` | 从 Model 0 路由到 imported app hosting Cell / imported root relay |
+| Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>_route` `pin.connect.cell` | 从 Model 0 路由到 imported app parent-side connection Cell / imported root relay |
 
 如果 root 还声明了 `dual_bus_model` 并且有 root `submit` `pin.out`，宿主还会补外发 adapter：
 
 | 位置 | 自动 label | 作用 |
 |---|---|---|
-| Model 0 mount cell | `__host_egress_submit_relay_<modelId>` `pin.in` | 接住 imported root `submit` |
-| Model 0 mount cell | `__host_egress_submit_bridge_<modelId>` `pin.connect.label` | 把 imported root `submit` 接到 mount relay |
+| parent-side `model.subtableconnection` connection/index Cell | `__host_egress_submit_relay_<modelId>` `pin.in` | 接住 imported root `submit` |
+| parent-side `model.subtableconnection` connection/index Cell | `__host_egress_submit_bridge_<modelId>` `pin.connect.label` | 把 imported root `submit` 接到 connection relay |
 | Model 0 root `(0,0,0)` | `__host_egress_submit_bridge_in_<modelId>` `pin.in` | relay 到 root bridge function |
 | Model 0 root `(0,0,0)` | `bridge_imported_submit_to_mt_bus_send_<modelId>` `func.js` | 构造 `bus_send.v1` 临时 ModelTable payload |
 | Model 0 root `(0,0,0)` | `imported_submit_<modelId>_bus` `pin.bus.cb.out` | 默认统一外发边界 |
 
-这些自动 label 是宿主责任。开发者不应在 zip 里写死安装后的正式 `modelId`。
+这些自动 label 是宿主责任。开发者不应在 zip 里写死安装后的正式 `modelId` 或 `table_id`；包内正数 `model_id` 始终只在安装后的 App table 内生效。
 
 ## 6. 点击按钮后怎样到达后端目标 cell
 
@@ -297,7 +297,7 @@ provider 返回的 `bundle_payload` 和用户上传 ZIP 里的 `app_payload.json
 - 本地草稿：输入框正在打字、hover、focus、临时选中等，不算正式业务。
 - 正式提交：send、submit、execute、confirm 等，要进入后端业务链。
 
-正式提交链是：
+正式提交链的当前公共前半段是 `bus_event_v2 -> Model 0 pin.bus.cb.in`；进入 App instance table 时必须经过宿主侧 `model.subtableconnection` 边界：
 
 ```text
 Button click
@@ -305,7 +305,7 @@ Button click
 -> remote store POST /bus_event
 -> server validates temporary ModelTable payload
 -> server writes Model 0 (0,0,0) k=<bus_in_key> t=pin.bus.cb.in
--> pin.connect.cell routes to the target hosting/root boundary pin.in
+-> pin.connect.cell routes to the target parent-side connection Cell / child root boundary pin.in
 -> target model mt_bus_receive_in
 -> mt_bus_receive dispatches write_label.v1
 -> target cell receives target pin.in
@@ -366,7 +366,7 @@ return;
 ```text
 target func.js
 -> app root submit pin.out
--> Model 0 mount relay
+-> parent-side model.subtableconnection connection/index relay
 -> Model 0 bridge_imported_submit_to_mt_bus_send_<modelId>
 -> Model 0 mt_bus_send_in
 -> Model 0 mt_bus_send
@@ -377,7 +377,7 @@ target func.js
 关键点：
 
 - APP 自己只写自己的 root `pin.out`。
-- 宿主在安装时已经知道这个 APP 挂在哪个 Model 0 mount cell。
+- 宿主安装器知道这个 APP 由哪个 Model 0 parent-side `model.subtableconnection` connection/index Cell 索引。
 - 宿主 relay 把 app root `pin.out` 转成 Model 0 的 `mt_bus_send_in`。
 - `mt_bus_send` 再默认写 `pin.bus.cb.out`。
 - MBR / MQTT 默认只消费 Model 0 `pin.bus.cb.out`。显式管理语义才使用 `pin.bus.mb.out`。

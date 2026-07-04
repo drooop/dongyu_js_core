@@ -49,8 +49,8 @@ function test_workspace_docs_entry_is_cellwise_model() {
   const records = patch.records || [];
   const hierarchyRecords = hierarchyPatch.records || [];
   assert.ok(findRecord(records, (record) => record.op === 'create_model' && record.model_id === 1039), 'model 1039 must be created');
-  assert.ok(findRecord(hierarchyRecords, (record) => record.model_id === 0 && record.p === 2 && record.r === 0 && record.c === 19 && record.t === 'model.submt' && record.v === 1039), 'model 1039 must be mounted under Workspace hierarchy');
-  assert.equal(Boolean(findRecord(records, (record) => record.model_id === 0 && record.t === 'model.submt' && record.v === 1039)), false, 'docs UI patch must not own hierarchy mounts');
+  assert.ok(findRecord(hierarchyRecords, (record) => record.model_id === 0 && record.p === 2 && record.r === 0 && record.c === 19 && record.t === 'model.submtconnection' && record.v === 1039), 'model 1039 must be mounted under Workspace hierarchy');
+  assert.equal(Boolean(findRecord(records, (record) => record.model_id === 0 && record.t === 'model.submtconnection' && record.v === 1039)), false, 'docs UI patch must not own hierarchy mounts');
   assert.ok(findRecord(records, (record) => record.model_id === 1039 && record.k === 'ui_authoring_version' && record.v === 'cellwise.ui.v1'), 'model 1039 must be cellwise.ui.v1');
   assert.ok(findRecord(records, (record) => record.model_id === 1039 && record.k === 'app_name' && record.v === 'Minimal Submit Dual-Bus Docs'), 'workspace entry name must be present');
 

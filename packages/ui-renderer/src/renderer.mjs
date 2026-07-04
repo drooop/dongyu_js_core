@@ -2343,6 +2343,11 @@ function buildVueNode(node, snapshot, vue, host, registry) {
     const releaseWhenKey = singleFlightEnabled && releaseWhenValue !== undefined
       ? singleFlightValueKey(releaseWhenValue)
       : null;
+    const schemaLoadingDeclared = Object.prototype.hasOwnProperty.call(props, 'loading');
+    const schemaLoadingRaw = schemaLoadingDeclared ? props.loading : undefined;
+    const schemaLoading = schemaLoadingDeclared ? Boolean(schemaLoadingRaw) : false;
+    const loadingIsLabelBacked = isPlainObject(node && node.props && node.props.loading)
+      && isPlainObject(node.props.loading.$label);
 
     let flightState = singleFlightEnabled && singleFlightStore ? singleFlightStore.get(singleFlightKey) : null;
     if (singleFlightEnabled && !flightState) {
@@ -2359,9 +2364,13 @@ function buildVueNode(node, snapshot, vue, host, registry) {
         singleFlightStore.set(singleFlightKey, flightState);
       }
     }
+    if (singleFlightEnabled && flightState && flightState.pending && loadingIsLabelBacked && schemaLoadingRaw === false) {
+      flightState.pending = false;
+      flightState.releaseKey = releaseKey;
+      singleFlightStore.set(singleFlightKey, flightState);
+    }
     const pendingLocal = Boolean(singleFlightEnabled && flightState && flightState.pending);
     const pendingDeclared = declaredPendingActive();
-    const schemaLoading = Object.prototype.hasOwnProperty.call(props, 'loading') ? Boolean(props.loading) : false;
     props.loading = pendingLocal || pendingDeclared || schemaLoading;
     if (pendingLocal || (pendingDeclared && pendingDisableWhilePending)) {
       props.disabled = true;

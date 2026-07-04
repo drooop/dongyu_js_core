@@ -5,9 +5,11 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { loadSystemPatch } from '../worker_engine_v0.mjs';
+import { payloadRecords, pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
+const BUNDLE_RECORD_ID_OFFSET = 100;
 
 const remoteProviderPath = 'deploy/sys-v1ns/remote-worker/patches/14_model3100_slide_app_bundle_provider.json';
 const assetManagerPath = 'packages/worker-base/system-models/workspace_manager_asset_manager_ui.json';
@@ -36,37 +38,45 @@ function payloadJson(records, key) {
   return record && record.t === 'json' ? record.v : null;
 }
 
+function payloadInt(records, key) {
+  const record = payloadRecord(records, key);
+  return record && record.t === 'int' ? record.v : null;
+}
+
+function decodedBundleRecords(records, businessRecords) {
+  const offset = payloadInt(businessRecords, 'bundle_record_id_offset');
+  assert.ok(Number.isInteger(offset) && offset === BUNDLE_RECORD_ID_OFFSET, 'provider response must declare the bundle record id offset');
+  return records
+    .filter((record) => record && Number.isInteger(record.id) && record.id >= offset)
+    .map((record) => ({ ...record, id: record.id - offset }));
+}
+
 function pinPayloadPacket({ opId, assetId }) {
   const responseTopic = 'UIPUT/ws/dam/pic/de/U1D/1051/result';
   return {
     version: 'v1',
     type: 'pin_payload',
-    payload: [
-      mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-      mt('__mt_request_id', 'str', opId),
-      mt('op_id', 'str', opId),
-      mt('message_role', 'str', 'request'),
-      mt('topic', 'str', 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request'),
-      mt('response_topic', 'str', responseTopic),
-      mt('route_kind', 'str', 'control'),
-      mt('bus', 'str', 'control'),
-      mt('endpoint_worker_id', 'str', 'R1'),
-      mt('endpoint_model_id', 'int', 3100),
-      mt('endpoint_pin', 'str', 'bundle_request'),
-      mt('origin_worker_id', 'str', 'U1D'),
-      mt('origin_model_id', 'int', 1051),
-      mt('origin_pin', 'str', 'workspace_asset_install'),
-      mt('reply_target_worker_id', 'str', 'U1D'),
-      mt('reply_target_model_id', 'int', 1051),
-      mt('reply_target_pin', 'str', 'result'),
-      mt('payload', 'json', [
+    payload: pinPayloadV2Records({
+      opId,
+      topic: 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request',
+      responseTopic,
+      endpointWorkerId: 'R1',
+      endpointModelId: 3100,
+      endpointPin: 'bundle_request',
+      originWorkerId: 'U1D',
+      originModelId: 1051,
+      originPin: 'workspace_asset_install',
+      replyTargetWorkerId: 'U1D',
+      replyTargetModelId: 1051,
+      replyTargetPin: 'result',
+      payloadRecords: [
         mt('__mt_payload_kind', 'str', 'slide_app_bundle_request.v1'),
         mt('__mt_request_id', 'str', opId),
         mt('asset_id', 'str', assetId),
         mt('requested_version', 'str', 'current'),
-      ]),
-      mt('timestamp', 'int', 1700000000000),
-    ],
+      ],
+      timestamp: 1700000000000,
+    }),
   };
 }
 
@@ -163,13 +173,15 @@ async function test_r1_provider_runtime_returns_todo_app_1_bundle_response() {
   assert.equal(handled, true, 'R1 runtime must accept To Do app 1 provider bundle request');
   await wait();
   const response = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('remote_result_bus')?.v;
-  assert.equal(payloadString(response, '__mt_payload_kind'), 'pin_payload.v1', 'R1 response must be strict pin_payload.v1');
+  assert.equal(payloadString(response, '__mt_payload_kind'), 'pin_payload.v2', 'R1 response must be strict pin_payload.v2');
   assert.equal(payloadString(response, 'message_role'), 'response', 'R1 response must be message_role=response');
   assert.equal(payloadString(response, 'topic'), 'UIPUT/ws/dam/pic/de/U1D/1051/result', 'R1 response must publish to request response_topic');
-  const nested = payloadJson(response, 'payload');
-  assert.equal(payloadString(nested, '__mt_payload_kind'), 'slide_app_bundle_response.v1', 'R1 nested response must be slide_app_bundle_response.v1');
-  assert.equal(payloadString(nested, 'asset_id'), 'r1-todo-app-1', 'R1 response must preserve To Do asset id');
-  const bundlePayload = payloadJson(nested, 'bundle_payload');
+  assert.equal(payloadJson(response, 'payload'), null, 'R1 response must not carry nested payload');
+  const business = payloadRecords(response);
+  assert.equal(payloadString(business, '__mt_payload_kind'), 'slide_app_bundle_response.v1', 'R1 response business records must be slide_app_bundle_response.v1');
+  assert.equal(payloadString(business, 'asset_id'), 'r1-todo-app-1', 'R1 response must preserve To Do asset id');
+  assert.equal(payloadJson(business, 'bundle_payload'), null, 'R1 response must not nest bundle payload as json');
+  const bundlePayload = decodedBundleRecords(response, business);
   assert.ok(Array.isArray(bundlePayload), 'R1 response must include bundle payload array');
   assert.equal(bundlePayload.find((record) => record.k === 'app_name')?.v, 'To Do Board', 'R1 To Do app 1 bundle must install as To Do Board');
   assert.equal(bundlePayload.find((record) => record.k === 'host_ingress_v1')?.t, 'json', 'R1 To Do app 1 bundle must declare host ingress');

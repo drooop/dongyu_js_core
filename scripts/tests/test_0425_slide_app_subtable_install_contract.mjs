@@ -26,7 +26,7 @@ function minimalSlidePayload(appName = '0425 Subtable App') {
     record(0, 0, 0, 0, 'to_user', 'str', '@drop:example'),
     record(0, 0, 0, 0, 'ui_authoring_version', 'str', 'cellwise.ui.v1'),
     record(0, 0, 0, 0, 'ui_root_node_id', 'str', 'root'),
-    record(0, 0, 1, 0, 'model_type', 'model.submt', 1),
+    record(0, 0, 1, 0, 'model_type', 'model.submtconnection', { model_id: 1, mount_kind: 'truth' }),
     record(0, 2, 0, 0, 'ui_node_id', 'str', 'root'),
     record(0, 2, 0, 0, 'ui_component', 'str', 'Container'),
     record(0, 2, 1, 0, 'ui_node_id', 'str', 'title'),
@@ -37,7 +37,7 @@ function minimalSlidePayload(appName = '0425 Subtable App') {
     record(0, 2, 1, 0, 'ui_text_ref_r', 'int', 0),
     record(0, 2, 1, 0, 'ui_text_ref_c', 'int', 0),
     record(0, 2, 1, 0, 'ui_text_ref_k', 'str', 'title'),
-    record(1, 0, 0, 0, 'model_type', 'model.table', 'Data.Title'),
+    record(1, 0, 0, 0, 'model_type', 'model.submt', 'Data.Title'),
     record(1, 0, 0, 0, 'title', 'str', `${appName} title`),
   ];
 }
@@ -75,7 +75,7 @@ function mountRecords(runtime, tableId) {
   const out = [];
   for (const cell of model0.cells.values()) {
     for (const label of cell.labels.values()) {
-      if (label && label.t === 'model.subtable' && label.v?.table_id === tableId) {
+      if (label && label.t === 'model.subtableconnection' && label.v?.table_id === tableId) {
         out.push({ cell, label });
       }
     }
@@ -98,7 +98,7 @@ function test_zip_import_materializes_child_model_table_not_host_models() {
     runtime.getLabelValue(runtime.getModel({ table_id: installed.table_id, model_id: 1 }), 0, 0, 0, 'title'),
     '0425 Install One title',
   );
-  assert.equal(mountRecords(runtime, installed.table_id).length, 1, 'host model 0 must declare one model.subtable boundary');
+  assert.equal(mountRecords(runtime, installed.table_id).length, 1, 'host model 0 must declare one model.subtableconnection boundary');
 
   const registry = deriveWorkspaceRegistryFromSnapshot({ snapshot: runtime.snapshot() });
   assert.ok(
@@ -117,8 +117,8 @@ function test_duplicate_imports_keep_independent_app_local_state() {
   const { runtime } = state;
 
   assert.notEqual(first.table_id, second.table_id, 'duplicate installs must allocate different app tables');
-  assert.equal(mountRecords(runtime, first.table_id).length, 1, 'first duplicate install must keep its own host model.subtable boundary');
-  assert.equal(mountRecords(runtime, second.table_id).length, 1, 'second duplicate install must keep its own host model.subtable boundary');
+  assert.equal(mountRecords(runtime, first.table_id).length, 1, 'first duplicate install must keep its own host model.subtableconnection boundary');
+  assert.equal(mountRecords(runtime, second.table_id).length, 1, 'second duplicate install must keep its own host model.subtableconnection boundary');
   runtime.addLabel(runtime.getModel({ table_id: first.table_id, model_id: 1 }), 0, 0, 0, {
     k: 'title',
     t: 'str',
@@ -153,10 +153,10 @@ function test_subtable_export_emits_package_local_ids_without_table_leak() {
   assert.equal(result.ok, true, `export failed: ${JSON.stringify(result)}`);
   const payload = result.data.payload;
   assert.deepEqual([...new Set(payload.map((entry) => entry.id))].sort((a, b) => a - b), [0, 1]);
-  assert.equal(
-    payload.find((entry) => entry.id === 0 && entry.k === 'model_type' && entry.t === 'model.submt')?.v,
-    1,
-    'model.submt must keep package-local child id',
+  assert.deepEqual(
+    payload.find((entry) => entry.id === 0 && entry.k === 'model_type' && entry.t === 'model.submtconnection')?.v,
+    { model_id: 1, mount_kind: 'truth' },
+    'model.submtconnection must keep package-local child id',
   );
   assert.equal(payload.some((entry) => entry.k === 'installed_at'), false, 'export must omit install-time labels');
   assert.equal(payload.some((entry) => entry.k === 'imported_bundle_model_ids'), false, 'export must omit host diagnostic ids');
@@ -169,6 +169,17 @@ async function test_registry_export_url_downloads_app_table_zip() {
   const state = createServerState({ dbPath: null });
   const installed = installPayload(state, minimalSlidePayload('0425 Export Route App'), 'mxc://test/export-route');
   const registry = deriveWorkspaceRegistryFromSnapshot({ snapshot: state.runtime.snapshot() });
+  const hostEntry = registry.find((item) => item.table_id === 'host' && item.model_id === 100);
+  assert.equal(hostEntry, undefined, 'registry must not expose migrated color app as host model100');
+  const colorEntry = registry.find((item) => item.name === 'E2E 颜色生成器');
+  assert.ok(colorEntry, 'registry must contain the seeded color app-table entry');
+  assert.notEqual(colorEntry.table_id, 'host', 'seeded color app must be exported from its app table');
+  assert.equal(colorEntry.model_id, 0, 'seeded color app-table entry must use root model0');
+  assert.match(
+    colorEntry.export_url,
+    /^\/api\/slide-apps\/export\.zip\?table_id=/u,
+    'seeded color app registry entry must use explicit table-qualified export URL',
+  );
   const entry = registry.find((item) => item.table_id === installed.table_id && item.model_id === 0);
   assert.ok(entry, 'registry must contain the installed app-table entry');
   assert.match(entry.export_url, /^\/api\/slide-apps\/export\.zip\?table_id=/u, 'app-table registry entry must expose table-qualified export URL');
@@ -207,9 +218,9 @@ async function test_export_route_requires_explicit_table_id_on_query_path() {
     state,
     null,
   );
-  assert.equal(handledLegacy, true, 'legacy host export route must still be handled');
-  assert.equal(legacyHostRes.statusCode, 200, 'legacy host export route must remain valid');
-  assert.match(legacyHostRes.headers['content-type'] || '', /application\/zip/u, 'legacy host export route must return application/zip');
+  assert.equal(handledLegacy, true, 'legacy host export route must still be handled as an invalid request');
+  assert.equal(legacyHostRes.statusCode, 400, 'legacy host export route must be rejected');
+  assert.match(legacyHostRes.body.toString('utf8'), /table_id_required/u, 'legacy host export rejection must require table_id');
   return { key: 'export_route_requires_explicit_table_id_on_query_path', status: 'PASS' };
 }
 

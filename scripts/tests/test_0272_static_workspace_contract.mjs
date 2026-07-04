@@ -36,14 +36,14 @@ function test_static_workspace_models_and_mounts_exist() {
     'static_workspace_truth_model_missing',
   );
   assert.ok(
-    findRecord(hierarchyRecords, (record) => record?.model_id === 0 && record?.t === 'model.submt' && record?.v === STATIC_WORKSPACE_APP_MODEL_ID),
+    findRecord(hierarchyRecords, (record) => record?.model_id === 0 && record?.t === 'model.submtconnection' && record?.v === STATIC_WORKSPACE_APP_MODEL_ID),
     'static_workspace_app_must_mount_under_model0',
   );
   assert.ok(
     findRecord(workspaceRecords, (record) => (
       record?.model_id === STATIC_WORKSPACE_APP_MODEL_ID
       && record?.k === 'model_type'
-      && record?.t === 'model.submt'
+      && record?.t === 'model.submtconnection'
       && record?.v === STATIC_WORKSPACE_TRUTH_MODEL_ID
     )),
     'static_workspace_truth_must_mount_under_app',

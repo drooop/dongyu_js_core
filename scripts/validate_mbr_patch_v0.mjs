@@ -4,13 +4,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { WorkerEngineV0, buildWorkerHostApi, loadSystemPatch } from './worker_engine_v0.mjs';
+import {
+  DEFAULT_TOPIC_BASE,
+  externalPacket,
+  payloadRecords,
+  payloadValue,
+  pinPayloadV2Records,
+} from './lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
 
 const PATCH_PATH = path.resolve('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
 const RUN_WORKER_PATH = path.resolve('scripts/run_worker_v0.mjs');
-const TOPIC_BASE = 'UIPUT/ws/dam/pic/de';
+const TOPIC_BASE = DEFAULT_TOPIC_BASE;
 const LEGACY_KEYS = ['source_model_id', 'pin', 'route', 'reply_to', 'route.reply_to', 'return_topic', 'returnTopic', 'result_topic'];
 
 let pass = 0;
@@ -76,34 +83,27 @@ function pinPayloadRecords({
   topic = `${TOPIC_BASE}/${endpointWorkerId}/${endpointModelId}/${endpointPin}`,
   routeKind = 'control',
 } = {}) {
-  return [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', opId),
-    mt('op_id', 'str', opId),
-    mt('message_role', 'str', messageRole),
-    mt('topic', 'str', topic),
-    mt('route_kind', 'str', routeKind),
-    mt('bus', 'str', routeKind),
-    mt('endpoint_worker_id', 'str', endpointWorkerId),
-    mt('endpoint_model_id', 'int', endpointModelId),
-    mt('endpoint_pin', 'str', endpointPin),
-    mt('origin_worker_id', 'str', originWorkerId),
-    mt('origin_model_id', 'int', originModelId),
-    mt('origin_pin', 'str', originPin),
-    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
-    mt('reply_target_model_id', 'int', replyTargetModelId),
-    mt('reply_target_pin', 'str', replyTargetPin),
-    mt('payload', 'json', payloadRecords),
-    mt('timestamp', 'int', timestamp),
-  ];
+  return pinPayloadV2Records({
+    opId,
+    messageRole,
+    endpointWorkerId,
+    endpointModelId,
+    endpointPin,
+    topic,
+    routeKind,
+    originWorkerId,
+    originModelId,
+    originPin,
+    replyTargetWorkerId,
+    replyTargetModelId,
+    replyTargetPin,
+    payloadRecords,
+    timestamp,
+  });
 }
 
-function externalPacket(records) {
-  return { version: 'v1', type: 'pin_payload', payload: records };
-}
-
-function payloadValue(records, key) {
-  return Array.isArray(records) ? records.find((record) => record && record.k === key)?.v : undefined;
+function withoutPayloadKey(records, key) {
+  return records.filter((record) => record.k !== key);
 }
 
 function hasLegacy(value, seen = new WeakSet()) {
@@ -230,6 +230,9 @@ process.stdout.write('\n=== Test Group 3: Mgmt Bus To Control Bus ===\n');
   assertStrictPacket(mqttPublished[0]?.payload, 'published control-bus packet');
   assert(payloadValue(mqttPublished[0]?.payload?.payload, 'endpoint_worker_id') === 'R1', 'published packet keeps endpoint_worker_id=R1');
   assert(payloadValue(mqttPublished[0]?.payload?.payload, 'origin_model_id') === 100, 'published packet keeps origin_model_id');
+  assert(payloadValue(mqttPublished[0]?.payload?.payload, '__mt_payload_kind') === 'pin_payload.v2', 'published packet keeps pin_payload.v2 kind');
+  assert(payloadValue(mqttPublished[0]?.payload?.payload, 'payload') === undefined, 'published packet does not carry nested payload label');
+  assert(payloadRecords(mqttPublished[0]?.payload?.payload).some((record) => record.k === 'input_value'), 'published packet keeps business payload records by payload_model_id');
   assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mgmt_inbox') === null, 'management inbox cleaned after bridge');
 }
 
@@ -279,6 +282,40 @@ for (const [name, topic] of [
   assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mgmt_inbox') === null, `mbr_mgmt_to_mqtt cleans inbox after ${name} topic rejection`);
 }
 
+process.stdout.write('\n=== Test Group 5c: Missing Table-Qualified Refs Rejected ===\n');
+for (const missingKey of ['endpoint_table_id', 'origin_table_id', 'reply_target_table_id']) {
+  const rt = createPatchedRuntime();
+  writeMgmtInbox(rt, externalPacket(withoutPayloadKey(pinPayloadRecords({ opId: `missing_${missingKey}` }), missingKey)));
+  execMbrFunction(rt, 'mbr_mgmt_to_mqtt');
+  assert(drainWorkerEngine(rt).mqttPublished.length === 0, `mbr_mgmt_to_mqtt rejects missing ${missingKey}`);
+  assert(getLabel(rt, -10, 0, 0, 0, 'mbr_mgmt_error')?.detail === 'invalid_pin_payload_records', `mbr_mgmt_to_mqtt writes visible error for missing ${missingKey}`);
+  assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mgmt_inbox') === null, `mbr_mgmt_to_mqtt cleans inbox after missing ${missingKey}`);
+}
+
+for (const missingKey of ['endpoint_table_id', 'origin_table_id', 'reply_target_table_id']) {
+  const rt = createPatchedRuntime();
+  const topic = `${TOPIC_BASE}/U1/100/result`;
+  writeMqttInbox(rt, topic, externalPacket(withoutPayloadKey(pinPayloadRecords({
+    opId: `missing_mqtt_${missingKey}`,
+    messageRole: 'response',
+    topic,
+    endpointWorkerId: 'U1',
+    endpointModelId: 100,
+    endpointPin: 'result',
+    originWorkerId: 'R1',
+    originModelId: 100,
+    originPin: 'submit',
+    replyTargetWorkerId: 'U1',
+    replyTargetModelId: 100,
+    replyTargetPin: 'result',
+    payloadRecords: [mt('bg_color', 'str', '#fff')],
+  }), missingKey)));
+  execMbrFunction(rt, 'mbr_mqtt_to_mgmt');
+  assert((getLabelEntry(rt, 0, 0, 0, 0, 'mbr_cb_out')?.v ?? null) === null, `mbr_mqtt_to_mgmt rejects missing ${missingKey}`);
+  assert(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_error')?.detail === 'invalid_pin_payload_records', `mbr_mqtt_to_mgmt writes visible error for missing ${missingKey}`);
+  assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox') === null, `mbr_mqtt_to_mgmt cleans inbox after missing ${missingKey}`);
+}
+
 process.stdout.write('\n=== Test Group 5b: MBR Dispatch Does Not Direct Ack ===\n');
 {
   const rt = createPatchedRuntime();
@@ -307,13 +344,14 @@ process.stdout.write('\n=== Test Group 5b: MBR Dispatch Does Not Direct Ack ===\
 process.stdout.write('\n=== Test Group 6: Control Bus To Mgmt Bus ===\n');
 {
   const rt = createPatchedRuntime();
-  const topic = `${TOPIC_BASE}/R1/100/submit`;
+  const topic = `${TOPIC_BASE}/U1/100/result`;
   writeMqttInbox(rt, topic, externalPacket(pinPayloadRecords({
     opId: 'ack_001',
     messageRole: 'response',
-    endpointWorkerId: 'R1',
+    topic,
+    endpointWorkerId: 'U1',
     endpointModelId: 100,
-    endpointPin: 'submit',
+    endpointPin: 'result',
     originWorkerId: 'R1',
     originModelId: 100,
     originPin: 'submit',
@@ -329,7 +367,7 @@ process.stdout.write('\n=== Test Group 6: Control Bus To Mgmt Bus ===\n');
   assertStrictPacket(packet, 'control-bus out packet');
   assert(payloadValue(packet?.payload, 'message_role') === 'response', 'control out forwards only response packets');
   assert(payloadValue(packet?.payload, 'topic') === topic, 'control out preserves payload topic record');
-  assert(payloadValue(packet?.payload, 'endpoint_worker_id') === 'R1', 'control out endpoint remains remote worker endpoint');
+  assert(payloadValue(packet?.payload, 'endpoint_worker_id') === 'U1', 'control out endpoint is the UI response endpoint');
   assert(payloadValue(packet?.payload, 'reply_target_worker_id') === 'U1', 'control out carries UI Server target in payload records');
   assert(getLabelEntry(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox') === null, 'mqtt inbox cleaned after bridge');
 }
@@ -409,6 +447,7 @@ process.stdout.write('\n=== Test Group 9: Split Bus Failure And Retry ===\n');
     t: 'pin.bus.mb.out',
     v: pinPayloadRecords({
       opId: 'missing_adapter_001',
+      messageRole: 'response',
       endpointWorkerId: 'U1',
       endpointModelId: 1036,
       endpointPin: 'result',
@@ -437,6 +476,7 @@ process.stdout.write('\n=== Test Group 9: Split Bus Failure And Retry ===\n');
     t: 'pin.bus.mb.out',
     v: pinPayloadRecords({
       opId: 'rejecting_adapter_001',
+      messageRole: 'response',
       endpointWorkerId: 'U1',
       endpointModelId: 1036,
       endpointPin: 'result',
@@ -469,6 +509,7 @@ process.stdout.write('\n=== Test Group 9: Split Bus Failure And Retry ===\n');
   rt.setRuntimeMode('running');
   const makeMgmtValue = (opId, text) => pinPayloadRecords({
     opId,
+    messageRole: 'response',
     endpointWorkerId: 'U1',
     endpointModelId: 1036,
     endpointPin: 'result',

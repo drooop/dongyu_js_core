@@ -19,6 +19,18 @@ function normalizeInt(value) {
   return null;
 }
 
+function normalizeModelRef(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const modelId = normalizeInt(value.model_id);
+    const tableId = typeof value.table_id === 'string' && value.table_id.trim()
+      ? value.table_id.trim()
+      : 'host';
+    if (Number.isInteger(modelId)) return { table_id: tableId, model_id: modelId };
+  }
+  const modelId = normalizeInt(value);
+  return Number.isInteger(modelId) ? { table_id: 'host', model_id: modelId } : null;
+}
+
 function routePage(snapshot, routePath) {
   const entry = findPageEntryByPath(snapshot, routePath);
   if (entry && typeof entry.page === 'string' && entry.page.trim().length > 0) {
@@ -57,10 +69,12 @@ export function readAppShellRouteSyncState(snapshot, routePath) {
     return { pending: false, targetPage, currentPage };
   }
 
+  const wsSelectedRef = normalizeModelRef(readLabelValue(labels, 'ws_app_selected_ref'));
   const wsSelected = normalizeInt(readLabelValue(labels, 'ws_app_selected'));
   const selectedModelId = normalizeInt(readLabelValue(labels, 'selected_model_id'));
-  if (!Number.isInteger(wsSelected) || wsSelected === 0) {
-    return { pending: true, targetPage, currentPage, wsSelected, selectedModelId };
+  const effectiveRef = wsSelectedRef || (Number.isInteger(wsSelected) ? { table_id: 'host', model_id: wsSelected } : null);
+  if (!effectiveRef || !Number.isInteger(effectiveRef.model_id) || (effectiveRef.table_id === 'host' && effectiveRef.model_id === 0)) {
+    return { pending: true, targetPage, currentPage, wsSelected, selectedModelId, wsSelectedRef };
   }
-  return { pending: false, targetPage, currentPage, wsSelected, selectedModelId };
+  return { pending: false, targetPage, currentPage, wsSelected, selectedModelId, wsSelectedRef };
 }

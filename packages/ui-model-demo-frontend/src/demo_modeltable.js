@@ -245,7 +245,7 @@ function deriveWorkspaceRegistry(runtime) {
       delete_disabled: !deletable,
       slide_capable: slideCapable,
       slide_surface_type: slideSurfaceType,
-      export_url: slideCapable ? `/api/slide-apps/${modelId}/export.zip` : '',
+      export_url: slideCapable ? `/api/slide-apps/export.zip?table_id=host&model_id=${encodeURIComponent(String(modelId))}` : '',
       export_label: slideCapable ? 'Zip' : '',
     });
   }

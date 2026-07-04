@@ -19,9 +19,9 @@ function addModel0HostRoute(rt, sourceModelId, sourcePin, targetModelId, targetP
   const root = rt.getModel(0);
   const sourceCell = { p: 9, r: 0, c: sourceModelId };
   const targetCell = { p: 9, r: 0, c: targetModelId };
-  rt.addLabel(root, sourceCell.p, sourceCell.r, sourceCell.c, { k: 'model_type', t: 'model.submt', v: sourceModelId });
+  rt.addLabel(root, sourceCell.p, sourceCell.r, sourceCell.c, { k: 'model_type', t: 'model.submtconnection', v: sourceModelId });
   rt.addLabel(root, sourceCell.p, sourceCell.r, sourceCell.c, { k: sourcePin, t: 'pin.out', v: null });
-  rt.addLabel(root, targetCell.p, targetCell.r, targetCell.c, { k: 'model_type', t: 'model.submt', v: targetModelId });
+  rt.addLabel(root, targetCell.p, targetCell.r, targetCell.c, { k: 'model_type', t: 'model.submtconnection', v: targetModelId });
   rt.addLabel(root, targetCell.p, targetCell.r, targetCell.c, { k: targetPin, t: 'pin.in', v: null });
   rt.addLabel(root, 0, 0, 0, {
     k: routeKey,

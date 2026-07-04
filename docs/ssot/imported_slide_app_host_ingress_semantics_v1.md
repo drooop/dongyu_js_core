@@ -34,7 +34,7 @@ Conflict behavior:
 - 安装时自动补：
   - `Model 0 pin.bus.cb.in`
   - `Model 0 pin.connect.cell`
-  - imported app hosting Cell 的 `model.submt` 与边界 pin
+  - legacy host-table v1 imported app connection Cell 的 `model.submt` 与边界 pin
   - imported model root relay `pin.in`
   - imported model root relay `pin.connect.cell`
 
@@ -344,13 +344,13 @@ v1 当前还要求：
 - `Model 0 (0,0,0)`
   - `k = imported_host_submit_<model_id>_route`
   - `t = pin.connect.cell`
-- imported app hosting Cell
+- legacy imported app connection Cell
   - `k = model_type`
   - `t = model.submt`
   - `v = <imported_model_id>`
   - 同时声明与 imported root 边界对应的 `pin.in` / `pin.out`
 
-0424 target implementation 后，新的 imported app instance host mount 应改用 `model.subtable` 和 host-owned `table_id`，而不是把 imported app 的包内正数模型 remap 到 host table 的全局正数 `model_id`。本段列出的 `model.submt` labels 是 v1 current implementation fact，不是 0424 之后新增安装路径的目标形态。
+0424/0431 target implementation 后，新的 imported app instance host install/index path 应改用父侧 `model.subtableconnection` 与 host-owned `table_id`，并在 child App table Model 0 root 声明 `model.subtable`，而不是把 imported app 的包内正数模型 remap 到 host table 的全局正数 `model_id`。本段列出的 `model.submt` labels 是 legacy host-table v1 current implementation fact，不是 0431 之后新增安装路径的目标形态。
 
 同时，宿主会在 imported model root 自动补一层 relay：
 
@@ -361,7 +361,7 @@ v1 当前还要求：
   - `k = __host_ingress_submit_route`
   - `t = pin.connect.cell`
 
-删除 imported app 时，宿主必须把上述 `Model 0` 与 hosting Cell 自动生成 labels 一并清理。
+删除 imported app 时，宿主必须把上述 `Model 0` 与 legacy connection Cell 自动生成 labels 一并清理。
 
 ### 6.2 imported app 负责
 
@@ -417,12 +417,12 @@ provider-owned 安装的硬边界如下：
 - Workspace Manager DEM ModelTable 是资产索引真源。UI Server 可以投影或缓存索引行，但不能把投影当成 bundle truth。
 - installable asset row 不得把 `source_model_id` 当作安装来源。目录行必须提供 `asset_id`、`provider_worker_id`、`provider_model_id`、`provider_bundle_pin`、`provider_route_kind`。
 - UI Server 从 Model 0 `mqtt_topic_base` 和 provider endpoint 计算请求 `topic`：`UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<provider_worker_id>/<provider_model_id>/<provider_bundle_pin>`。UI Server 同时从 `reply_target_*` 计算 `response_topic`。完整 topic 可以作为 derived projection/status label 展示，但不能成为独立目录真源。
-- 点击安装时，UI Server 经 Model 0 bus out 发送 `pin_payload.v1`，其中 nested `payload` 是 `slide_app_bundle_request.v1` Temporary ModelTable records。
+- 点击安装时，UI Server 经 Model 0 bus out 发送 `pin_payload.v2`，其中 `payload_model_id` 指向同一 record array 内的 `slide_app_bundle_request.v1` Temporary ModelTable records。
 - UI Server 必须保存 pending install state：`op_id`、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target`。
-- provider 返回 `pin_payload.v1 message_role=response`，其中 nested `payload` 是 `slide_app_bundle_response.v1` Temporary ModelTable records，至少包含 `asset_id`、`bundle_payload`，可选包含 `bundle_sha256`。
+- provider 返回 `pin_payload.v2 message_role=response`，其中 `payload_model_id` 指向同一 record array 内的 `slide_app_bundle_response.v1` Temporary ModelTable records，至少包含 `asset_id`、`bundle_record_id_offset`，可选包含 `bundle_sha256`。实际 bundle records 也必须在同一 record array 中出现，不能嵌入到 `bundle_payload.v`。
 - UI Server materialize 之前必须验证 response 与 pending install state 匹配：`op_id` 或 request correlation、`asset_id`、provider endpoint、computed `topic`、`route_kind`、`reply_target` 都必须一致。
 - malformed、stale、wrong asset、wrong endpoint、wrong topic、wrong route_kind、wrong reply target 的 response 必须写 visible failure，不得创建新模型。
-- 返回 bundle 仍必须通过 slide-app import validator；禁止 provider bundle 携带 `pin.bus.*`、`pin.connect.model`、`ui.egress.binding.v1`、`reply_target_*`、`route.reply_to`、legacy object payload 或 secrets。
+- 返回 bundle 仍必须通过 slide-app import validator；禁止 provider bundle 携带 `pin.bus.*`、`pin.connect.model`、`ui.egress.binding.v1`、`reply_target_*`、`route.reply_to`、legacy object payload、nested ModelTable records 或 secrets。
 - 返回 bundle 内的 `remote_bus_endpoint_v1` 只描述安装后 APP 的正式业务 egress，不描述 bundle download request 自身。
 
 ### 9.1 imported app 侧的 egress 声明
@@ -440,25 +440,28 @@ imported app zip 必须：
 
 ### 9.2 宿主自动补齐的 egress adapter
 
-安装期 `materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, hostEgress)` 当前产出：
+安装期 legacy host-table v1 函数签名仍是
+`materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, hostEgress)`；
+其中 `mountCell` 是历史参数名，0431 target 语义上表示 parent-side
+connection/index Cell。
 
 | 位置 | label | 作用 |
 |---|---|---|
-| Model 0 `mountCell` | `__host_egress_<semantic>_relay_<id>` `pin.in` | 接收 imported root `pin.out` 经 host boundary relay 转发的 value |
-| Model 0 `mountCell` | `__host_egress_<semantic>_bridge_<id>` `pin.connect.label` | root boundary pin → mount relay pin；不得使用 numeric prefix |
+| Model 0 parent-side connection/index Cell | `__host_egress_<semantic>_relay_<id>` `pin.in` | 接收 imported root `pin.out` 经 host boundary relay 转发的 value |
+| Model 0 parent-side connection/index Cell | `__host_egress_<semantic>_bridge_<id>` `pin.connect.label` | root boundary pin → connection relay pin；不得使用 numeric prefix |
 | Model 0 `(0,0,0)` | `__host_egress_<semantic>_bridge_in_<id>` `pin.in` | 宿主 root bridge 入口 |
 | Model 0 `(0,0,0)` | `bridge_imported_<semantic>_to_mt_bus_send_<id>` `func.js` | 把 imported payload 写到 `mt_bus_send_in` |
 | Model 0 `(0,0,0)` | `imported_<semantic>_<id>_bridge_wiring` `pin.connect.label` | `bridge_in -> bridge_func:in` |
-| Model 0 `(0,0,0)` | `imported_<semantic>_<id>_route` `pin.connect.cell` | `[mountCell,mountRelayPin] -> [0,0,0,bridge_in]` |
+| Model 0 `(0,0,0)` | `imported_<semantic>_<id>_route` `pin.connect.cell` | `[connectionCell,connectionRelayPin] -> [0,0,0,bridge_in]` |
 | Model 0 `(0,0,0)` | `imported_<semantic>_<id>_bus` `pin.bus.cb.out` 或 `pin.bus.mb.out` | 默认同工作区 egress 写入控制总线出口；显式 `route_kind="management"` 时写入管理总线出口 |
 | imported root `(0,0,0)` | `ui_egress_<semantic>_binding_<id>` `ui.egress.binding.v1` | host-owned 绑定说明，供 UI 投影显示该公开出口实际使用哪个宿主总线 pin |
-| imported root `(0,0,0)` | `host_egress_generated_model0_labels` / `host_egress_generated_mount` | 删除清理清单 |
+| imported root `(0,0,0)` | `host_egress_generated_model0_labels` / `host_egress_generated_mount` | 删除清理清单；`host_egress_generated_mount` 是 legacy key 名 |
 
 ### 9.2a Host-owned UI egress binding
 
 `ui.egress.binding.v1` 是安装后的 host-owned truth，用于说明 imported app 的某个公开 `pin.out` 经过哪一个宿主总线出口离开 UI Server。它不是 provider ZIP 内容，不能由外部 bundle 提供。
 
-历史 host-table v1 安装器在把 imported root 放入 host 正数模型空间、确认当前 worker identity、确认远端 endpoint 和 `route_kind` 后，才可以在 imported root `(0,0,0)` 写入类似记录。0425 App instance table 路径应使用 `model.subtable` 与 table-qualified payload metadata，不再把包内模型 remap 成 host 全局正数模型：
+历史 host-table v1 安装器在把 imported root 放入 host 正数模型空间、确认当前 worker identity、确认远端 endpoint 和 `route_kind` 后，才可以在 imported root `(0,0,0)` 写入类似记录。0425/0431 App instance table 路径应使用父侧 `model.subtableconnection`、child table root `model.subtable` 与 table-qualified payload metadata，不再把包内模型 remap 成 host 全局正数模型：
 
 ```json
 {
@@ -507,11 +510,11 @@ UI 可把 `ui.egress.binding.v1` 投影出来，让用户看到“这个按钮/�
 ### 9.3 egress 执行路径
 
 1. imported app root 的某个公开 `pin.out` 被写入 payload，例如 `submit1`。
-2. root pin.out 经过 mount relay / mount bridge 到达 Model 0 `(0,0,0)` 的 `bridge_in`。
+2. root pin.out 经过 connection relay / connection bridge 到达 Model 0 `(0,0,0)` 的 `bridge_in`。
 3. `bridge_imported_*_to_mt_bus_send_*` 读取 `remote_bus_endpoint_v1` 的远端 worker / model 默认值，补上当前公开出口 pin，写入 `endpoint_worker_id` / `endpoint_model_id` / `endpoint_pin` records。
 4. 同一个 bridge 写入 `message_role=request`、`origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin`，并生成 server-owned `reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin`，指向当前 UI Server / local App instance `ModelRef` / `result` pin；ZIP 内容不能覆盖它。
-5. bridge 把 `bus_send.v1` Temporary ModelTable records 写入 `mt_bus_send_in`，其中包含 `message_role`、`bus_out_key`、`topic`、`response_topic`、`bus`、`route_kind`、endpoint records、origin records、reply target records 与嵌套业务 `payload`。
-6. `mt_bus_send` 构造只含 `version` / `type` / `payload` 三个顶层字段的 `pin_payload.v1` packet，写入 `imported_<semantic>_<id>_bus`；默认同工作区 egress 的 type 是 `pin.bus.cb.out`，显式 `route_kind="management"` 时是 `pin.bus.mb.out`。
+5. bridge 把 `bus_send.v1` Temporary ModelTable records 写入 `mt_bus_send_in`，其中包含 `message_role`、`bus_out_key`、`topic`、`response_topic`、`bus`、`route_kind`、endpoint records、origin records、reply target records 与 `payload_model_id` 指向的业务 records。
+6. `mt_bus_send` 构造 `pin_payload.v2` Temporary ModelTable record array，写入 `imported_<semantic>_<id>_bus`；默认同工作区 egress 的 type 是 `pin.bus.cb.out`，显式 `route_kind="management"` 时是 `pin.bus.mb.out`。跨系统边界时可以把该 record array 放进只含 `version` / `type` / `payload` 三个顶层字段的外层 transport packet，但这个 object packet 不是业务 pin value。
 7. runtime 对 worker root 系统总线出口执行 publish：`pin.bus.cb.out` 走控制总线 / MQTT；`pin.bus.mb.out` 走管理总线到 MBR。
 8. MBR 只按 packet payload 中的 `topic` record 做通用转发，不要求 per-app route registration；management-routed 请求到达 MBR 后转为控制总线 / MQTT 发给 Remote Worker。回包必须使用 request records 中的 `response_topic`，不允许继续投递到 submit endpoint。
 
@@ -548,7 +551,7 @@ UI 可把 `ui.egress.binding.v1` 投影出来，让用户看到“这个按钮/�
 卸载 imported app 时 `removeImportedBundleFromRuntime` 必须：
 
 - 删除 `host_ingress_generated_*` 与 `host_egress_generated_*` 清单里记录的全部 key。
-- 禁止遗留 mount relay / mountBridge / bridge_in / bridge_func 让下一个 imported app 复用 cell 时污染路由。
+- 禁止遗留 connection relay / connection bridge / bridge_in / bridge_func 让下一个 imported app 复用 cell 时污染路由。
 
 ### 9.5 Historical / Retired (pre-0326)
 

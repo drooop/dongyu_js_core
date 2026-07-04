@@ -17,7 +17,7 @@ tags:
 
 本文档描述前端应用（APP）与软件工人内部 UI 模型之间的完整消息链路，以及基于 0356 PIN 连接合同的目标架构。
 
-> 0356 后不再使用 `pin.connect.model`。跨模型段必须通过 `model.submt` hosting Cell 的边界引脚、子模型 root `(0,0,0)` 的边界引脚，以及所在模型内的 `pin.connect.cell` 表达。
+> 0356 后不再使用 `pin.connect.model`。0431 后，跨模型段必须通过父侧 `model.submtconnection` Cell boundary pins、子模型 root `(0,0,0)` boundary pins，以及所在模型内的 `pin.connect.cell` 表达。`model.submt` 只负责 child 侧身份声明，不是 route / wiring path 的一段。
 
 Authority:
 - Below `CLAUDE.md`, architecture SSOT, runtime semantics, label registry, PIN connection contract, and temporary payload contract.
@@ -150,14 +150,14 @@ graph TB
 
 | Step | 路径 | Pin 类型 | 连接层 |
 |------|------|---------|--------|
-| step1 | Model 0 bus\_in → M-1 hosting Cell → M-1 (0,0,0) | pin.connect.cell + model.submt boundary | Layer 2 |
+| step1 | Model 0 bus\_in → M-1 connection Cell → M-1 (0,0,0) | pin.connect.cell + model.submtconnection boundary + child model.submt root | Layer 2 |
 | — | M-1 (0,0,0) → M-1 (0,0,1) mailbox | pin.connect.cell | Layer 3 |
 | — | M-1 (0,0,1) event 处理 → M-1 (0,0,0) | pin.connect.cell | Layer 3 |
-| step2 | M-1 root → M-10 hosting Cell → M-10 (0,0,0) dispatch | pin.connect.cell + model.submt boundary | Layer 2 |
+| step2 | M-1 root → M-10 connection Cell → M-10 (0,0,0) dispatch | pin.connect.cell + model.submtconnection boundary + child model.submt root | Layer 2 |
 | — | M-10 (0,0,0) → M-10 (1,0,0) handler | pin.connect.cell | Layer 3 |
 | — | M-10 (1,0,0) func.js 执行 → M-10 (0,0,0) | pin.connect.label + pin.connect.cell | Layer 3 |
-| step3 | M-10 root result → M-1 hosting/root boundary | pin.connect.cell + model.submt boundary | Layer 2 |
-| step4 | M-1 root → Model 0 bus\_out | pin.connect.cell + model.submt boundary | Layer 2 |
+| step3 | M-10 root result → M-1 connection/root boundary | pin.connect.cell + model.submtconnection boundary + child model.submt root | Layer 2 |
+| step4 | M-1 root → Model 0 bus\_out | pin.connect.cell + model.submtconnection boundary + child model.submt root | Layer 2 |
 
 ---
 
@@ -188,7 +188,7 @@ HTTP POST /ui_event
 | Model -10 | (0,0,0) | pin.in: dispatch\_in, pin.out: result\_out |
 | Model -10 | (1,0,0) | pin.in: handler\_in, pin.out: handler\_out |
 | Model -10 | (0,0,0) | pin.connect.cell: (0,0,0)→(1,0,0), (1,0,0)→(0,0,0) |
-| 跨模型 | — | `model.submt` hosting Cell 边界引脚 + 所在模型内 `pin.connect.cell` |
+| 跨模型 | — | 父侧 `model.submtconnection` Cell 边界引脚 + 子模型 root 边界引脚 + 所在模型内 `pin.connect.cell`；`model.submt` 只负责 child 侧身份声明 |
 
 ### 迁移影响
 

@@ -2,7 +2,7 @@
 title: "Feishu Alignment Decisions v0"
 doc_type: ssot
 status: active
-updated: 2026-05-10
+updated: 2026-07-01
 source: ai
 ---
 
@@ -24,6 +24,13 @@ source: ai
 若本文件与更高层规约冲突：
 - 必须以更高层规约为准
 - 本文件需要被修订，而不是反向覆盖上位约束
+
+0431 correction:
+- `model.submt` and `model.subtable` are child-side declarations.
+- `model.submtconnection` and `model.subtableconnection` are parent/main-side
+  relationship indexes.
+- Older wording in this file that treated `model.submt` as the parent-side
+  relationship Cell is superseded.
 
 ---
 
@@ -72,42 +79,49 @@ source: ai
 
 # 3. 已冻结决议
 
-## 3.1 模型形态四元组
+## 3.1 模型形态与关系索引
 
 决议：
-- 保持以下四种有效模型形态为唯一正式集合：
+- 保持以下基础模型形态为正式集合：
   - `model.single`
   - `model.matrix`
   - `model.table`
   - `model.submt`
+- 0431 后补充两类关系/表边界标签：
+  - child ModelTable 声明：`model.subtable`
+  - 父侧/主侧索引：`model.submtconnection` / `model.subtableconnection`
 
 执行含义：
-- 新工作不得发明第五种模型形态。
+- 新工作不得把 relationship/index label 当成新的 pin wiring 写法。
 - 新工作不得回退到旧名 `subModel` / `submt` / 其他未注册别名。
 
 理由：
-- Feishu 与当前项目在这条主线上同源。
+- Feishu 与当前项目在“声明”和“关系索引”两条线上同源。
 - 当前仓库的注册表和 runtime 约束已经更严格，适合作为正式裁判面。
 
 ## 3.2 `model_type` 二维编码
 
 决议：
-- 保持当前二维编码：
-  - `label.t` = 形态（`model.single | model.matrix | model.table | model.submt`）
+- 保持当前二维编码，但区分声明与索引：
+  - `label.t` = 形态或关系索引（`model.single | model.matrix | model.table | model.submt | model.subtable | model.submtconnection | model.subtableconnection`）
   - `label.v` = 类型（如 `Code.JS`、`Data.Array.One`、`Flow`、`Doc.Markdown` 等）
-- `model.submt` 的 `label.v` 继续表示 child model id，而不是类型名。
+- `model.submt` 写在 child model root，`label.v` 表示 child model 自身类型名或形态说明。
+- `model.submtconnection` 写在父侧/主侧 connection Cell，`label.v` 表示 child model id 或 `{ "model_id": int }`。
+- `model.subtable` 写在 child ModelTable root。
+- `model.subtableconnection` 写在父侧/主侧 connection Cell，`label.v` 表示 child table id 与 root model id。
 
 理由：
 - 这是 Feishu 方向与当前项目之间最稳定的公共交集。
 
-## 3.3 `model.submt` 挂载约束
+## 3.3 子模型与子模型表关系约束
 
 决议：
 - 继续采用当前项目更严格的口径：
-  - `model.submt` Cell 仅允许 `model.submt` + `pin.in` / `pin.out` / `pin.login` / `pin.logout`
-  - 同一 child model 只能被一个父模型 hosting cell 挂载
-  - 删除挂载关系不自动删除 child model 数据
-  - 除 Model 0 外，所有模型都必须显式挂载进入层级
+  - 父侧 `model.submtconnection` Cell 仅允许 relationship label + `pin.in` / `pin.out` / `pin.login` / `pin.logout`
+  - 同一 child model 只能被一个父模型 connection Cell 索引为直接 child
+  - 删除父侧索引关系不自动删除 child model 数据
+  - 除 Model 0 外，所有模型都必须由父侧 `model.submtconnection` 显式索引进入层级，并在子侧 root 声明 `model.submt`
+  - child ModelTable 由子侧 root `model.subtable` 声明，父侧/主侧 `model.subtableconnection` 负责索引
 
 理由：
 - 该规则与 Feishu 方向一致，但当前项目的版本更可审计、更适合验证。
@@ -116,7 +130,8 @@ source: ai
 
 决议：
 - 保持 Model 0 作为系统根模型。
-- 保持 `model_id + model.submt` 为模型层级唯一真值。
+- 保持 `model_id + model.submtconnection + child root model.submt` 为模型层级唯一真值。
+- 保持 `table_id + model.subtableconnection + child table root model.subtable` 为 child ModelTable 层级唯一真值。
 - 不引入“每个 Cell 额外带模型表 id”作为第二套真值。
 
 理由：
@@ -232,7 +247,7 @@ source: ai
   - 绝对坐标 vs 相对坐标
   - 矩阵 root 与占用范围
   - 碰撞与边界规则
-  - 与 `model.submt` / `model.table` 的组合规则
+  - 与 `model.submtconnection` / `model.submt` / `model.subtableconnection` / `model.subtable` / `model.table` 的组合规则
 
 理由：
 - 这是当前项目与 Feishu 文档之间最大的“方向一致但实现未定”区域。
@@ -245,7 +260,7 @@ source: ai
 ## 5.1 不采纳“每个 Cell 自带模型表 id”作为正式真值
 
 理由：
-- 当前项目已经以 `model_id` + `model.submt` 表达所有权和层级。
+- 当前项目以 `model_id` + 父侧 `model.submtconnection` + 子侧 `model.submt` 表达模型所有权和层级；以 `table_id` + 父侧 `model.subtableconnection` + 子侧 `model.subtable` 表达 App table / child ModelTable 层级。
 - 额外引入 cell-level table id 会制造同步和裁决冲突。
 
 ## 5.2 不采纳“Feishu OO API 直接等于 runtime API”

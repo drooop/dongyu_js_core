@@ -76,9 +76,13 @@ function workspacePinPayload(kind, labels = []) {
   ];
 }
 
-function wsDeletePayload(modelId) {
+function wsDeletePayload(modelRef) {
+  const target = typeof modelRef === 'object' && modelRef
+    ? modelRef
+    : { model_id: modelRef };
   return workspacePinPayload('ws_delete_app.v1', [
-    { k: 'model_id', t: 'int', v: modelId },
+    ...(typeof target.table_id === 'string' ? [{ k: 'table_id', t: 'str', v: target.table_id }] : []),
+    { k: 'model_id', t: 'int', v: target.model_id },
   ]);
 }
 
@@ -109,7 +113,7 @@ function buildImportZipBuffer() {
     { id: 0, p: 0, r: 0, c: 0, k: 'to_user', t: 'str', v: '@drop:localhost' },
     { id: 0, p: 0, r: 0, c: 0, k: 'ui_authoring_version', t: 'str', v: 'cellwise.ui.v1' },
     { id: 0, p: 0, r: 0, c: 0, k: 'ui_root_node_id', t: 'str', v: 'zip_root' },
-    { id: 0, p: 0, r: 2, c: 0, k: 'model_type', t: 'model.submt', v: 1 },
+    { id: 0, p: 0, r: 2, c: 0, k: 'model_type', t: 'model.submtconnection', v: { model_id: 1, mount_kind: 'truth' } },
     { id: 0, p: 2, r: 0, c: 0, k: 'ui_node_id', t: 'str', v: 'zip_root' },
     { id: 0, p: 2, r: 0, c: 0, k: 'ui_component', t: 'str', v: 'Container' },
     { id: 0, p: 2, r: 0, c: 0, k: 'ui_layout', t: 'str', v: 'column' },
@@ -128,7 +132,7 @@ function buildImportZipBuffer() {
         target_ref: { model_id: 1, p: 0, r: 0, c: 0, k: 'input_value' },
       },
     } },
-    { id: 1, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.SlideZipImportedTruth' },
+    { id: 1, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.submt', v: 'UI.SlideZipImportedTruth' },
     { id: 1, p: 0, r: 0, c: 0, k: 'headline', t: 'str', v: 'Imported Zip Headline' },
     { id: 1, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'Editable from imported app' },
   ];
@@ -193,36 +197,58 @@ async function test_zip_import_materializes_workspace_app_and_delete_cleans_up()
     assert.equal(importedEntry.slide_capable, true, 'imported_app_must_be_slide_capable');
     assert.equal(importedEntry.slide_surface_type, 'workspace.page', 'imported_app_must_keep_slide_surface_type');
 
+    const importedTableId = importedEntry.table_id;
     const importedModelId = importedEntry.model_id;
-    assert.ok(Number.isInteger(importedModelId) && importedModelId > SLIDE_IMPORTER_TRUTH_MODEL_ID, 'imported_app_id_must_be_new_positive_model');
-    const importedTruthId = importedModelId + 1;
+    assert.equal(typeof importedTableId, 'string', 'imported_app_table_id_must_be_present');
+    assert.notEqual(importedTableId, 'host', 'imported_app_must_live_in_subtable');
+    assert.equal(importedModelId, 0, 'imported_app_root_model_id_must_remain_bundle_local_zero');
+    const importedTruthId = 1;
 
-    const importedRoot = snapAfterImport.models[String(importedModelId)]?.cells?.['0,0,0']?.labels || {};
+    const hostMountCells = Object.values(snapAfterImport.models['0']?.cells || {});
+    const hostMountCell = hostMountCells.find((cell) => (
+      cell?.labels?.model_type?.t === 'model.subtableconnection'
+      && cell.labels.model_type.v?.table_id === importedTableId
+    ));
+    assert.ok(hostMountCell, 'host_must_index_imported_app_with_subtableconnection');
+    assert.equal(hostMountCell.labels.model_type.v.root_model_id, 0, 'subtableconnection_root_model_id_must_be_zero');
+    assert.equal(hostMountCell.labels.app_name, undefined, 'host_connection_cell_must_not_store_app_metadata');
+
+    const importedRoot = snapAfterImport.tables?.[importedTableId]?.models?.[String(importedModelId)]?.cells?.['0,0,0']?.labels || {};
+    assert.equal(importedRoot.model_type?.t, 'model.subtable', 'imported_root_must_declare_child_subtable');
     assert.equal(importedRoot.app_name?.v, 'Imported Zip App', 'imported_root_must_materialize_app_name');
     assert.equal(importedRoot.from_user?.v, '@test-user:localhost', 'imported_root_must_materialize_from_user');
     assert.equal(importedRoot.to_user?.v, '@drop:localhost', 'imported_root_must_materialize_to_user');
     assert.equal(importedRoot.slide_capable?.v, true, 'imported_root_must_materialize_slide_capable');
 
-    const importedHostNode = snapAfterImport.models[String(importedModelId)]?.cells?.['2,2,0']?.labels?.ui_bind_json?.v;
+    const importedHostNode = snapAfterImport.tables?.[importedTableId]?.models?.[String(importedModelId)]?.cells?.['2,2,0']?.labels?.ui_bind_json?.v;
     assert.equal(importedHostNode?.read?.model_id, importedTruthId, 'imported_bind_model_id_must_be_remapped');
     assert.equal(importedHostNode?.write?.target_ref?.model_id, importedTruthId, 'imported_write_target_model_id_must_be_remapped');
 
-    const importedTruth = snapAfterImport.models[String(importedTruthId)]?.cells?.['0,0,0']?.labels || {};
+    const importedTruth = snapAfterImport.tables?.[importedTableId]?.models?.[String(importedTruthId)]?.cells?.['0,0,0']?.labels || {};
+    assert.equal(importedTruth.model_type?.t, 'model.submt', 'imported_truth_must_declare_child_submodel');
     assert.equal(importedTruth.headline?.v, 'Imported Zip Headline', 'imported_truth_headline_missing');
+    assert.ok(
+      Array.from(state.runtime.parentChildMap.keys()).some((key) => String(key).startsWith(`${importedTableId}|`)),
+      'imported_app_table_must_register_child_parent_map_before_delete',
+    );
 
     const deleteResult = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 1 },
       'click',
-      wsDeletePayload(importedModelId),
+      wsDeletePayload({ table_id: importedTableId, model_id: importedModelId }),
     ));
     assert.equal(deleteResult.result, 'ok', 'ws_app_delete_pin_must_be_accepted');
     await wait();
 
     const snapAfterDelete = state.clientSnap();
     const registryAfterDelete = snapAfterDelete.models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
-    assert.ok(!registryAfterDelete.some((entry) => entry && entry.model_id === importedModelId), 'deleted_app_must_leave_workspace_registry');
-    assert.equal(snapAfterDelete.models[String(importedModelId)], undefined, 'deleted_root_model_must_be_removed');
-    assert.equal(snapAfterDelete.models[String(importedTruthId)], undefined, 'deleted_truth_model_must_be_removed');
+    assert.ok(!registryAfterDelete.some((entry) => entry && entry.table_id === importedTableId && entry.model_id === importedModelId), 'deleted_app_must_leave_workspace_registry');
+    assert.equal(snapAfterDelete.tables?.[importedTableId], undefined, 'deleted_app_table_must_be_removed');
+    assert.equal(
+      Array.from(state.runtime.parentChildMap.keys()).some((key) => String(key).startsWith(`${importedTableId}|`)),
+      false,
+      'deleted_app_table_must_clear_parent_child_map',
+    );
     return { key: 'zip_import_materializes_workspace_app_and_delete_cleans_up', status: 'PASS' };
   });
 }

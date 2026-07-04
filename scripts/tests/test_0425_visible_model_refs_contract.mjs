@@ -27,8 +27,8 @@ function fixtureSnapshot(appTitle = 'App title') {
             labels: {
               model_type: {
                 k: 'model_type',
-                t: 'model.subtable',
-                v: { table_id: 'app:todo:a', root_model_id: 1, owner_principal_id: 'local-dev' },
+                t: 'model.subtableconnection',
+                v: { table_id: 'app:todo:a', root_model_id: 1, mount_kind: 'slide_app', owner_principal_id: 'local-dev' },
               },
             },
           },
@@ -209,8 +209,8 @@ function test_real_snapshot_http_path_returns_app_table_ref() {
     const hostRoot = source.getModel(0);
     source.addLabel(hostRoot, 9, 0, 0, {
       k: 'model_type',
-      t: 'model.subtable',
-      v: { table_id: 'app:todo:a', root_model_id: 1, owner_principal_id: 'local-dev' },
+      t: 'model.subtableconnection',
+      v: { table_id: 'app:todo:a', root_model_id: 1, mount_kind: 'slide_app', owner_principal_id: 'local-dev' },
     });
     const app = source.getModel({ table_id: 'app:todo:a', model_id: 1 });
     source.addLabel(app, 0, 0, 0, { k: 'title', t: 'str', v: 'HTTP app title' });

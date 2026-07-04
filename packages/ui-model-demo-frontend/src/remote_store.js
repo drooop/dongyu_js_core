@@ -935,6 +935,10 @@ export function createRemoteStore(options) {
     if (!app || app.page !== 'workspace' || !Number.isInteger(app.model_id)) {
       return writes;
     }
+    const appModelRef = {
+      table_id: typeof app.table_id === 'string' && app.table_id.trim() ? app.table_id.trim() : 'host',
+      model_id: app.model_id,
+    };
     writes.push({
       target: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
       value: { t: 'int', v: app.model_id },
@@ -944,6 +948,11 @@ export function createRemoteStore(options) {
       target: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'selected_model_id' },
       value: { t: 'str', v: String(app.model_id) },
       suffix: 'desktop_selected_model_id',
+    });
+    writes.push({
+      target: { model_id: EDITOR_STATE_MODEL_ID, p: 0, r: 0, c: 0, k: 'ws_app_selected_ref' },
+      value: { t: 'json', v: appModelRef },
+      suffix: 'desktop_ws_app_selected_ref',
     });
     return writes;
   }

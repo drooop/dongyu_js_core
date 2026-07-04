@@ -116,16 +116,16 @@ API 约束：
 
 两种合法路径：
 
-**路径 A — 子模型挂载：**
+**路径 A — 子模型索引边界：**
 ```
 子模型 Cell → pin.out → (0,0,0) mt_bus_send:in → mt_bus_send → 模型边界 pin.out
-  → 父模型 hosting cell pin.connect → 父模型处理
+  → 父模型 connection Cell pin.connect → 父模型处理
 ```
 
 **路径 B — Model 0 中转：**
 ```
-子模型边界 pin.out → Model 0 hosting Cell 引脚 → pin.connect.cell (Model 0)
-  → 目标模型 hosting/root 边界 pin.in
+子模型边界 pin.out → Model 0 connection Cell 引脚 → pin.connect.cell (Model 0)
+  → 目标模型 connection/root 边界 pin.in
   → 目标模型 (0,0,0) mt_bus_receive:in → mt_bus_receive → 分发到目标 Cell
 ```
 

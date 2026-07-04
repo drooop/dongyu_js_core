@@ -8,6 +8,7 @@ import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend
 import { buildFocusedWorkspaceAppContentAst } from '../../packages/ui-model-demo-frontend/src/desktop_focused_app_content.js';
 import { getForegroundModelLoadState } from '../../packages/ui-model-demo-frontend/src/foreground_app_load_state.js';
 import { readAvailableDesktopForegroundApp, readAvailableDesktopTaskStack } from '../../packages/ui-model-demo-frontend/src/desktop_app_state.js';
+import { deriveWorkspaceSelected } from '../../packages/ui-model-demo-frontend/src/editor_page_state_derivers.js';
 import { normalizeDesktopWorkspaceApps } from '../../packages/ui-model-demo-frontend/src/route_ui_projection.js';
 
 const originalFetch = globalThis.fetch;
@@ -199,6 +200,72 @@ function desktopRegistrySnapshot() {
       },
     },
     tables: {},
+    v1nConfig: {},
+  };
+}
+
+function workspaceSelectedRootZeroSnapshot() {
+  return {
+    models: {
+      '-2': {
+        table_id: 'host',
+        id: -2,
+        cells: {
+          '0,0,0': {
+            p: 0,
+            r: 0,
+            c: 0,
+            labels: {
+              ws_apps_registry: label('ws_apps_registry', 'json', [
+                {
+                  table_id: 'app:todo',
+                  model_id: 0,
+                  name: 'Todo Root',
+                  slide_capable: true,
+                },
+              ]),
+              ws_app_selected: label('ws_app_selected', 'int', 0),
+              ws_app_selected_ref: label('ws_app_selected_ref', 'json', {
+                table_id: 'app:todo',
+                model_id: 0,
+              }),
+            },
+          },
+        },
+      },
+    },
+    tables: {
+      'app:todo': {
+        table_id: 'app:todo',
+        models: {
+          0: {
+            table_id: 'app:todo',
+            id: 0,
+            cells: {
+              '0,0,0': {
+                p: 0,
+                r: 0,
+                c: 0,
+                labels: {
+                  ui_authoring_version: label('ui_authoring_version', 'str', 'cellwise.ui.v1'),
+                  ui_root_node_id: label('ui_root_node_id', 'str', 'todo_root'),
+                },
+              },
+              '1,0,0': {
+                p: 1,
+                r: 0,
+                c: 0,
+                labels: {
+                  ui_node_id: label('ui_node_id', 'str', 'todo_root'),
+                  ui_component: label('ui_component', 'str', 'Text'),
+                  ui_text: label('ui_text', 'str', 'App table root UI'),
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     v1nConfig: {},
   };
 }
@@ -475,6 +542,42 @@ function test_app_table_root_overlay_can_stay_browser_local() {
   assert.match(rendererCjs, /tableId === 'host' && \(readRef\.model_id === 0 \|\| readRef\.model_id === -1\)/u);
 }
 
+function test_workspace_selection_uses_table_qualified_ref_for_app_table_root() {
+  const selected = deriveWorkspaceSelected(workspaceSelectedRootZeroSnapshot(), -2, null);
+  assert.equal(selected.title, 'Todo Root');
+  assert.equal(
+    selected.ast?.props?.text,
+    'App table root UI',
+    'Workspace selected app must render app-table model_id 0 from ws_app_selected_ref',
+  );
+}
+
+function test_shell_foreground_sync_writes_table_qualified_workspace_ref() {
+  const demoAppSource = readFileSync('packages/ui-model-demo-frontend/src/demo_app.js', 'utf8');
+  assert.match(
+    demoAppSource,
+    /k: 'ws_app_selected_ref'[\s\S]*?value: \{ t: 'json', v: modelRef \}/u,
+    'shell route sync must write ws_app_selected_ref, not only bare ws_app_selected',
+  );
+  assert.match(
+    demoAppSource,
+    /selectWorkspaceModel\(app\)/u,
+    'desktop foreground activation must preserve app.table_id when selecting a workspace app',
+  );
+
+  const remoteStoreSource = readFileSync('packages/ui-model-demo-frontend/src/remote_store.js', 'utf8');
+  assert.match(
+    remoteStoreSource,
+    /const appModelRef = \{[\s\S]*?table_id:[\s\S]*?model_id: app\.model_id/u,
+    'remote desktop foreground derived writes must construct a table-qualified app ModelRef',
+  );
+  assert.match(
+    remoteStoreSource,
+    /k: 'ws_app_selected_ref'[\s\S]*?value: \{ t: 'json', v: appModelRef \}/u,
+    'remote desktop foreground derived writes must persist ws_app_selected_ref',
+  );
+}
+
 const tests = [
   test_projection_store_table_qualified_atoms_do_not_collide,
   test_remote_store_table_qualified_patch_updates_only_matching_atom,
@@ -486,6 +589,8 @@ const tests = [
   test_desktop_availability_filters_by_table_qualified_app_ref,
   test_foreground_load_state_uses_table_qualified_snapshot_model,
   test_app_table_root_overlay_can_stay_browser_local,
+  test_workspace_selection_uses_table_qualified_ref_for_app_table_root,
+  test_shell_foreground_sync_writes_table_qualified_workspace_ref,
 ];
 
 let passed = 0;

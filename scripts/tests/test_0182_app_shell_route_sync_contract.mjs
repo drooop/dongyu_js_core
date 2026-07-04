@@ -54,6 +54,19 @@ function makeSnapshot(labels = {}) {
 
 {
   const state = readAppShellRouteSyncState(
+    makeSnapshot({
+      ui_page: 'workspace',
+      ws_app_selected: 0,
+      selected_model_id: '0',
+      ws_app_selected_ref: { table_id: 'app:todo', model_id: 0 },
+    }),
+    '/workspace',
+  );
+  assert.equal(state.pending, false, 'workspace route must accept table-qualified app-table root model 0 selection');
+}
+
+{
+  const state = readAppShellRouteSyncState(
     makeSnapshot({ ui_page: 'home', ws_app_selected: 0, selected_model_id: '0' }),
     '/workspace',
   );

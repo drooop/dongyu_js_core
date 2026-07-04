@@ -10,7 +10,7 @@ const wait = (ms = 80) => new Promise((resolve) => setTimeout(resolve, ms));
 async function test_host_pin_in_forwards_to_child_root() {
   const rt = new ModelTableRuntime();
   const parent = rt.getModel(0);
-  rt.addLabel(parent, 1, 0, 0, { k: 'model_type', t: 'model.submt', v: 100 });
+  rt.addLabel(parent, 1, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: 100 });
   rt.addLabel(parent, 1, 0, 0, { k: 'input', t: 'pin.in', v: null });
   rt.addLabel(parent, 0, 0, 0, {
     k: 'routes',
@@ -18,6 +18,7 @@ async function test_host_pin_in_forwards_to_child_root() {
     v: [{ from: [0, 0, 0, 'cmd'], to: [[1, 0, 0, 'input']] }],
   });
   const child = rt.getModel(100);
+  rt.addLabel(child, 0, 0, 0, { k: 'model_type', t: 'model.submt', v: 'Flow.Child' });
   rt.addLabel(child, 0, 0, 0, { k: 'input', t: 'pin.in', v: null });
   const payload = mt('message', 'str', 'payload');
   rt.addLabel(parent, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: payload });
@@ -29,7 +30,7 @@ async function test_host_pin_in_forwards_to_child_root() {
 async function test_child_root_pin_out_returns_to_host_pin_out() {
   const rt = new ModelTableRuntime();
   const parent = rt.getModel(0);
-  rt.addLabel(parent, 2, 0, 0, { k: 'model_type', t: 'model.submt', v: 200 });
+  rt.addLabel(parent, 2, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: 200 });
   rt.addLabel(parent, 2, 0, 0, { k: 'result', t: 'pin.out', v: null });
   rt.addLabel(parent, 0, 0, 0, { k: 'output', t: 'pin.in', v: null });
   rt.addLabel(parent, 0, 0, 0, {
@@ -38,6 +39,7 @@ async function test_child_root_pin_out_returns_to_host_pin_out() {
     v: [{ from: [2, 0, 0, 'result'], to: [[0, 0, 0, 'output']] }],
   });
   const child = rt.getModel(200);
+  rt.addLabel(child, 0, 0, 0, { k: 'model_type', t: 'model.submt', v: 'Flow.Child' });
   const payload = mt('result', 'str', 'done');
   rt.addLabel(child, 0, 0, 0, { k: 'result', t: 'pin.out', v: payload });
   await wait();
@@ -50,7 +52,7 @@ async function test_full_round_trip_through_host_cell_boundaries() {
   rt.setRuntimeMode('edit');
   rt.setRuntimeMode('running');
   const parent = rt.getModel(0);
-  rt.addLabel(parent, 1, 0, 0, { k: 'model_type', t: 'model.submt', v: 300 });
+  rt.addLabel(parent, 1, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: 300 });
   rt.addLabel(parent, 1, 0, 0, { k: 'input', t: 'pin.in', v: null });
   rt.addLabel(parent, 1, 0, 0, { k: 'output', t: 'pin.out', v: null });
   rt.addLabel(parent, 0, 0, 0, { k: 'data_out', t: 'pin.in', v: null });
@@ -64,6 +66,7 @@ async function test_full_round_trip_through_host_cell_boundaries() {
   });
 
   const child = rt.getModel(300);
+  rt.addLabel(child, 0, 0, 0, { k: 'model_type', t: 'model.submt', v: 'Flow.Child' });
   rt.addLabel(child, 0, 0, 0, { k: 'output', t: 'pin.out', v: null });
   rt.addLabel(child, 0, 0, 0, {
     k: 'child_routes',

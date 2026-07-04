@@ -2,7 +2,7 @@
 title: "Model Layering and Cell Model Labels v0.1"
 doc_type: ssot
 status: active
-updated: 2026-05-10
+updated: 2026-07-01
 source: ai
 ---
 
@@ -11,8 +11,9 @@ source: ai
 > Positioning: this file is a review draft for model layering and Cell model label semantics.
 > Authority stays below `CLAUDE.md`, architecture SSOT, runtime semantics, and label registry.
 > It does not override higher-priority hard constraints; it restates and collects pending wording.
-> Scope: model id layers, effective Cell model labels, child-model mounting, and deletion semantics under review.
+> Scope: model id layers, effective Cell model labels, child-model indexing, child-side declarations, and deletion semantics under review.
 > Conflict behavior: if this draft conflicts with higher SSOT, higher SSOT wins; do not cite draft-only wording as current runtime behavior until promoted.
+> 0431 correction: `model.submt` and `model.subtable` are child-side declarations. `model.submtconnection` and `model.subtableconnection` are parent/main-side relationship indexes. The older parent-side hosting wording in this draft is superseded.
 
 ## 0. 目标
 
@@ -21,8 +22,8 @@ source: ai
 - `model_id` 的三层空间与负数模型内部层级
 - Model 0 / 负数模型 / 正数模型的关系
 - 每个 Cell 的唯一有效模型标签（effective model label）
-- `model.single / model.matrix / model.table / model.submt` 的规范化含义
-- 子模型挂载、删除语义、引脚共存规则
+- `model.single / model.matrix / model.table / model.submt / model.submtconnection / model.subtable / model.subtableconnection` 的规范化含义
+- 子模型/子模型表声明、父侧索引、删除语义、引脚共存规则
 - “禁止默认兼容”的规范口径
 
 ## 1. 模型 id 分层
@@ -67,12 +68,12 @@ source: ai
 
 ### 2.2 显式挂载原则
 
-- 除 Model 0 外，每个模型都必须通过某个父模型 Cell 上的 `model.submt` 显式挂载进入层级。
+- 除 Model 0 外，每个模型都必须通过某个父模型 Cell 上的 `model.submtconnection` 显式索引进入层级，并在子模型自己的 root `(0,0,0)` 声明 `model.submt`。
 - 这条规则也适用于 bootstrap children，例如 `-1` 与 `1`。
 
 ### 2.3 传递归属
 
-- 若模型 A 挂载模型 B，模型 B 挂载模型 C，则 C 同时属于 B 与 A。
+- 若模型 A 通过 `model.submtconnection` 索引模型 B，模型 B 再索引模型 C，则 C 同时属于 B 与 A。
 - 祖先归属是传递的。
 
 ## 3. Cell 的唯一有效模型标签
@@ -85,6 +86,9 @@ source: ai
   - `model.matrix`
   - `model.table`
   - `model.submt`
+  - `model.submtconnection`
+  - `model.subtable`
+  - `model.subtableconnection`
 
 ### 3.2 稀疏存储下的默认语义
 
@@ -100,7 +104,7 @@ source: ai
 - 则该 Cell 可以在存储层直接消失/清空
 - 其语义层仍等价于“回退为隐式默认 `model.single`”
 
-## 4. 四类模型标签
+## 4. 模型标签类别
 
 ### 4.1 `model.single`
 
@@ -123,22 +127,42 @@ source: ai
 
 ### 4.4 `model.submt`
 
-- 表示 child model 的挂载/映射 Cell。
-- `model.submt` 的 `value` 是 child model id。
-- 一旦某个 Cell 声明 `model.submt`：
+- 表示 child model 自身的声明。
+- `model.submt` 写在 child model 自己的 root `(0,0,0)`。
+- `model.submt` 的 `value` 是该 child model 的类型名或形态说明，不是父侧索引。
+- 一旦 child root 声明 `model.submt`：
   - 该 Cell 的唯一有效模型标签就是 `model.submt`
   - 不再同时视为 `model.table` / `model.matrix` / `model.single`
 
-## 5. `model.submt` 的约束
+### 4.5 `model.submtconnection`
+
+- 表示父模型/主模型对子模型的索引 Cell。
+- `model.submtconnection` 的 `value` 是 child model id，或 `{ "model_id": int, "mount_kind": string? }`。
+- `model.submtconnection` 不是 `pin.connect.cell` 的替代品；它只维护父子关系。
+- 该 Cell 可以声明边界 `pin.in` / `pin.out` / `pin.login` / `pin.logout`，供 pin 路由跨过父子边界。
+
+### 4.6 `model.subtable`
+
+- 表示 child ModelTable 自身的声明。
+- `model.subtable` 写在 child ModelTable 的 Model 0 root `(0,0,0)`。
+- child table 内的 `model_id >= 0` 在该 table 内局部独立。
+
+### 4.7 `model.subtableconnection`
+
+- 表示父表/主表对 child ModelTable 的索引 Cell。
+- `model.subtableconnection` 的 `value` 指向 child `table_id` 与 root `model_id`。
+- `model.subtableconnection` 不恢复 `pin.connect.model`；跨表只能经过父侧 connection Cell 与 child table root boundary pins。
+
+## 5. `model.submtconnection` 的约束
 
 ### 5.1 single-parent
 
-- 一个 child model 在任一时刻只能被一个父模型 hosting Cell 挂载。
-- `model.submt` 采用 single-parent 语义。
+- 一个 child model 在任一时刻只能被一个父模型 connection Cell 索引为直接 child。
+- `model.submtconnection` 采用 single-parent 语义。
 
 ### 5.2 引脚共存规则
 
-- `model.submt` Cell 只允许以下标签共存：
+- `model.submtconnection` Cell 只允许以下标签共存：
   - `pin.in`
   - `pin.out`
   - `pin.login`
@@ -147,24 +171,24 @@ source: ai
 
 ### 5.3 子模型引脚转发
 
-- `model.submt` Cell 会把自身同名引脚，与 child model `(0,0,0)` 的同名引脚做双向传递。
+- `model.submtconnection` Cell 会把自身边界引脚，与 child model root `(0,0,0)` 的同名边界引脚做双向传递。
 
 ### 5.4 删除语义
 
-- 删除 `model.submt`：
-  - 只删除父子挂载关系
+- 删除父侧 `model.submtconnection`：
+  - 只删除父子索引关系
   - 不自动删除 child model 数据
 
-- 只有删除 child model 自己的 `(0,0,0)` 根声明时：
+- 只有删除 child model 自己的 `(0,0,0)` `model.submt` 根声明时：
   - 才删除整个 child model
 
 ## 6. `model.name`
 
 - `model.name` 是选填。
 - `model.name` 只允许写在模型自己的 `(0,0,0)`。
-- 对于 `model.submt` 对应的 child model：
+- 对于 `model.submtconnection` 对应的 child model：
   - 名称写在 child model 自己的 `(0,0,0)` 中
-  - 不写在 hosting Cell 上
+  - 不写在父侧 connection Cell 上
 
 ## 7. 禁止默认兼容
 
@@ -208,6 +232,6 @@ source: ai
 
 1. 负数模型区间分层是否合理
 2. `model.table` / `model.matrix` 根声明 + 普通 Cell 默认 `model.single` 的组合是否准确
-3. `model.submt` 是否完整表达了 single-parent、pin-only、删挂载不删 child 数据
-4. “所有非 0 模型都必须显式挂载进入层级”是否符合你的要求
+3. `model.submtconnection` 是否完整表达了 single-parent、pin-only、删索引不删 child 数据
+4. “所有非 0 模型都必须由父侧 `model.submtconnection` 索引且由子侧 `model.submt` 声明进入层级”是否符合你的要求
 5. “禁止默认兼容，兼容必须显式批准”是否足够强

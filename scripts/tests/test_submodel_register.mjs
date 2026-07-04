@@ -6,14 +6,14 @@ const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js
 function test_submodel_register() {
   const rt = new ModelTableRuntime();
   const model0 = rt.getModel(0);
-  rt.addLabel(model0, 1, 0, 0, { k: '100', t: 'submt', v: { alias: 'test_sub' } });
-  const info = rt.parentChildMap.get(100);
+  rt.addLabel(model0, 1, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: { model_id: 100, mount_kind: 'test_sub' } });
+  const info = rt.parentChildMap.get('host|100');
   assert(info, 'should register in parentChildMap');
-  assert.strictEqual(info.parentModelId, 0);
+  assert.strictEqual(info.parent.model_id, 0);
   assert.deepStrictEqual(info.hostingCell, { p: 1, r: 0, c: 0 });
   const childModel = rt.getModel(100);
   assert(childModel, 'should auto-create child model');
-  assert.strictEqual(childModel.name, 'test_sub');
+  assert.strictEqual(childModel.name, '100');
   assert.strictEqual(childModel.type, 'sub');
   return { key: 'submodel_register', status: 'PASS' };
 }
@@ -23,7 +23,7 @@ function test_submodel_no_duplicate_create() {
   const model0 = rt.getModel(0);
   // Pre-create child
   rt.createModel({ id: 200, name: 'existing', type: 'app' });
-  rt.addLabel(model0, 2, 0, 0, { k: '200', t: 'submt', v: { alias: 'sub200' } });
+  rt.addLabel(model0, 2, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: { model_id: 200, mount_kind: 'sub200' } });
   const childModel = rt.getModel(200);
   assert(childModel, 'should exist');
   // Should keep original model, not overwrite
@@ -35,8 +35,8 @@ function test_submodel_no_duplicate_create() {
 function test_submodel_invalid_id() {
   const rt = new ModelTableRuntime();
   const model0 = rt.getModel(0);
-  rt.addLabel(model0, 0, 0, 0, { k: 'not_a_number', t: 'submt', v: {} });
-  const errors = rt.eventLog._events.filter((e) => e.reason === 'submodel_invalid_id');
+  rt.addLabel(model0, 0, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: {} });
+  const errors = rt.eventLog._events.filter((e) => e.reason === 'submtconnection_invalid_model_id');
   assert(errors.length >= 1, 'should record error for invalid id');
   return { key: 'submodel_invalid_id', status: 'PASS' };
 }
@@ -44,12 +44,12 @@ function test_submodel_invalid_id() {
 function test_parent_child_map_query() {
   const rt = new ModelTableRuntime();
   const parent = rt.createModel({ id: 50, name: 'parent', type: 'app' });
-  rt.addLabel(parent, 3, 1, 0, { k: '51', t: 'submt', v: { alias: 'child' } });
-  rt.addLabel(parent, 3, 2, 0, { k: '52', t: 'submt', v: { alias: 'child2' } });
-  const info51 = rt.parentChildMap.get(51);
-  const info52 = rt.parentChildMap.get(52);
+  rt.addLabel(parent, 3, 1, 0, { k: 'model_type', t: 'model.submtconnection', v: { model_id: 51, mount_kind: 'child' } });
+  rt.addLabel(parent, 3, 2, 0, { k: 'model_type', t: 'model.submtconnection', v: { model_id: 52, mount_kind: 'child2' } });
+  const info51 = rt.parentChildMap.get('host|51');
+  const info52 = rt.parentChildMap.get('host|52');
   assert(info51, 'should have child 51');
-  assert.strictEqual(info51.parentModelId, 50);
+  assert.strictEqual(info51.parent.model_id, 50);
   assert.deepStrictEqual(info51.hostingCell, { p: 3, r: 1, c: 0 });
   assert(info52, 'should have child 52');
   assert.deepStrictEqual(info52.hostingCell, { p: 3, r: 2, c: 0 });
@@ -78,4 +78,3 @@ for (const t of tests) {
 }
 console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
 process.exit(failed > 0 ? 1 : 0);
-

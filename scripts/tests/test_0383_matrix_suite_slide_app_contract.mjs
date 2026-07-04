@@ -103,7 +103,7 @@ function test_workspace_entry_and_mount_contract() {
   assert.ok(Array.isArray(registry) && registry.some((entry) => entry.model_id === MODEL_ID && entry.name === 'Matrix Suite'), 'Workspace registry must expose Matrix Suite');
 
   const mount = hierarchy.find((record) => record.model_id === 0 && record.p === 9 && record.r === 0 && record.c === MODEL_ID && record.k === 'model_type');
-  assert.equal(mount?.t, 'model.submt', 'Matrix Suite must be mounted through a Model 0 model.submt hosting cell');
+  assert.equal(mount?.t, 'model.submtconnection', 'Matrix Suite must be mounted through a Model 0 model.submtconnection hosting cell');
   assert.equal(mount?.v, MODEL_ID, 'hosting cell must mount model 1080');
 
   const mountPin = workspace.find((record) => record.model_id === 0 && record.p === 9 && record.r === 0 && record.c === MODEL_ID && record.k === REQ_PIN);
@@ -219,7 +219,9 @@ async function test_program_actions_route_and_update_modeltable() {
     runtime.addLabel(runtime.getModel(MODEL_ID), 0, 0, 0, { k: 'pending_file_uri', t: 'str', v: 'mxc://local/test-file' });
     runtime.addLabel(runtime.getModel(MODEL_ID), 0, 0, 0, { k: 'pending_file_name', t: 'str', v: 'contract.txt' });
     await dispatch(state, 'share_file');
-    assert.match(labelValue(runtime, MODEL_ID, 0, 0, 0, 'timeline_markdown'), /File shared: contract.txt/u);
+    const fileTimeline = labelValue(runtime, MODEL_ID, 0, 0, 0, 'timeline_markdown');
+    assert.match(fileTimeline, /m\.file/u);
+    assert.match(fileTimeline, /contract\.txt/u);
     assert.equal(labelValue(runtime, MODEL_ID, 0, 0, 0, 'pending_file_uri'), '');
     assert.equal(labelValue(runtime, MODEL_ID, 0, 0, 0, 'pending_file_name'), '');
 

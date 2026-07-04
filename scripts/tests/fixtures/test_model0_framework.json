@@ -6,7 +6,7 @@
     {"op": "add_label", "model_id": 0, "p": 0, "r": 0, "c": 0,
      "label": {"k": "test_out", "t": "pin.bus.cb.out", "v": null}},
     {"op": "add_label", "model_id": 0, "p": 1, "r": 0, "c": 0,
-     "label": {"k": "model_type", "t": "model.submt", "v": 100}},
+     "label": {"k": "model_type", "t": "model.submtconnection", "v": {"model_id": 100, "mount_kind": "worker"}}},
     {"op": "add_label", "model_id": 0, "p": 1, "r": 0, "c": 0,
      "label": {"k": "cmd", "t": "pin.in", "v": null}},
     {"op": "add_label", "model_id": 0, "p": 1, "r": 0, "c": 0,

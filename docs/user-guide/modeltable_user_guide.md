@@ -39,21 +39,23 @@ source: ai
 ## 2.1 Cell Model Labels (Current Normative View)
 
 - 每个 materialized Cell 必须且只能有一个有效模型标签（主归属 / 主执行形态）。
-- 有效模型标签集合：`model.single` / `model.matrix` / `model.table` / `model.submt` / `model.subtable`
+- 有效模型标签集合：`model.single` / `model.matrix` / `model.table` / `model.submt` / `model.submtconnection` / `model.subtable` / `model.subtableconnection`
 - `model.table`：模型根 `(0,0,0)` 的显式根声明
 - `model.matrix`：矩阵自身相对 `(0,0,0)` 的显式根声明
-- `model.submt`：子模型挂载/映射位；该 Cell 只允许 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 等普通引脚共存
-- `model.subtable`：子模型表挂载位；它挂载一整张 child ModelTable namespace，不是 `model.submt` 的别名
-- `model.submt` 只建立父子挂载关系；不代表父模型可以 direct 修改子模型内部 label
+- `model.submt`：子模型自己的 root `(0,0,0)` 声明，表示“我是一个 child model”
+- `model.submtconnection`：父模型/主模型里的索引 Cell，指向一个 child model；该 Cell 只允许关系索引标签与 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 等边界引脚共存
+- `model.subtable`：子模型表自己的 Model 0 root `(0,0,0)` 声明，表示“我是一个 child ModelTable namespace”
+- `model.subtableconnection`：父表/主表里的索引 Cell，指向一整张 child ModelTable namespace；它不是 `model.submt` 的别名
+- `model.submtconnection` / `model.subtableconnection` 只建立父侧索引关系；不代表父模型可以 direct 修改子模型或子模型表内部 label
 - `model.subtable` 下的 `model_id >= 0` 在该 `table_id` 内独立；持久引用必须写成 `ModelRef = { table_id, model_id }`
 - 在 table/matrix 作用域内，未物化且未显式声明的普通 Cell，默认有效模型标签为 `model.single`
 - `model.name` 只允许写在模型自己的 `(0,0,0)`
-- 除 `model_id = 0` 外，每个模型都必须通过某个父模型 Cell 上的 `model.submt` 显式挂载进入层级
+- 除 `model_id = 0` 外，每个模型都必须通过某个父模型 Cell 上的 `model.submtconnection` 显式索引进入层级，并在子模型自己的 root 声明 `model.submt`
 
 补充理解：
 
 - 一个 Cell 可以被多个上层 model scope 派生发现，但不需要显式声明多份归属。
-- 父模型可沿 `model.submt` ancestry 逐层看到 descendants。
+- 父模型可沿 `model.submtconnection` ancestry 逐层看到 descendants。
 - `model.matrix` 可看到其范围内的 `model.single` 与更小矩阵。
 - 执行时不按“当前属于哪些 scope”做分支判断，而按 pin 链和目标坐标传播。
 
@@ -63,13 +65,13 @@ source: ai
 
 | Classification | Definition | Current Examples |
 |---|---|---|
-| Allowed | UI authoritative input 只能来自 materialized Cell label、显式页面目录、以及已挂载 child model 的真实 Cell/label | `ui_page_catalog_json`；schema-driven projection；父模型 hosting cell 上的 `model.submt` |
-| Forbidden | 把 projection/shared AST 重新当成真值，或绕过 `model.submt` / effective model label 做隐式挂载 | 把整页 `ui_ast_v0` 根格 JSON 当 authoritative bootstrap；把 shared root AST 当业务真值； direct model mutation |
+| Allowed | UI authoritative input 只能来自 materialized Cell label、显式页面目录、以及已通过父侧索引进入层级的 child model 真实 Cell/label | `ui_page_catalog_json`；schema-driven projection；父模型 connection cell 上的 `model.submtconnection` + child root `model.submt` |
+| Forbidden | 把 projection/shared AST 重新当成真值，或绕过 `model.submtconnection` / effective model label 做隐式索引 | 把整页 `ui_ast_v0` 根格 JSON 当 authoritative bootstrap；把 shared root AST 当业务真值； direct model mutation |
 | Legacy-Debt | 当前仓库仍存在、但只允许作为 migration inventory 的旧入口 | `asset_type: "ui_ast_model"` 页面资产；`ws_selected_ast`；`-1:(0,0,0)` 派生 `ui_ast_v0`；store/resolver 直接读 root AST |
 
 使用时只记三条：
-- `parent` 挂载：child model 必须通过父模型 hosting cell 上的 `model.submt` 进入层级，UI 读取 child 的真实 Cell/label。
-- `matrix` 挂载：matrix 根先声明 `model.matrix`，child 仍通过显式 `model.submt` hosting cell 进入矩阵层级，且坐标映射必须明确。
+- `parent` 索引：child model 必须通过父模型 connection cell 上的 `model.submtconnection` 进入层级，并在 child root 声明 `model.submt`；UI 读取 child 的真实 Cell/label。
+- `matrix` 索引：matrix 根先声明 `model.matrix`，child 仍通过显式 `model.submtconnection` connection cell 进入矩阵层级，且坐标映射必须明确。
 - 需要正式写入 child 时，父模型只能通过 child 暴露出来的 pin/API 发送 request；最终 label 落盘必须由 child 自己的 owner materialize / 默认三程序执行。
 - legacy UI AST 可以暂时被 inventory / resolver / docs 提及，但不能再被当作新页面或新挂载的正式输入面。
 - 当前默认 root scaffold：
@@ -82,7 +84,7 @@ source: ai
 
 - `Model 1007`：Workspace app。持有 `app_name`、page-level summary/status text 和 parent `page_asset_v0`。
 - `Model 1008`：mounted child truth。持有 `scene_graph_v0`、`camera_state_v0`、`selected_entity_id`、`scene_status`、`scene_audit_log`。
-- `Model 1007 (0,2,0)`：必须显式 `model.submt -> 1008`。
+- `Model 1007 (0,2,0)`：必须显式 `model.submtconnection -> 1008`；`Model 1008 (0,0,0)` 必须声明 `model.submt`。
 - `Workspace (-25)`：只允许挂 `1007`，不允许把 `1008` 直接暴露成 app。
 
 使用口径：
@@ -191,7 +193,7 @@ frontend/server current path 只提交 `bus_event_v2`，同工作区业务默认
 - `meta.model_id` 只能作为诊断/关联字段；正式目标必须来自 `target`。
 - 当前 built-in submit 已启用 target-based ingress：
   - runtime 会把 `submit + target` 默认映射为 `Model 0 pin.bus.cb.in` 上的一个 ingress key
-  - 然后再按 `model.submt` hosting Cell + `pin.connect.cell` 进入目标模型
+  - 然后经父侧 `model.submtconnection` Cell boundary pins、child root boundary pins，以及目标模型内 `pin.connect.cell` 进入目标模型
 - 当前 slide/workspace 系统动作也已启用同一方向的 runtime ingress：
   - `slide_app_import`
   - `slide_app_create`
@@ -213,14 +215,14 @@ frontend/server current path 只提交 `bus_event_v2`，同工作区业务默认
 - `0363` 新增 host-owned UI egress binding 目标合同：
   - provider ZIP 只声明 UI、公开 root `pin.out`、`dual_bus_model.egress_pins` 与 `remote_bus_endpoint_v1`
   - provider ZIP 不得声明 `ui.egress.binding.v1`，也不得声明任何 `pin.bus.*`
-  - UI Server 安装器在分配 App instance `table_id` 后建立 `model.subtable` 边界；新 App 表内的包内 `model_id` 保持局部
+  - UI Server 安装器在分配 App instance `table_id` 后建立父侧 `model.subtableconnection` 索引，并在 child App table root 保留/写入 `model.subtable` 声明；新 App 表内的包内 `model_id` 保持局部
   - UI 可以显示这个公开 `pin.out` 实际通过哪个宿主总线 pin 外发；同工作区默认是控制总线 pin
   - 正式外发 authority 仍来自实际 pin route，不来自 UI 直接发送
 - `0384` 落地 provider-owned 滑动 APP 安装 current contract：
   - Workspace Manager DEM ModelTable 只维护资产索引，不拥有 provider bundle payload
   - installable row 使用 `asset_id`、`provider_worker_id`、`provider_model_id`、`provider_bundle_pin`、`provider_route_kind` 指向 provider bundle endpoint
   - UI Server 从 Model 0 `mqtt_topic_base` 计算请求 `topic`，发出 `slide_app_bundle_request.v1`
-  - provider 回 `slide_app_bundle_response.v1`，其中 `bundle_payload` 必须是 ModelTable record array
+  - provider 回 `pin_payload.v2 message_role=response`，其中 `payload_model_id` 指向 `slide_app_bundle_response.v1`，实际 bundle records 也在同一 record array 中，通过 `bundle_record_id_offset` 区分
   - UI Server 必须按 pending install state 校验 `op_id` / request correlation、`asset_id`、provider endpoint、computed topic、`route_kind`、`reply_target`
   - 只有通过校验的 response 才能 materialize；`source_model_id` 不再是 Workspace Manager 安装来源
 - `0308` 之后，对以上 slide/workspace 主线路径，legacy `action` envelope 已正式退役：
@@ -273,7 +275,7 @@ frontend/server current path 只提交 `bus_event_v2`，同工作区业务默认
 - `ui_order` = sibling order，用整数表达同一父节点下的排序；同序时按 node id 稳定排序。
 - `ui_layout` = container child layout，只放在 `Container` 一类父容器节点上；当前稳定写法是 `column` 或 `row`，`row-reverse` / `column-reverse` 仅用于明确反向排列。
 - `ui_slot` = named region，用来给父组件的命名区域打标；它不改变所属模型，也不替代 `ui_parent`。
-- `model.submt` = independent child model / independent child app，只用于独立子模型或子 app 的组合，不用于普通 row / column 排版。
+- `model.submtconnection` + child root `model.submt` = independent child model boundary；`model.subtableconnection` + child table root `model.subtable` = independent child App table boundary。二者只用于独立子模型或子 app 的组合，不用于普通 row / column 排版。
 
 示例规则：
 
@@ -439,8 +441,8 @@ owner-chain 的正式链路固定为：
   - 最后写到当前子模型 `(0,0,0)` 的现有 `pin.out submit`
 
 relay 规则：
-- 深层子模型的 `submit` 只能先到父模型 hosting cell
-- 父模型 hosting cell 只能用现有 `pin.connect.label` / `cell_connection` relay
+- 深层子模型的 `submit` 只能先到父侧 connection Cell
+- 父侧 connection Cell 只能用现有 `pin.connect.label` / `pin.connect.cell` relay
 - 必须逐层上送，直到 worker root Model 0 `(0,0,0)` 的系统总线出口。同工作区 UI/滑动 App 默认外发应进入 `pin.bus.cb.out submit`；显式管理语义才进入 `pin.bus.mb.out submit`。
 
 因此：
@@ -536,8 +538,8 @@ relay 规则：
 ## 5. PIN (Control Bus)
 > 历史说明：本节仍能看到部分旧 `PIN_IN/PIN_OUT` 术语，是代码/文档迁移债务，不是当前允许的新工作输入面。除非得到用户显式批准，不得新增或维持这类兼容逻辑。当前规范以 `docs/ssot/label_type_registry.md` 和 `docs/ssot/runtime_semantics_modeltable_driven.md` 为准。
 
-### 5.1 用户填写方式
-用户模型里：
+### 5.1 历史填写方式（禁止新增）
+历史用户模型里曾出现：
 
 - PIN_IN：`k=<pin_name>, t=PIN_IN, v=<TargetRef | legacy-string>`
 - PIN_OUT：`k=<pin_name>, t=PIN_OUT, v=<legacy-string>`
@@ -547,7 +549,7 @@ TargetRef 结构（Cell-owned）：
 { "model_id": 1, "p": 2, "r": 3, "c": 4, "k": "pageA.textA1" }
 ```
 
-可选触发字段（与 TargetRef 同级）：
+历史可选触发字段（与 TargetRef 同级，当前禁止新增）：
 ```json
 {
   "model_id": 1, "p": 2, "r": 3, "c": 4, "k": "pageA.textA1",
@@ -559,7 +561,7 @@ TargetRef 结构（Cell-owned）：
 ### 5.2 行为
 - PIN_IN：
   - 当 `v` 是 TargetRef（Cell-owned）时，MQTT 入站写入 TargetRef 指向的 Cell/Label。
-  - 若同时声明 `trigger_funcs`，runtime 会在该次入站写入后产出 `run_func` intercept（由 engine 执行）。
+  - 历史 `trigger_funcs` 曾在该次入站写入后产出 `run_func` intercept（由 engine 执行）；当前不允许把 `trigger_funcs` 作为新填表字段或兼容入口。
   - 当 `v` 不符合当前输入合同，应显式失败；不得回退到旧 mailbox。
 - PIN_OUT：
   - 同工作区默认路径走 `pin.bus.cb.out`；显式管理语义才走 `pin.bus.mb.out`。
@@ -595,9 +597,13 @@ bus pin 的 `v` 必须是临时 ModelTable record array。常用 record 形状�
 
 ```json
 [
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "op-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/R1/3000/submit1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "U1" },
@@ -608,9 +614,8 @@ bus pin 的 `v` 必须是临时 ModelTable record array。常用 record 形状�
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "app:demo:user-a:submit" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 1055 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
-  ] }
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
 ]
 ```
 
@@ -645,7 +650,7 @@ remote-worker 内部再通过自己的 `pin.connect.cell` / `pin.connect.label` 
 
 此时 UI Server 安装器会把该 App 的外发出口接到 Model 0 的 `pin.bus.mb.out`。MBR 从管理总线收到请求后，仍只按 payload 里的 `topic` record 转发到目标控制总线 / MQTT。默认缺省 `route_kind` 等同 `"control"`，即 UI Server 直接写 `pin.bus.cb.out`。
 
-这条路径同样只认 `pin_payload.v1` 临时 ModelTable records，不接受旧 envelope 或普通 JSON fallback。
+这条路径同样只认 `pin_payload.v2` 临时 ModelTable records，不接受旧 envelope、普通 JSON fallback 或把业务 records 嵌进 `payload` label 的旧写法。
 
 ### 6.5 Control To Management Return
 
@@ -735,7 +740,7 @@ Worker：软件工人类型标签固定写法如下：
 
 ```json
 [
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "submit-test-001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "submit-test-001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
@@ -743,6 +748,7 @@ Worker：软件工人类型标签固定写法如下：
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "submit1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "U1" },
@@ -753,9 +759,8 @@ Worker：软件工人类型标签固定写法如下：
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "app:demo:user-a:submit" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 1055 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
-  ] }
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
 ]
 ```
 
@@ -766,13 +771,13 @@ Worker：软件工人类型标签固定写法如下：
 
 ### 9.2 Result（remote-worker → MBR → UI Server）
 
-remote-worker 程序模型处理完成后，不能直接发 transport。它应返回 `pin_payload.v1` records，先走本 worker 的 Model 0 `pin.bus.cb.out`。
+remote-worker 程序模型处理完成后，不能直接发 transport。它应返回 `pin_payload.v2` records，先走本 worker 的 Model 0 `pin.bus.cb.out`。
 
 返回 payload 必须把 `message_role` 写成 `response`。`topic` 必须等于 request 中的 `response_topic`，例如 `UIPUT/ws/dam/pic/de/U1/1055/result`。response packet 的 `endpoint_*` 必须描述当前 transport 投递 endpoint，并与当前 `topic` 对齐；`reply_target_*` 描述最终 materialize 的本地目标。host-table 目标下二者可以相同；安装后的滑动 App 通常是 host transport endpoint + App table reply target，必须原样携带 request 中的 `reply_target_table_id`，否则 UI Server 无法区分不同用户或不同 App instance 内相同的本地 `model_id`。远端处理者身份写在 `origin_*` 中。
 
 ```json
 [
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
@@ -780,6 +785,7 @@ remote-worker 程序模型处理完成后，不能直接发 transport。它应�
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "U1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 1055 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "R1" },
@@ -790,10 +796,9 @@ remote-worker 程序模型处理完成后，不能直接发 transport。它应�
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "app:demo:user-a:submit" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 1055 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello" },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" }
-  ] }
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello" },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" }
 ]
 ```
 

@@ -7,9 +7,11 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { loadSystemPatch } from '../worker_engine_v0.mjs';
+import { payloadRecords as v2PayloadRecords, pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
+const BUNDLE_RECORD_ID_OFFSET = 100;
 
 function mt(k, t, v) {
   return { id: 0, p: 0, r: 0, c: 0, k, t, v };
@@ -53,30 +55,43 @@ function pinPayloadPacket({
   payload,
   messageRole = 'response',
   replyTargetPrincipalKey = '',
+  extraRecords = [],
 }) {
   const actualResponseTopic = responseTopic || `UIPUT/ws/dam/pic/de/${replyTarget.worker_id}/${replyTarget.model_id}/${replyTarget.pin}`;
   return externalPacket([
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', opId),
-    mt('op_id', 'str', opId),
-    mt('message_role', 'str', messageRole),
-    mt('topic', 'str', topic),
-    mt('response_topic', 'str', actualResponseTopic),
-    mt('route_kind', 'str', routeKind),
-    mt('bus', 'str', routeKind),
-    mt('endpoint_worker_id', 'str', endpoint.worker_id),
-    mt('endpoint_model_id', 'int', endpoint.model_id),
-    mt('endpoint_pin', 'str', endpoint.pin),
-    mt('origin_worker_id', 'str', origin.worker_id),
-    mt('origin_model_id', 'int', origin.model_id),
-    mt('origin_pin', 'str', origin.pin),
-    mt('reply_target_worker_id', 'str', replyTarget.worker_id),
-    mt('reply_target_model_id', 'int', replyTarget.model_id),
-    mt('reply_target_pin', 'str', replyTarget.pin),
-    ...(replyTargetPrincipalKey ? [mt('reply_target_principal_key', 'str', replyTargetPrincipalKey)] : []),
-    mt('payload', 'json', payload),
-    mt('timestamp', 'int', 1700000000000),
+    ...pinPayloadV2Records({
+      opId,
+      messageRole,
+      topic,
+      responseTopic: actualResponseTopic,
+      routeKind,
+      endpointWorkerId: endpoint.worker_id,
+      endpointModelId: endpoint.model_id,
+      endpointPin: endpoint.pin,
+      originWorkerId: origin.worker_id,
+      originModelId: origin.model_id,
+      originPin: origin.pin,
+      replyTargetWorkerId: replyTarget.worker_id,
+      replyTargetModelId: replyTarget.model_id,
+      replyTargetPin: replyTarget.pin,
+      replyTargetPrincipalKey,
+      payloadRecords: payload,
+      extraRecords,
+      timestamp: 1700000000000,
+    }),
   ]);
+}
+
+function encodedBundleRecords(bundlePayload) {
+  return bundlePayload.map((record) => ({ ...record, id: BUNDLE_RECORD_ID_OFFSET + record.id }));
+}
+
+function decodedBundleRecords(records, businessRecords) {
+  const offset = payloadInt(businessRecords, 'bundle_record_id_offset');
+  assert.ok(Number.isInteger(offset) && offset > 1, 'bundle response must declare bundle_record_id_offset');
+  return records
+    .filter((record) => record && Number.isInteger(record.id) && record.id >= offset)
+    .map((record) => ({ ...record, id: record.id - offset }));
 }
 
 function labelValue(runtime, modelId, p, r, c, key) {
@@ -178,9 +193,10 @@ function makeBundleResponse({
     payload: [
       mt('__mt_payload_kind', 'str', 'slide_app_bundle_response.v1'),
       mt('asset_id', 'str', assetId),
-      mt('bundle_payload', 'json', bundlePayload),
+      mt('bundle_record_id_offset', 'int', BUNDLE_RECORD_ID_OFFSET),
       mt('bundle_sha256', 'str', ''),
     ],
+    extraRecords: encodedBundleRecords(bundlePayload),
   });
 }
 
@@ -234,12 +250,13 @@ async function test_install_action_sends_provider_bundle_request_without_materia
     assert.deepEqual(pending?.provider_endpoint, { worker_id: 'R1', table_id: 'host', model_id: 3100, pin: 'bundle_request' }, 'pending install state must record provider endpoint');
     const busLabel = runtime.getCell(runtime.getModel(0), 0, 0, 0).labels.get('workspace_asset_bundle_request_bus');
     assert.equal(busLabel?.t, 'pin.bus.cb.out', 'install request must leave through Model 0 control bus out');
-    assert.equal(payloadString(busLabel?.v, '__mt_payload_kind'), 'pin_payload.v1', 'request bus payload must be pin_payload.v1');
+    assert.equal(payloadString(busLabel?.v, '__mt_payload_kind'), 'pin_payload.v2', 'request bus payload must be pin_payload.v2');
     assert.equal(payloadString(busLabel?.v, 'message_role'), 'request', 'request bus payload must mark message_role=request');
     assert.equal(payloadString(busLabel?.v, 'topic'), 'UIPUT/ws/dam/pic/de/R1/3100/bundle_request', 'request bus payload must carry provider topic');
-    const nested = payloadJson(busLabel?.v, 'payload');
-    assert.equal(payloadString(nested, '__mt_payload_kind'), 'slide_app_bundle_request.v1', 'nested payload must be slide app bundle request');
-    assert.equal(payloadString(nested, 'asset_id'), 'r1-color-generator', 'nested payload must carry selected asset_id');
+    assert.equal(payloadJson(busLabel?.v, 'payload'), null, 'request bus payload must not carry nested payload');
+    const business = v2PayloadRecords(busLabel?.v);
+    assert.equal(payloadString(business, '__mt_payload_kind'), 'slide_app_bundle_request.v1', 'business records must be slide app bundle request');
+    assert.equal(payloadString(business, 'asset_id'), 'r1-color-generator', 'business records must carry selected asset_id');
     const beforeRetryEvents = runtime.eventLog.list().length;
     const retryResult = await state.submitEnvelope({
       type: 'workspace_asset_primary_action',
@@ -434,6 +451,134 @@ async function test_provider_bundle_response_materializes_new_workspace_app_and_
   });
 }
 
+async function test_provider_installed_submit_app_rewrites_ingress_and_publishes_request() {
+  return withServerState(async (state) => {
+    const runtime = state.runtime;
+    const model0 = runtime.getModel(0);
+    runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
+    runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de' });
+    runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'U1' });
+    runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v2' });
+    runtime.startMqttLoop({
+      host: 'localhost',
+      port: 1883,
+      client_id: '0384-provider-submit-app',
+      transport: 'mock',
+    });
+    const publishedPackets = [];
+    state.programEngine.controlBusClient = {
+      connected: true,
+      publish(topic, payload, callback) {
+        publishedPackets.push({ topic, payload: JSON.parse(payload) });
+        if (typeof callback === 'function') callback(null);
+      },
+    };
+
+    const rows = labelValue(runtime, 1051, 0, 0, 0, 'asset_catalog_json');
+    const slide = rows.find((row) => row.id === 'r1-minimal-submit');
+    assert.ok(slide, 'catalog must include r1-minimal-submit');
+    const requestResult = await state.submitEnvelope({
+      type: 'workspace_asset_primary_action',
+      payload: {
+        action: 'workspace_asset_primary_action',
+        value: slide,
+        meta: { op_id: '0384_install_response_minimal_submit' },
+      },
+    });
+    assert.equal(requestResult.result, 'ok', 'minimal submit install request must be accepted');
+    const pending = labelValue(runtime, 1051, 0, 0, 0, 'asset_install_pending');
+    assert.ok(pending?.op_id, 'pending minimal submit install must include op_id');
+
+    const providerRuntime = loadRemoteWorkerRuntime();
+    const handledRequest = providerRuntime.mqttIncoming(
+      'UIPUT/ws/dam/pic/de/R1/3100/bundle_request',
+      remoteBundleRequestPacket('r1-minimal-submit', 'subject:it0384-provider-submit'),
+    );
+    assert.equal(handledRequest, true, 'remote worker fixture must accept minimal submit bundle request');
+    await wait(120);
+    const response = providerRuntime.getCell(providerRuntime.getModel(0), 0, 0, 0).labels.get('remote_result_bus')?.v;
+    const business = v2PayloadRecords(response);
+    const bundlePayload = decodedBundleRecords(response, business);
+    assert.ok(Array.isArray(bundlePayload) && bundlePayload.some((record) => record.k === 'app_name' && record.v === '最小 Submit 双总线示例'), 'remote worker fixture must return minimal submit bundle payload');
+
+    const goodResponse = makeBundleResponse({
+      opId: pending.op_id,
+      topic: pending.response_topic,
+      endpoint: pending.provider_endpoint,
+      replyTarget: pending.reply_target,
+      assetId: 'r1-minimal-submit',
+      bundlePayload,
+    });
+    const handledResponse = await state.programEngine.handleControlBusPacket(pending.response_topic, goodResponse);
+    assert.equal(handledResponse, true, 'matched minimal submit provider response must install app');
+    await wait();
+
+    const installedId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_model_id');
+    const installedTableId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_table_id');
+    assert.equal(installedId, 0, 'provider installed submit app must keep package-local model id 0');
+    assert.ok(typeof installedTableId === 'string' && installedTableId.startsWith('app:local-dev:'), 'provider installed submit app must allocate an app table');
+    const installedRoot = runtime.getCell(runtime.getModel({ table_id: installedTableId, model_id: installedId }), 0, 0, 0).labels;
+    const generatedLabels = installedRoot.get('host_ingress_generated_model0_labels')?.v || [];
+    const ingressKey = generatedLabels.find((key) => typeof key === 'string' && key.startsWith('imported_host_submit_'));
+    assert.ok(ingressKey, 'installed submit app must record generated host ingress key');
+    const installedText = JSON.stringify(state.clientSnap().tables?.[installedTableId]?.models?.[String(installedId)] || {});
+    assert.equal(installedText.includes('bus_event_submit_0_0_0_0'), false, 'installed submit app must not keep import placeholder bus key');
+    assert.equal(installedText.includes(ingressKey), true, 'installed submit app button binding must use generated host ingress key');
+
+    const ownerUpdateResult = await state.submitEnvelope({
+      type: 'ui_owner_label_update',
+      payload: {
+        action: 'ui_owner_label_update',
+        meta: { op_id: '0384_provider_installed_owner_update' },
+        target: { table_id: installedTableId, model_id: installedId, p: 0, r: 0, c: 0, k: 'input_text' },
+        value: { t: 'str', v: 'provider installed local draft' },
+      },
+    });
+    assert.equal(ownerUpdateResult.result, 'ok', `provider installed app root owner update must accept table-qualified model 0; got ${JSON.stringify(ownerUpdateResult)}`);
+    assert.equal(
+      runtime.getCell(runtime.getModel({ table_id: installedTableId, model_id: installedId }), 0, 0, 0).labels.get('input_text')?.v,
+      'provider installed local draft',
+      'provider installed app root owner update must materialize inside its app table',
+    );
+
+    const submitResult = await state.submitEnvelope({
+      type: 'bus_event_v2',
+      bus_in_key: ingressKey,
+      value: [
+        mt('__mt_payload_kind', 'str', 'ui_event.v1'),
+        mt('text', 'str', 'provider installed submit works'),
+        mt('source', 'str', 'it0384_provider_installed_submit'),
+      ],
+      meta: { op_id: '0384_provider_installed_submit_click' },
+    });
+    assert.equal(submitResult.result, 'ok', 'provider installed submit app must accept generated ingress key');
+    assert.equal(submitResult.routed_by, 'model0_busin', 'provider installed submit app must route through Model 0 bus_event_v2');
+    await wait(300);
+
+    const publish = publishedPackets.find((entry) => (
+      entry.topic === 'UIPUT/ws/dam/pic/de/R1/3000/submit1'
+      && entry.payload?.type === 'pin_payload'
+      && payloadString(entry.payload.payload, 'message_role') === 'request'
+      && payloadString(entry.payload.payload, 'topic') === 'UIPUT/ws/dam/pic/de/R1/3000/submit1'
+      && payloadString(entry.payload.payload, 'endpoint_worker_id') === 'R1'
+      && payloadInt(entry.payload.payload, 'endpoint_model_id') === 3000
+      && payloadString(entry.payload.payload, 'endpoint_pin') === 'submit1'
+      && payloadString(entry.payload.payload, 'origin_worker_id') === 'U1'
+      && payloadString(entry.payload.payload, 'origin_table_id') === installedTableId
+      && payloadInt(entry.payload.payload, 'origin_model_id') === installedId
+      && payloadString(entry.payload.payload, 'origin_pin') === 'submit1'
+      && payloadString(entry.payload.payload, 'reply_target_worker_id') === 'U1'
+      && payloadString(entry.payload.payload, 'reply_target_table_id') === installedTableId
+      && payloadInt(entry.payload.payload, 'reply_target_model_id') === installedId
+      && payloadString(entry.payload.payload, 'reply_target_pin') === 'result'
+      && payloadString(entry.payload.payload, 'response_topic') !== 'UIPUT/ws/dam/pic/de/U1/0/result'
+      && v2PayloadRecords(entry.payload.payload).some((record) => record.k === 'text' && record.v === 'provider installed submit works')
+    ));
+    assert.ok(publish, `provider installed submit app must publish pin_payload.v2 request to remote worker topic; published=${JSON.stringify(publishedPackets, null, 2)}`);
+    return { key: 'provider_installed_submit_app_rewrites_ingress_and_publishes_request', status: 'PASS' };
+  });
+}
+
 async function test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bundle_response() {
   const cases = [
     ['r1-color-generator', 'E2E 颜色生成器'],
@@ -448,14 +593,16 @@ async function test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bu
     assert.equal(handled, true, `R1 runtime must accept provider bundle request topic for ${assetId}`);
     await wait(120);
     const response = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('remote_result_bus')?.v;
-    assert.equal(payloadString(response, '__mt_payload_kind'), 'pin_payload.v1', 'provider response must be strict pin_payload.v1');
+    assert.equal(payloadString(response, '__mt_payload_kind'), 'pin_payload.v2', 'provider response must be strict pin_payload.v2');
     assert.equal(payloadString(response, 'message_role'), 'response', 'provider response must use message_role=response');
     assert.equal(payloadString(response, 'reply_target_principal_key'), 'subject:it0384-provider', 'provider response must echo reply_target_principal_key for authenticated UI runtimes');
     assert.equal(payloadInt(response, 'origin_model_id'), 3100, 'provider response must originate from model 3100');
-    const nested = payloadJson(response, 'payload');
-    assert.equal(payloadString(nested, '__mt_payload_kind'), 'slide_app_bundle_response.v1', 'provider nested payload must be bundle response');
-    assert.equal(payloadString(nested, 'asset_id'), assetId, 'provider response must preserve catalog asset_id');
-    const bundlePayload = payloadJson(nested, 'bundle_payload');
+    assert.equal(payloadJson(response, 'payload'), null, 'provider response must not carry nested payload');
+    const business = v2PayloadRecords(response);
+    assert.equal(payloadString(business, '__mt_payload_kind'), 'slide_app_bundle_response.v1', 'provider business records must be bundle response');
+    assert.equal(payloadString(business, 'asset_id'), assetId, 'provider response must preserve catalog asset_id');
+    assert.equal(payloadJson(business, 'bundle_payload'), null, 'provider response must not nest bundle payload as json');
+    const bundlePayload = decodedBundleRecords(response, business);
     assert.ok(Array.isArray(bundlePayload) && bundlePayload.some((record) => record.k === 'app_name' && record.v === appName), `provider response must include ${appName} ModelTable bundle payload`);
     assert.ok(
       bundlePayload.some((record) => record.k === 'slide_app_summary' && record.t === 'str' && record.v.length >= 8),
@@ -463,6 +610,25 @@ async function test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bu
     );
   }
   return { key: 'remote_worker_r1_bundle_provider_patch_returns_modeltable_bundle_response', status: 'PASS' };
+}
+
+async function test_remote_worker_r1_bundle_provider_rejects_missing_table_refs() {
+  for (const missingKey of ['endpoint_table_id', 'origin_table_id', 'reply_target_table_id']) {
+    const rt = loadRemoteWorkerRuntime();
+    const packet = remoteBundleRequestPacket('r1-color-generator');
+    packet.payload = packet.payload.filter((record) => record.k !== missingKey);
+    const handled = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3100/bundle_request', packet);
+    assert.equal(handled, false, `R1 runtime must reject provider bundle request missing ${missingKey}`);
+    await wait(120);
+    const response = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('remote_result_bus')?.v;
+    assert.equal(payloadString(response, '__mt_payload_kind'), '', `R1 provider must not emit response when ${missingKey} is missing`);
+    assert.equal(
+      rt.getCell(rt.getModel(3100), 0, 0, 0).labels.get('mqtt_inbound_error')?.v?.code,
+      `missing_${missingKey}`,
+      `R1 provider must write visible MQTT boundary error when ${missingKey} is missing`,
+    );
+  }
+  return { key: 'remote_worker_r1_bundle_provider_rejects_missing_table_refs', status: 'PASS' };
 }
 
 async function test_principal_registry_delegates_bundle_response_to_user_runtime_installer() {
@@ -688,8 +854,31 @@ async function test_desktop_management_delete_removes_installed_slide_app() {
     const installedTableId = labelValue(runtime, 1051, 0, 0, 0, 'last_installed_table_id');
     assert.ok(Number.isInteger(installedId), 'installed model id must be available before deletion');
     assert.ok(typeof installedTableId === 'string' && installedTableId.startsWith('app:local-dev:'), 'installed table id must be available before deletion');
-    assert.ok(runtime.getModel({ table_id: installedTableId, model_id: installedId }), 'installed model must exist before deletion');
+    const installedModel = runtime.getModel({ table_id: installedTableId, model_id: installedId });
+    assert.ok(installedModel, 'installed model must exist before deletion');
     assert.ok(runtime.getModel({ table_id: 'host', model_id: installedId }), 'host model with same local id must exist before deletion');
+    const installedRootLabels = runtime.getCell(installedModel, 0, 0, 0).labels;
+    const generatedIngressModel0Labels = installedRootLabels.get('host_ingress_generated_model0_labels')?.v || [];
+    const generatedEgressModel0Labels = installedRootLabels.get('host_egress_generated_model0_labels')?.v || [];
+    const generatedIngressMount = installedRootLabels.get('host_ingress_generated_mount')?.v || null;
+    const generatedEgressMount = installedRootLabels.get('host_egress_generated_mount')?.v || null;
+    const generatedModel0Labels = [...generatedIngressModel0Labels, ...generatedEgressModel0Labels].filter((key) => typeof key === 'string' && key);
+    assert.ok(generatedModel0Labels.length > 0, 'installed app table root must record host Model 0 generated labels before deletion');
+    const model0 = runtime.getModel(0);
+    for (const key of generatedModel0Labels) {
+      assert.ok(runtime.getCell(model0, 0, 0, 0).labels.has(key), `host Model 0 generated label must exist before deletion: ${key}`);
+    }
+    const generatedMountLabels = [];
+    for (const mount of [generatedIngressMount, generatedEgressMount]) {
+      if (!mount || !Number.isInteger(mount.p) || !Number.isInteger(mount.r) || !Number.isInteger(mount.c)) continue;
+      for (const key of Array.isArray(mount.keys) ? mount.keys : []) {
+        if (typeof key === 'string' && key) generatedMountLabels.push({ p: mount.p, r: mount.r, c: mount.c, k: key });
+      }
+    }
+    assert.ok(generatedMountLabels.length > 0, 'installed app table root must record host mount generated labels before deletion');
+    for (const item of generatedMountLabels) {
+      assert.ok(runtime.getCell(model0, item.p, item.r, item.c).labels.has(item.k), `host mount generated label must exist before deletion: ${item.k}`);
+    }
 
     const requestDelete = await state.submitEnvelope({
       type: 'desktop_app_request_delete',
@@ -718,6 +907,12 @@ async function test_desktop_management_delete_removes_installed_slide_app() {
     assert.equal(confirmDelete.result, 'ok', 'desktop confirm delete must succeed');
     assert.equal(runtime.getModel({ table_id: installedTableId, model_id: installedId }), undefined, 'confirmed desktop delete must remove installed app-table model');
     assert.ok(runtime.getModel({ table_id: 'host', model_id: installedId }), 'confirmed desktop delete must not remove host model with the same local id');
+    for (const key of generatedModel0Labels) {
+      assert.equal(runtime.getCell(model0, 0, 0, 0).labels.has(key), false, `confirmed desktop delete must remove host Model 0 generated label: ${key}`);
+    }
+    for (const item of generatedMountLabels) {
+      assert.equal(runtime.getCell(model0, item.p, item.r, item.c).labels.has(item.k), false, `confirmed desktop delete must remove host mount generated label: ${item.k}`);
+    }
     assert.equal(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_confirm_open'), false, 'confirm dialog must close after deletion');
     assert.equal(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_result_open'), true, 'delete success dialog must open');
     assert.match(labelValue(runtime, -2, 0, 0, 0, 'desktop_delete_result_text'), /已删除 E2E 颜色生成器/u, 'delete success dialog must tell user the app was deleted');
@@ -734,7 +929,9 @@ const tests = [
   test_install_action_sends_provider_bundle_request_without_materializing,
   test_principal_install_request_preserves_runtime_key_after_model0_label_loss,
   test_provider_bundle_response_materializes_new_workspace_app_and_rejects_mismatches,
+  test_provider_installed_submit_app_rewrites_ingress_and_publishes_request,
   test_remote_worker_r1_bundle_provider_patch_returns_modeltable_bundle_response,
+  test_remote_worker_r1_bundle_provider_rejects_missing_table_refs,
   test_principal_registry_delegates_bundle_response_to_user_runtime_installer,
   test_two_principals_install_same_provider_app_into_separate_tables,
   test_bundle_payload_exception_is_scoped_to_slide_app_response,

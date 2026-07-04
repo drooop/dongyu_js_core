@@ -51,7 +51,7 @@ function test_workspace_patch_defines_matrix_phase1_models_and_mounts() {
   assert.ok(
     findRecord([...hierarchyRecords, ...workspaceRecords], (record) => (
       record?.model_id === 0
-      && record?.t === 'model.submt'
+      && record?.t === 'model.submtconnection'
       && record?.v === MATRIX_WORKSPACE_APP_MODEL_ID
     )),
     'matrix_workspace_app_must_mount_under_model0',
@@ -66,7 +66,7 @@ function test_workspace_patch_defines_matrix_phase1_models_and_mounts() {
       findRecord(workspaceRecords, (record) => (
         record?.model_id === MATRIX_WORKSPACE_APP_MODEL_ID
         && record?.k === 'model_type'
-        && record?.t === 'model.submt'
+        && record?.t === 'model.submtconnection'
         && record?.v === childId
       )),
       `matrix_workspace_app_missing_child_submt_${childId}`,

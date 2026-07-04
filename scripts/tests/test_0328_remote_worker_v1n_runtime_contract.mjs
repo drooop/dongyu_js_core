@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
@@ -35,24 +36,27 @@ function pinPayload({ endpointModelId, pin = 'submit', payload }) {
   return {
     version: 'v1',
     type: 'pin_payload',
-    payload: [
-      mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-      mt('__mt_request_id', 'str', opId),
-      mt('op_id', 'str', opId),
-      mt('message_role', 'str', 'request'),
-      mt('endpoint_worker_id', 'str', 'R1'),
-      mt('endpoint_model_id', 'int', endpointModelId),
-      mt('endpoint_pin', 'str', pin),
-      mt('origin_worker_id', 'str', 'ui-server-test'),
-      mt('origin_model_id', 'int', endpointModelId),
-      mt('origin_pin', 'str', pin),
-      mt('reply_target_worker_id', 'str', 'ui-server-test'),
-      mt('reply_target_model_id', 'int', endpointModelId),
-      mt('reply_target_pin', 'str', 'result'),
-      mt('payload', 'json', payload),
-      mt('timestamp', 'int', Date.now()),
-    ],
+    payload: pinPayloadV2Records({
+      opId,
+      endpointWorkerId: 'R1',
+      endpointModelId,
+      endpointPin: pin,
+      originWorkerId: 'ui-server-test',
+      originModelId: endpointModelId,
+      originPin: pin,
+      replyTargetWorkerId: 'ui-server-test',
+      replyTargetModelId: endpointModelId,
+      replyTargetPin: 'result',
+      payloadRecords: payload,
+      timestamp: Date.now(),
+    }),
   };
+}
+
+function pinPayloadMissing({ endpointModelId, missingKey, pin = 'submit', payload }) {
+  const packet = pinPayload({ endpointModelId, pin, payload });
+  packet.payload = packet.payload.filter((record) => record.k !== missingKey);
+  return packet;
 }
 
 async function waitForSettle(ms = 1200) {
@@ -75,6 +79,28 @@ async function test_model100_submit_updates_root_state() {
   const root = rt.getCell(rt.getModel(100), 0, 0, 0).labels;
   assert.equal(root.get('status')?.v, 'processed', 'model100_status_must_be_processed');
   return { key: 'model100_submit_updates_root_state', status: 'PASS' };
+}
+
+async function test_model100_rejects_missing_table_refs() {
+  for (const missingKey of ['endpoint_table_id', 'origin_table_id', 'reply_target_table_id']) {
+    const rt = createConfiguredRuntime();
+    const handled = rt.mqttIncoming(
+      'UIPUT/ws/dam/pic/de/R1/100/submit',
+      pinPayloadMissing({
+        endpointModelId: 100,
+        missingKey,
+        payload: [
+          { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'must-not-process' },
+        ],
+      }),
+    );
+    assert.equal(handled, false, `model100_mqtt_incoming_must_reject_without_${missingKey}`);
+    await waitForSettle();
+    const root = rt.getCell(rt.getModel(100), 0, 0, 0).labels;
+    assert.notEqual(root.get('status')?.v, 'processed', `model100_must_not_process_missing_${missingKey}`);
+    assert.equal(root.get('mqtt_inbound_error')?.v?.code, `missing_${missingKey}`, `model100_must_write_visible_missing_${missingKey}_error`);
+  }
+  return { key: 'model100_rejects_missing_table_refs', status: 'PASS' };
 }
 
 function test_remote_worker_patches_stop_using_legacy_ctx_mutators() {
@@ -113,6 +139,7 @@ async function test_model1010_submit_updates_root_state() {
 const tests = [
   test_remote_worker_patches_stop_using_legacy_ctx_mutators,
   test_model100_submit_updates_root_state,
+  test_model100_rejects_missing_table_refs,
   test_model1010_submit_updates_root_state,
 ];
 

@@ -26,7 +26,7 @@ async function test_root_pin_in_registers_model_input_and_routes_same_model() {
   rt.addLabel(model, 0, 0, 0, { k: 'submit', t: 'pin.in', v: payload });
   const next = rt.getCell(model, 1, 0, 0).labels.get('next');
 
-  assert(rt.modelInPorts.has('29041:submit'), 'root pin.in must register model input');
+  assert(rt.modelInPorts.has('host|29041:submit'), 'root pin.in must register model input');
   assert.deepEqual(next?.v, payload, 'root pin.in must route through cell connection');
   return { key: 'root_pin_in_registers_model_input_and_routes_same_model', status: 'PASS' };
 }
@@ -34,7 +34,7 @@ async function test_root_pin_in_registers_model_input_and_routes_same_model() {
 async function test_root_pin_out_relays_to_parent_hosting_cell() {
   const rt = new ModelTableRuntime();
   const parent = rt.getModel(0);
-  rt.addLabel(parent, 2, 0, 0, { k: 'model_type', t: 'model.submt', v: 29042 });
+  rt.addLabel(parent, 2, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: 29042 });
   rt.addLabel(parent, 2, 0, 0, { k: 'result', t: 'pin.out', v: null });
   rt.addLabel(parent, 2, 0, 0, { k: 'final_out', t: 'pin.out', v: null });
   rt.addLabel(parent, 0, 0, 0, {
@@ -52,7 +52,7 @@ async function test_root_pin_out_relays_to_parent_hosting_cell() {
   const parentCell = rt.getCell(parent, 2, 0, 0);
   const finalOut = parentCell.labels.get('final_out');
 
-  assert(rt.modelOutPorts.has('29042:result'), 'root pin.out must register model output');
+  assert(rt.modelOutPorts.has('host|29042:result'), 'root pin.out must register model output');
   assert.deepEqual(finalOut?.v, payload, 'root pin.out must relay to parent hosting cell');
   return { key: 'root_pin_out_relays_to_parent_hosting_cell', status: 'PASS' };
 }
@@ -70,7 +70,7 @@ function test_root_single_model_uses_pin_in_without_pin_single_types() {
   const payload = mt('message', 'str', 'single_payload');
   rt.addLabel(model, 0, 0, 0, { k: 'input', t: 'pin.in', v: payload });
   const next = rt.getCell(model, 1, 0, 0).labels.get('next');
-  assert(rt.modelInPorts.has('29043:input'), 'root pin.in must register model input for model.single');
+  assert(rt.modelInPorts.has('host|29043:input'), 'root pin.in must register model input for model.single');
   assert.deepEqual(next?.v, payload, 'root pin.in must route for model.single');
   return { key: 'root_single_model_uses_pin_in_without_pin_single_types', status: 'PASS' };
 }

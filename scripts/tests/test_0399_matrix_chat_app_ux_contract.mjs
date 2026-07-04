@@ -209,7 +209,7 @@ function test_formal_chat_app_declares_model0_ingress_route() {
   const pin = cellLabel(allRecords, 0, 9, 0, CHAT_APP_MODEL_ID, 'matrix_chat_request');
   const route = rootLabel(allRecords, 0, 'matrix_chat_1083_ingress_route');
   const mount = cellLabel(hierarchyRecords, 0, 9, 0, CHAT_APP_MODEL_ID, 'model_type');
-  assert.equal(mount?.t, 'model.submt', 'Matrix Chat must be mounted under Model 0 before routing to its hosting cell');
+  assert.equal(mount?.t, 'model.submtconnection', 'Matrix Chat must be mounted under Model 0 before routing to its hosting cell');
   assert.equal(mount?.v, CHAT_APP_MODEL_ID, 'Matrix Chat hosting cell must mount the formal chat app model');
   assert.equal(pin?.t, 'pin.in', 'Matrix Chat request pin must be declared on Model 0 hosting cell');
   assert.equal(route?.t, 'pin.connect.cell', 'Matrix Chat ingress route must be a Model 0 pin.connect.cell label');

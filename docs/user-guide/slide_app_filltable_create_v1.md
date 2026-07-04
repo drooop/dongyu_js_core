@@ -37,7 +37,7 @@ source: ai
 - `Model 1035`
   - creator truth
 
-`1034` 挂在 `Model 0` 下，`1035` 通过 `1034` 的 `model.submt` 被挂进去。
+`1034` 由 `Model 0` 的 parent-side `model.submtconnection` 索引进入层级；`1035` 由 `1034` 的 parent-side `model.submtconnection` 索引进入层级，并在 `1035` root 声明 `model.submt`。
 
 ## 用户需要填写什么
 

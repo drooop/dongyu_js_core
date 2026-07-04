@@ -72,7 +72,7 @@ zip 中只允许一个 JSON 文件，建议叫：
 
 - 声明式 slide app
 - `model.table`
-- `model.submt`
+- 父侧 `model.submtconnection` + child root `model.submt`
 - `ui_*`
 - `ui_bind_json`
 - 普通字符串、数字、布尔、JSON labels

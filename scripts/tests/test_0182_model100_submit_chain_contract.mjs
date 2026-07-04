@@ -97,7 +97,7 @@ assert.ok(submitOutRecord, 'model100 root must declare pin.out submit');
 
 const model0MountRecord = getRecord(
   hierarchyPatch.records,
-  (record) => record && record.model_id === 0 && record.t === 'model.submt' && record.v === 100,
+  (record) => record && record.model_id === 0 && record.t === 'model.submtconnection' && record.v === 100,
 );
 assert.ok(model0MountRecord, 'model100 must be mounted under model0 via runtime hierarchy');
 

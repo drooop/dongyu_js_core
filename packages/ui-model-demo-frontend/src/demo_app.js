@@ -229,21 +229,52 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         }
       }
 
-      function resolveWorkspaceModelId() {
-        const labels = mainStore?.snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels ?? {};
-        const raw = labels.ws_app_selected?.v;
-        if (typeof raw === 'number' && Number.isInteger(raw) && raw !== 0) return raw;
-        if (typeof raw === 'string' && /^-?\d+$/.test(raw.trim())) {
-          const parsed = Number.parseInt(raw.trim(), 10);
-          if (Number.isInteger(parsed) && parsed !== 0) return parsed;
+      function normalizeWorkspaceModelRef(value) {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          const modelId = typeof value.model_id === 'number' && Number.isInteger(value.model_id)
+            ? value.model_id
+            : (typeof value.model_id === 'string' && /^-?\d+$/.test(value.model_id.trim())
+                ? Number.parseInt(value.model_id.trim(), 10)
+                : null);
+          const tableId = typeof value.table_id === 'string' && value.table_id.trim()
+            ? value.table_id.trim()
+            : 'host';
+          if (Number.isInteger(modelId)) return { table_id: tableId, model_id: modelId };
         }
-        return 100;
+        const modelId = typeof value === 'number' && Number.isInteger(value)
+          ? value
+          : (typeof value === 'string' && /^-?\d+$/.test(value.trim()) ? Number.parseInt(value.trim(), 10) : null);
+        return Number.isInteger(modelId) ? { table_id: 'host', model_id: modelId } : null;
       }
 
-      function selectWorkspaceModel(modelId) {
+      function resolveWorkspaceModelRef() {
+        const labels = mainStore?.snapshot?.models?.['-2']?.cells?.['0,0,0']?.labels ?? {};
+        const selectedRef = normalizeWorkspaceModelRef(labels.ws_app_selected_ref?.v);
+        if (selectedRef && (selectedRef.table_id !== 'host' || selectedRef.model_id !== 0)) return selectedRef;
+        const raw = labels.ws_app_selected?.v;
+        if (typeof raw === 'number' && Number.isInteger(raw) && raw !== 0) return { table_id: 'host', model_id: raw };
+        if (typeof raw === 'string' && /^-?\d+$/.test(raw.trim())) {
+          const parsed = Number.parseInt(raw.trim(), 10);
+          if (Number.isInteger(parsed) && parsed !== 0) return { table_id: 'host', model_id: parsed };
+        }
+        const registry = Array.isArray(labels.ws_apps_registry?.v) ? labels.ws_apps_registry.v : [];
+        const firstEntry = registry.find((entry) => entry && Number.isInteger(entry.model_id));
+        return normalizeWorkspaceModelRef(firstEntry) || { table_id: 'host', model_id: 1007 };
+      }
+
+      function selectWorkspaceModel(modelRefOrId) {
+        const modelRef = normalizeWorkspaceModelRef(modelRefOrId) || resolveWorkspaceModelRef();
         dispatchAppShellStateUpdate(mainStore, {
           target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected' },
-          value: { t: 'int', v: modelId },
+          value: { t: 'int', v: modelRef.model_id },
+        });
+        dispatchAppShellStateUpdate(mainStore, {
+          target: { model_id: -2, p: 0, r: 0, c: 0, k: 'selected_model_id' },
+          value: { t: 'str', v: String(modelRef.model_id) },
+        });
+        dispatchAppShellStateUpdate(mainStore, {
+          target: { model_id: -2, p: 0, r: 0, c: 0, k: 'ws_app_selected_ref' },
+          value: { t: 'json', v: modelRef },
         });
       }
 
@@ -262,7 +293,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       function syncWorkspaceSelection(routePath) {
         const page = findRouteEntry(routePath)?.page || 'home';
         if (page !== 'workspace') return;
-        selectWorkspaceModel(resolveWorkspaceModelId());
+        selectWorkspaceModel(resolveWorkspaceModelRef());
       }
 
       function syncGalleryRoute(routePath) {
@@ -357,7 +388,7 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           void ensureForegroundAppVisibleModelLoaded(mainStore, app).then((loaded) => {
             if (loaded) foregroundVisibleLoadTick.value += 1;
           });
-          selectWorkspaceModel(app.model_id);
+          selectWorkspaceModel(app);
         } else {
           syncWorkspaceSelection(app.path);
         }
@@ -660,6 +691,12 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         }
       }
 
+      function startDevFakeLogin(userKey, returnTo = currentReturnTo()) {
+        if (authStore && typeof authStore.loginWithDevFakeUser === 'function') {
+          authStore.loginWithDevFakeUser(userKey, { returnTo });
+        }
+      }
+
       function startMatrixSso() {
         if (authStore && typeof authStore.connectMatrix === 'function') {
           authStore.connectMatrix({ returnTo: currentReturnTo() });
@@ -806,6 +843,9 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
             }, { default: () => '确认登录中' }),
           );
         } else if (authStore && authStore.state && !authStore.state.authenticated) {
+          const fakeUsers = authStore.state.devFakeLoginEnabled === true && Array.isArray(authStore.state.devFakeLoginUsers)
+            ? authStore.state.devFakeLoginUsers
+            : [];
           userSection.push(
             h(ElTag, {
               'data-testid': 'auth-readonly-badge',
@@ -820,6 +860,32 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
               onClick: () => startSso(),
             }, { default: () => '登录' }),
           );
+          if (fakeUsers.length > 0) {
+            userSection.push(h('div', {
+              'data-testid': 'auth-dev-fake-login-section',
+              title: '临时测试登录：只用于本地测试，正式环境关闭',
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                paddingLeft: '6px',
+                borderLeft: '1px solid #e5e7eb',
+              },
+            }, [
+              h(ElTag, {
+                effect: 'plain',
+                type: 'warning',
+                size: 'small',
+              }, { default: () => '临时测试登录' }),
+              ...fakeUsers.map((user) => h(ElButton, {
+                'data-testid': 'auth-dev-fake-login-button',
+                size: 'small',
+                plain: true,
+                type: 'warning',
+                onClick: () => startDevFakeLogin(user.key),
+              }, { default: () => user.displayName || user.username || user.key })),
+            ]));
+          }
         } else if (authStore && authStore.state && authStore.state.authenticated) {
           const capabilities = Array.isArray(authStore.state.capabilities) ? authStore.state.capabilities : [];
           const roles = Array.isArray(authStore.state.roles) ? authStore.state.roles : [];

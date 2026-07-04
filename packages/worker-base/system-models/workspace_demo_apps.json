@@ -16,7 +16,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.LeaveRequest"
     },
     {
@@ -259,7 +259,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.RepairRequest"
     },
     {

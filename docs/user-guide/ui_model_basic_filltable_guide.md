@@ -290,7 +290,7 @@ ZIP root `(0,0,0)` 还必须补齐安装 metadata：
 | `input_row` | `Container` | `root` | `row` |
 | `main_input` | `Input` | `input_row` | - |
 
-注意：普通视觉布局不需要 `model.submt`。`model.submt` 是子模型挂载边界，不是普通 UI 行列容器。
+注意：普通视觉布局不需要 `model.submtconnection` / `model.submt`。它们表达独立子模型边界，不是普通 UI 行列容器。
 
 ## 4. Text：文本展示框
 

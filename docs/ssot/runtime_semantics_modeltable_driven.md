@@ -88,16 +88,19 @@ Principal-scoped subtable namespace target：`docs/ssot/principal_scoped_subtabl
 ### 1.4 Effective Cell Model Label 与 Scope Discoverability（Cell 有效模型标签与层级发现）
 
 - 每个 materialized Cell 仍然必须且只能有一个有效模型标签（effective model label）。
-- 有效模型标签是该 Cell 的主归属 / 主执行形态。当前已冻结集合为：`model.single` / `model.matrix` / `model.table` / `model.submt`。
-- 0424 target 增加 `model.subtable`，用于 host-owned hosting Cell 挂载一整张 child ModelTable namespace；它不是 `model.submt` 的别名。
+- 有效模型标签是该 Cell 的主归属 / 主执行形态。当前已冻结集合为：`model.single` / `model.matrix` / `model.table` / `model.subtable` / `model.subtableconnection` / `model.submt` / `model.submtconnection`。
+- 0431 target 修正：`model.subtable` / `model.submt` 是子侧声明；`model.subtableconnection` / `model.submtconnection` 是父侧/主侧索引。
 - `model.table`：模型根 `(0,0,0)` 的显式根声明。
 - `model.matrix`：矩阵自身相对 `(0,0,0)` 的显式根声明。
-- `model.submt`：子模型映射/挂载 Cell 的显式声明。
+- `model.submt`：子模型 root 的显式声明。
+- `model.submtconnection`：父侧/主侧对子模型的索引 Cell。
+- `model.subtable`：子模型表 Model 0 root 的显式声明。
+- `model.subtableconnection`：父侧/主侧对子模型表的索引 Cell。
 - `model.single`：普通 Cell 的有效默认形态。
 - 在 table/matrix 作用域内，如果某个普通 Cell 尚未物化或未显式声明模型标签，则其有效模型标签默认视为 `model.single`。
 - **(0323) model.single 沙箱边界澄清**：model.single 的"结构性沙箱"约束仅作用于**写**（`V1N.addLabel`/`V1N.removeLabel` 仅限自身 Cell），**不作用于读**。嵌套在 model.table 作用域内的 model.single Cell 可通过 `V1N.readLabel(p, r, c, k)` 读取所在 model.table 内任意 Cell。独立（非嵌套）的 model.single 无跨 Cell 读路径。这是对 §5.3 model.single 原"programs operate on own Cell only"描述的权限模型精化。
 - `model.name` 只允许出现在模型自己的 `(0,0,0)`。
-- 每个非 0 模型都必须通过某个父模型 Cell 上的 `model.submt` 显式挂载进入层级；包括 bootstrap children（例如 `-1` 与 `1`）也不例外。
+- 每个非 0 模型都必须通过某个父模型 Cell 上的 `model.submtconnection` 显式索引进入层级，同时在子模型自身 root 写 `model.submt`；包括 bootstrap children（例如 `-1` 与 `1`）也不例外。
 
 补充：Cell 的“有效模型标签唯一”与“可被多个上层 scope 发现”是两件不同的事。
 
@@ -109,35 +112,33 @@ Principal-scoped subtable namespace target：`docs/ssot/principal_scoped_subtabl
   - 矩阵范围发现：
     - `model.matrix` 可看到其范围内的 `model.single`
     - 也可看到范围内更小的 `model.matrix`
-- `model.submt` 仍保持 single-parent 挂载约束；多重 discoverability 不等于允许一个 child model 被多处显式挂载。
+- `model.submtconnection` 仍保持 single-parent 直接父级索引约束；多重 discoverability 不等于允许一个 child model 被多处显式索引为直接 child。
 - 执行时，Cell 不依赖“当前被哪些 scope 看见”来选择逻辑分支；真正决定执行路径的是已经建立好的 pin 链与目标坐标。
 
-### 1.4a Principal-Scoped Subtable Namespace（0424 target）
+### 1.4a Principal-Scoped Subtable Namespace
 
-0424 目标合同由 `docs/ssot/principal_scoped_subtable_namespace_v1.md` 接管。
+Principal-scoped namespace 的完整多用户权限目标由 `docs/ssot/principal_scoped_subtable_namespace_v1.md` 接管；本文件冻结运行时已经采用的 table-qualified 和 child-table 边界语义。
 
-当前 `model.submt` 语义保持不变：它只表示一个 hosting Cell 挂载一个 child model。`model.subtable` 是新的目标语义，用于挂载一整张 child ModelTable namespace；它不是 `model.submt` 的别名。
-
-目标实现后：
+0431 修正后：`model.submt` 声明一个模型是 child model；`model.submtconnection` 在父侧/主侧索引这个 child model。`model.subtable` 声明一张表是 child ModelTable；`model.subtableconnection` 在父侧/主侧索引这张 child ModelTable。`model.subtable` 不是 `model.submt` 的别名，connection 标签也不是 pin wiring 标签。
 
 - durable model identity 不再只是 `model_id`，而是 `ModelRef = { table_id, model_id }`。
 - `model_id < 0` 仍然解析到 host/system negative model domain。
 - `model_id >= 0` 在每个 `table_id` 内独立。
-- 每个 SSO principal 的 durable desktop state 必须在 principal-scoped user desktop table 内。
 - 每个安装后的 slide App instance 必须在自己的 App instance table 内。
-- 跨 table 的 PIN 路由只能通过 host-owned `model.subtable` hosting Cell 和 child table root boundary pins；`pin.connect.cell` 仍只允许同 table 内连接，`pin.connect.model` 仍然禁止。
+- 跨 table 的 PIN 路由只能通过父侧/主侧 `model.subtableconnection` Cell 和 child table root boundary pins；`pin.connect.cell` 仍只允许同 table 内连接，`pin.connect.model` 仍然禁止。
+- 每个 SSO principal 的 durable desktop state 应进入 principal-scoped user desktop table；这是多用户权限隔离目标，不得被 bare host positive `model_id` 口径扩展为长期合法语义。
 
-本节是目标语义声明。当前 implementation 中仍使用 bare positive `model_id` 的路径，是后续实现债务，不得被新文档扩展为长期合法语义。
+新代码、新文档和新测试不得把 bare positive `model_id` 当作跨 table / 跨 principal / App instance 的 durable identity。
 
 ### 1.5 UI Projection Contract (0210 Freeze)
 
 - 页面目录只负责声明“哪个 page 对应哪个 model asset / schema asset”；它不是业务真值本身。
-- UI authoritative input 只能来自 materialized Cell label、显式页面目录、以及通过 `model.submt` 挂载进入层级的 child model 自身 Cell/label。
+- UI authoritative input 只能来自 materialized Cell label、显式页面目录、以及通过 `model.submtconnection` 索引进入层级且自身声明 `model.submt` 的 child model Cell/label。
 - `parent` 挂载的合法条件：
-  - child model 必须通过父模型 hosting cell 上的显式 `model.submt` 进入层级；
+  - child model 必须通过父模型 connection cell 上的显式 `model.submtconnection` 进入层级，并在 child root 声明 `model.submt`；
   - child root 必须保留自己的显式 form label；
   - projection 只能读取 child model 的真实 Cell/label，不得把父模型共享 AST 当作 child truth source。
-- matrix 挂载同样必须通过显式 `model.submt` hosting cell，且调用方必须明确相对坐标到绝对坐标的映射前提；不得用“某个根格里碰巧有 UI AST blob”代替矩阵挂载语义。
+- matrix 挂载同样必须通过显式 `model.submtconnection` connection cell，且调用方必须明确相对坐标到绝对坐标的映射前提；不得用“某个根格里碰巧有 UI AST blob”代替矩阵挂载语义。
 - 整页 `ui_ast_v0` 页面 JSON 只能视为 legacy-debt 的 projection artifact；它可以作为迁移期间被 inventory 的旧路径，但不能作为新的 authoritative bootstrap 合同。
 - `ws_selected_ast`、共享 mailbox/root AST、以及其他由 server/frontend 派生出的共享 AST，同样只能视为 legacy-debt 或调试投影，不得升格为新的挂载声明或数据所有权边界。
 - 若实现仍依赖上述 legacy-debt 路径才能“跑通”，结论只能是 non-conformant；不得以 fallback 或 derived snapshot 将其包装成合规方案。
@@ -182,8 +183,9 @@ Principal-scoped subtable namespace target：`docs/ssot/principal_scoped_subtabl
 → 必须触发对应的逆向副作用
 
 例如：
-- 删除 BUS_IN → 移除 busInPorts 注册
-- 删除 CELL_CONNECT → 移除 cellConnectGraph 接线
+- 删除 `pin.bus.cb.in` → 移除 control-bus input 注册
+- 删除 `pin.connect.label` → 移除同 Cell 接线
+- 删除 `pin.connect.cell` → 移除跨 Cell 路由
 - 删除 MQTT_WILDCARD_SUB → unsubscribe
 - 删除 run_<func> → 取消可触发入口（若适用）
 
@@ -217,7 +219,7 @@ Principal-scoped subtable namespace target：`docs/ssot/principal_scoped_subtabl
 ### 5.1 Legacy PIN_IN / PIN_OUT（DEPRECATED since 0143）
 
 > **状态**：已废弃。0143 删除了运行时中所有 PIN_IN/PIN_OUT 处理代码。
-> 替代方案：BUS_IN/BUS_OUT（系统边界）+ cell_connection（跨 Cell 路由）+ CELL_CONNECT（Cell 内接线）。
+> 替代方案：按 worker role 使用 `pin.bus.cb.*` / `pin.bus.mb.*`（系统边界）+ `pin.connect.cell`（跨 Cell 路由）+ `pin.connect.label`（Cell 内接线）。
 
 原语义：Label(k=<topic>, t="PIN_IN") 声明式外部输入通道。
 已删除的运行时符号：pinInSet, pinOutSet, pinInBindings, _pinKey, _parsePinKey,
@@ -228,25 +230,27 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 ### 5.2 当前结构性声明（完整列表）
 
 以下声明服从本规范，由 `_applyBuiltins` 统一分发：
-- pin.in / pin.out：Cell 级端口；写在非系统模型 root `(0,0,0)` 时同时承担模型边界端口语义
-- pin.bus.cb.in / pin.bus.cb.out：控制总线系统边界端口（仅软件工人 Model 0）
-- pin.bus.mb.in / pin.bus.mb.out：管理总线系统边界端口（仅 DEM 软件工人 Model 0）
-- pin.login / pin.logout：日志通道端口；写在非系统模型 root `(0,0,0)` 时同时承担模型边界日志端口语义
-- pin.connect.label：Cell 内接线图（新）
-- pin.connect.cell：跨 Cell 路由（新）
-- model.submt：子模型声明（新）
-- func.js / func.python：函数声明（新）
-- model.single / model.matrix / model.table：模型形态声明（新）
-- BUS_IN / BUS_OUT：系统边界端口（仅 Model 0）
-- CELL_CONNECT：Cell 内接线图
-- cell_connection：跨 Cell 路由
-- MODEL_IN / MODEL_OUT：模型边界端口
-- subModel：子模型声明
-- IN：触发 cell_connection 路由 + CELL_CONNECT 传播
-- MQTT_WILDCARD_SUB：MQTT 通配符订阅声明
-- run_<func>：声明可运行入口（由 worker_engine_v0 tick 处理）
+- `pin.in` / `pin.out`：Cell 级端口；写在非系统模型 root `(0,0,0)` 时同时承担模型边界端口语义
+- `pin.bus.cb.in` / `pin.bus.cb.out`：控制总线系统边界端口（仅软件工人 Model 0）
+- `pin.bus.mb.in` / `pin.bus.mb.out`：管理总线系统边界端口（仅 DEM 软件工人 Model 0）
+- `pin.login` / `pin.logout`：日志通道端口；写在非系统模型 root `(0,0,0)` 时同时承担模型边界日志端口语义
+- `pin.connect.label`：Cell 内接线图
+- `pin.connect.cell`：跨 Cell 路由
+- `model.submt`：子模型声明
+- `model.submtconnection`：父侧/主侧对子模型的索引（0431）
+- `model.subtable`：子模型表声明（0431）
+- `model.subtableconnection`：父侧/主侧对子模型表的索引（0431）
+- `func.js` / `func.python`：函数声明
+- `model.single` / `model.matrix` / `model.table`：模型形态声明
+- `MQTT_WILDCARD_SUB`：MQTT 通配符订阅声明
+- `run_<func>`：声明可运行入口（由 worker_engine_v0 tick 处理）
 - `mqtt.local.*` / `matrix.*`：声明运行时配置（统一写入 Model 0 `(0,0,0)`，通常由 `MODELTABLE_PATCH_JSON` 启动期落表）
 - `runtime_mode`：运行时生命周期标签（仅 Model 0 `(0,0,0)`，取值 `boot | edit | running`）
+
+历史旧名 `BUS_IN` / `BUS_OUT` / `CELL_CONNECT` / `cell_connection` /
+`MODEL_IN` / `MODEL_OUT` / `subModel` / `IN` 不属于当前输入面；它们只
+能出现在历史证据、迁移说明或负向测试中，不能被新增模型或运行时兼容
+路径接受。
 
 当前 bus split 合同：
 - 正式系统边界只允许 `pin.bus.cb.*` 与 `pin.bus.mb.*`。
@@ -301,7 +305,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 - 同 Model 内跨 Cell 路由，目标仍是 Cell 引脚，不是函数引脚。
 - 函数触发必须先把模型数据送到函数所在 Cell 的普通引脚，再由该 Cell 的 `pin.connect.label` 接到 `{funcName}:in`。
-- 子模型对外只能经子模型 root `(0,0,0)` 的引脚和父模型 hosting Cell 的引脚，不再经 `pin.connect.model`。
+- 子模型对外只能经子模型 root `(0,0,0)` 的引脚和父模型 connection Cell 的引脚，不再经 `pin.connect.model`。
 
 **AsyncFunction 隔离**：函数执行仍必须隔离于普通 worker tick。支持超时和错误落表，不得 silent fail。
 
@@ -330,24 +334,26 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 | `pin.in` / `pin.login` | 非系统模型 `(0,0,0)` | 注册模型输入端口 → `modelInPorts` Map |
 | `pin.out` / `pin.logout` | 非系统模型 `(0,0,0)` | 注册模型输出端口 → `modelOutPorts` Map |
 
-- 非系统模型 root `(0,0,0)` 上的 `pin.in` 写入 v 时 → 子模型内 cell_connection 路由 + CELL_CONNECT 传播
-- 非系统模型 root `(0,0,0)` 上的 `pin.out` 写入 v 时 → 经子模型 root 边界引脚传到父模型 hosting Cell 引脚，再由父模型 `pin.connect.cell` 继续路由
+- 非系统模型 root `(0,0,0)` 上的 `pin.in` 写入 v 时 → 子模型内 `pin.connect.cell` 路由 + `pin.connect.label` 传播
+- 非系统模型 root `(0,0,0)` 上的 `pin.out` 写入 v 时 → 经子模型 root 边界引脚传到父模型 connection Cell 引脚，再由父模型 `pin.connect.cell` 继续路由
 - `pin.table.* / pin.single.*` 不再是当前运行时输入面；新模型、修复逻辑和测试不得再依赖这些名称。
 
-### 5.2e subModel 声明与 parentChildMap（0142）
+### 5.2e 子模型声明、connection 索引与 parentChildMap（0142 / 0431）
 
-- `label.t === 'model.submt'`, `label.k = 'model_type'`, `label.v` = 子模型 ID
-- 注册到 `parentChildMap`: key=childModelId → {parentModelId, hostingCell:{p,r,c}}
+- 父侧索引：`label.t === 'model.submtconnection'`, `label.k = 'model_type'`, `label.v` = 子模型 ID，或 `{ "model_id": int, "mount_kind": string? }`
+- 子侧声明：子模型 root `(0,0,0)` 必须写 `label.t === 'model.submt'`, `label.k = 'model_type'`
+- 父侧索引注册到 `parentChildMap`: key=childModelId → {parentModelId, connectionCell:{p,r,c}}
 - 如果子模型不存在 → 自动 `createModel({id, name: alias, type: 'sub'})`
-- 跨父子模型路由只通过父模型 hosting Cell 的 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 与子模型 root `(0,0,0)` 的同名边界引脚完成，再由所在模型内的 `pin.connect.cell` 继续分发。
-- `model.submt` 表示**子模型映射位置**，不是 root-only 声明：`hostingCell` 可以是任意 Cell
-- 同一 hosting Cell 最多允许一个 `model.submt`
-- 同一个 child model 只能被一个父模型 hosting Cell 挂载（single-parent）
-- hosting Cell 一旦安装 `model.submt`：
+- 跨父子模型路由只通过父模型 connection Cell 的 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 与子模型 root `(0,0,0)` 的同名边界引脚完成，再由所在模型内的 `pin.connect.cell` 继续分发。
+- `model.submtconnection` 表示**父侧索引位置**，不是 child root 声明：`connectionCell` 可以是任意 Cell。
+- `model.submt` 表示**子侧身份声明**，通常写在子模型 root `(0,0,0)`。
+- 同一 connection Cell 最多允许一个 `model.submtconnection`
+- 同一个 child model 只能被一个父模型 connection Cell 索引为直接 child（single-parent）
+- connection Cell 一旦安装 `model.submtconnection`：
   - 允许保留或继续添加的只剩引脚类标签（`pin.in` / `pin.out` / `pin.login` / `pin.logout`）
   - 预先存在的非引脚标签必须被清理
   - 后续再写入非引脚标签必须 reject，并写入 `eventLog(reason='submodel_host_cell_forbidden_label')`
-- 删除 `model.submt` 仅解除父子挂载关系；不自动删除 child model 数据。
+- 删除 `model.submtconnection` 仅解除父子索引关系；不自动删除 child model 数据。
 
 ### 5.2f Runtime Lifecycle（0177）
 
@@ -413,7 +419,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 启动顺序：
 
-1. 建立模型与层级关系：先创建 Model 0、系统负数模型、业务模型，并按 `model.submt` 建立父子挂载关系。
+1. 建立模型与层级关系：先创建 Model 0、系统负数模型、业务模型；子模型先声明 `model.submt`，再由父侧 `model.submtconnection` 建立父子索引关系。
 2. 写入软件工人身份与角色：写入 `sys_worker_id` 与 `sys_worker_role`，让后续总线声明可以按身份和角色校验。
 3. 写入对外通讯参数：写入 `matrix.*`、`mqtt.*` 等连接参数，但此时仍不得启动外部收发。
 4. 加载程序模型：加载 `func.*` 与 model.table 根默认程序模型（`mt_write` / `mt_bus_receive` / `mt_bus_send`）。
@@ -427,7 +433,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 任何可能触发程序模型、引脚转发或总线发送的 value，必须等模型层级、身份角色、程序模型、引脚和连接都就绪后才恢复。
 - 启动期间直接写入可信补丁只允许用于建立上述启动事实；进入 `running` 后，业务写入仍必须走 owner materialize / pin route。
 
-当前实现顺序：
+历史实现顺序（pre-hard-cut 证据，不是当前目标合同）：
 
 1. `model_0_framework.json` → 创建 Model 0 结构（BUS_IN/OUT、subModel、CELL_CONNECT、cell_connection）
 2. `system_models.json` → 填充 Model -10 等系统子模型
@@ -442,7 +448,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 - 三程序（`mt_write` / `mt_bus_receive` / `mt_bus_send`）由 `createModel()` **在 model.table 创建时自动植入 (0,0,0)**，不占用 bootstrap patch 步骤。
 - 注入发生在步骤 1–3 中：任何通过 `createModel({type: 'table'})` 产生的 model.table，其 (0,0,0) 在创建返回时已包含三个 func.js 标签。
 - JSON patches（步骤 1–3）可以覆盖三程序的 code 实现（用于升级或定制），但不得删除这三个 key。删除尝试必须被 rejected 并写入 `eventLog(reason='default_program_removal_forbidden')`。
-- Model 0（系统根）作为特殊情况：其 (0,0,0) 承载 pin.bus.* 系统边界 adapter，不强制植入三程序；0356 目标中跨模型路由必须经 `model.submt` hosting Cell + `pin.connect.cell`，不得再经 `pin.connect.model`。
+- Model 0（系统根）作为特殊情况：其 (0,0,0) 承载 pin.bus.* 系统边界 adapter，不强制植入三程序；0356/0431 目标中跨模型路由必须经父侧 `model.submtconnection` Cell + `pin.connect.cell`，不得再经 `pin.connect.model`。
 - 负数系统模型（如 Model -10）保留现有实现路径：是否植入三程序由各系统模型独立裁决，迁移计划见 0323+2。
 
 **(0323) 三程序 code 的 Tier 归属裁决：**
@@ -510,8 +516,8 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 
 **跨模型通信路径（两种合法方式）：**
 
-1. 子模型挂载路径：model.submt hosting cell → 引脚接出/接入
-2. Model 0 中转路径：Cell pin.out → (0,0,0) mt_bus_send:in → 模型边界 pin.out → 父模型 hosting Cell 引脚 → Model 0 `pin.connect.cell` → 目标模型 hosting/root 边界引脚
+1. 子模型索引路径：父侧 `model.submtconnection` Cell → 子模型 root 引脚接出/接入
+2. Model 0 中转路径：Cell pin.out → (0,0,0) mt_bus_send:in → 模型边界 pin.out → 父模型 connection Cell 引脚 → Model 0 `pin.connect.cell` → 目标模型 connection/root 边界引脚
 
 **禁止：**
 
@@ -542,21 +548,21 @@ ModelTablePatch v0 仅作为外部补丁 envelope 或历史迁移债务保留：
 
 - 入站流程（`mqttIncoming`，legacy mt_v0 补丁入口）：
   1. 解析 topic → 提取 modelId, cellK
-  2. BUS_IN 短路检查（仅 Model 0）
+  2. worker root split bus in pin 短路检查（仅 Model 0）
   3. mt_v0 模式只允许作为外层补丁入口：先 `applyPatch(records)`，再进入相应的 pin / mailbox 迁移路径
   4. 新业务 pin payload 必须在进入 pin value 前转换为临时 ModelTable record array
 
-- 出站：BUS_OUT label 的内部业务 value 必须是 `pin_payload.v1` 临时 ModelTable payload；运行时或 server 在 MQTT / Matrix / MBR 边界发布前可还原为外层 `pin_payload` object packet。
+- 出站：worker root split bus out pin 的内部业务 value 必须是 `pin_payload.v2` 临时 ModelTable payload；运行时或 server 在 MQTT / Matrix / MBR 边界发布前可把该 record array 放进外层 `pin_payload` object packet。外层 packet 不是业务 pin value。
 
 ### 5.5 消息路由全链路（0143 最终架构）
 
 ```
-MQTT → mqttIncoming → BUS_IN 短路 / 写 IN 到 model(0,0,0)
-  → cell_connection 路由到 processing cell
-  → CELL_CONNECT wiring 触发函数 (AsyncFunction, 30s timeout)
-  → 函数输出 → CELL_CONNECT (func:out → self:patch)
-  → cell_connection 路由回 (0,0,0)
-  → BUS_OUT / MQTT 发布
+MQTT → mqttIncoming → worker root pin.bus.cb.in / pin.bus.mb.in
+  → pin.connect.cell 路由到 processing cell
+  → pin.connect.label wiring 触发函数 (AsyncFunction, 30s timeout)
+  → 函数输出 → pin.connect.label (func:out → self:patch)
+  → pin.connect.cell 路由回 (0,0,0)
+  → pin.bus.cb.out / pin.bus.mb.out → MQTT / Matrix / MBR 发布
 ```
 
 验证脚本：
@@ -597,10 +603,10 @@ MQTT → mqttIncoming → BUS_IN 短路 / 写 IN 到 model(0,0,0)
 
 bus pin 的 `v` 必须是 ModelTable-like temporary record array。标准外发载荷必须包含：
 
-- `__mt_payload_kind = "pin_payload.v1"`
+- `__mt_payload_kind = "pin_payload.v2"`
 - `op_id` / `__mt_request_id`
 - `message_role`，值只能是 `"request"` 或 `"response"`
-- `payload`，其值仍是业务临时 ModelTable records
+- `payload_model_id`，指向同一 record array 中的业务临时 ModelTable records
 - `topic`，当前 packet 的完整控制总线 MQTT topic，例如请求 `UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>`
 - `response_topic`，request 期待的回包 MQTT topic。host-table 目标可由 `reply_target_*` 派生；App instance 目标必须使用 host transport endpoint，真正 materialization target 由 `reply_target_table_id + reply_target_model_id` 表达
 - `route_kind`，可选；缺省等同 `"control"`；显式 `"management"` 表示本次消息需要先走管理总线到 MBR，再由 MBR 按 `topic` 转为目标控制总线
@@ -608,9 +614,9 @@ bus pin 的 `v` 必须是 ModelTable-like temporary record array。标准外发�
 - origin metadata records：`origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin`
 - reply target metadata records：`reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin`
 
-0424 target 下，App instance traffic 的 origin / reply target metadata 必须增加 table 维度：`origin_table_id` / `reply_target_table_id`。仅靠 `origin_model_id` / `reply_target_model_id` 只能描述当前 v1 host-table implementation fact，不能作为 principal-scoped App instance 的长期合同。
+App instance traffic 的 origin / reply target metadata 必须包含 table 维度：`origin_table_id` / `reply_target_table_id`。仅靠 `origin_model_id` / `reply_target_model_id` 不足以定位 App instance，不得作为 principal-scoped App instance 合同。
 
-这些 metadata 必须作为 Temporary ModelTable record array 中的 records 存在，不能放在外层 JSON object 上。普通业务 JSON、旧 envelope、raw `resultPayload`、loose top-level `origin_*` / `reply_target_*` / `endpoint_*` 字段不能作为 fallback 发送。
+这些 metadata 必须作为 Temporary ModelTable record array 中的 records 存在，不能放在外层 JSON object 上。普通业务 JSON、旧 envelope、raw `resultPayload`、loose top-level `origin_*` / `reply_target_*` / `endpoint_*` 字段不能作为 fallback 发送。正式 bus / pin transport 不允许把 ModelTable records 放进 `payload.v`、`bundle_payload.v`、`json_patch.v` 或其他 `json` label 中；业务 records 必须作为同一数组中的 records 出现，并由 `payload_model_id` 指向。
 
 `message_role="request"` 表示该 payload 会触发目标 worker/model/pin 上的程序链路；`message_role="response"` 表示这是回包，必须发布到 `response_topic`，并由 UI Server 按 `reply_target_*` materialize。远端 runtime 收到请求 endpoint topic 上的 `response` 必须拒绝或忽略，不能再次触发程序。
 
@@ -669,7 +675,7 @@ UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>
 - 正式 UI/同工作区业务 ingress 链路是 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in -> pin route -> target`
 - `bus_event_v2.value` 在进入 `pin.bus.cb.in` 或显式 `pin.bus.mb.in` 前必须已经是临时 ModelTable record array；server/frontend 不得把 `{ target_cell, target_pin, value }` 对象在 ingress 上临时转换为通过态 payload。
 - `write_label.v1` 只属于目标模型内部的跨 cell 写入链路：用户程序调用 `writeLabel` 后，经显式 `write_label_req -> mt_write_req -> mt_write_result` 路由生成和消费；它不是 Model 0 bus ingress 的通用 passing path。
-- Model 0 内的 `pin.connect.cell` 把事件送到目标模型的 hosting Cell / 子模型 root 边界 `pin.in`
+- Model 0 内的 `pin.connect.cell` 把事件送到目标模型的 connection Cell / 子模型 root 边界 `pin.in`
 - 子模型 `(0,0,0)` 的 `mt_bus_receive` 再把 payload 分发到目标 cell / target pin
 
 冻结点：
@@ -686,7 +692,7 @@ UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>
 - unknown key 必须拒绝，返回结构化错误
 - legacy `type = ui_event` envelope 在当前 server ingress 会被显式拒绝，不再是 current truth
 
-说明：`slide_import_*` 与 `mgmt_bus_console_*` 是经过 Model 0 allow-list 登记的专用 ingress key，不是任意动态 key。它们的 `value` 仍必须是临时 ModelTable record array，并由 `model.submt` hosting Cell + `pin.connect.cell` 进入目标模型。
+说明：`slide_import_*` 与 `mgmt_bus_console_*` 是经过 Model 0 allow-list 登记的专用 ingress key，不是任意动态 key。它们的 `value` 仍必须是临时 ModelTable record array，并由父侧 `model.submtconnection` Cell + `pin.connect.cell` 进入目标模型。
 
 Tier 归属：
 
@@ -726,7 +732,8 @@ Compatibility note:
 
 - `Model 0` 上的 host ingress `pin.bus.cb.in`
 - `Model 0` 上对应的 `pin.connect.cell`
-- imported model hosting Cell 上的 `model.submt` 与边界 `pin.in` / `pin.out`
+- imported model parent-side connection Cell 上的 `model.submtconnection` 与边界 `pin.in` / `pin.out`
+- imported model root 上的 `model.submt`
 - imported model root 上的 relay `pin.in`
 - imported model root 上对应的 `pin.connect.cell`
 
@@ -734,8 +741,8 @@ Compatibility note:
 
 1. 宿主把正式业务输入写到：
    - `Model 0 (0,0,0) k=imported_host_submit_<model_id> t=pin.bus.cb.in`
-2. `Model 0` 的 `pin.connect.cell` 把它路由到 imported app hosting Cell 的边界 pin
-3. hosting Cell 经 `model.submt` / imported model root 边界 pin 把它交给 imported model root relay
+2. `Model 0` 的 `pin.connect.cell` 把它路由到 imported app connection Cell 的边界 pin
+3. connection Cell 经 `model.submtconnection` / imported model root 边界 pin 把它交给 imported model root relay
 4. imported model root 的 `pin.connect.cell` 再把它 relay 到声明的 boundary pin
 5. imported app 内部后续链路继续由 app 自己定义
 
@@ -773,7 +780,7 @@ Root `(0,0,0)` 可以声明：
 - `origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin`：由 UI Server 根据当前 host identity、App instance `ModelRef` 与触发 pin 生成
 - server-owned `reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin`：由 UI Server 根据当前 host identity、App instance `ModelRef` 与本地接收 pin 生成
 
-0424 target 下，上述本地安装身份必须升级为 table-qualified `ModelRef`。仅 bare `origin_model_id` / `reply_target_model_id` 不得用于新的 principal-scoped App instance 路径。
+App instance 路径下，上述本地安装身份必须使用 table-qualified `ModelRef`。仅 bare `origin_model_id` / `reply_target_model_id` 不得用于 principal-scoped App instance 路径。
 
 公开出口 pin 必须由 root `(0,0,0)` 的 `dual_bus_model` 明确列出：
 
@@ -798,8 +805,8 @@ Root `(0,0,0)` 可以声明：
 - `endpoint_pin` 表示远端 provider model root 的公开 Cell pin，不是 `{functionName}:in`。
 - MBR 不得要求为每个 imported app 写 per-app 静态 route；MBR / MQTT adapter 只能读取 payload `topic` record 作为 transport topic，不得从 endpoint metadata records 派生目标地址。
 
-0363 host-owned egress binding（host-table v1 current fact；0425 App instance table 路径以 `model.subtable` 与 table-qualified payload 为准）：
-- 历史 host-table 安装器在把 imported root 放入 host 正数模型空间后，为每个 imported root 公开 egress pin 生成 `ui.egress.binding.v1` 记录。
+host-owned egress binding（App instance table 路径）：
+- 当前安装器在创建 App instance table 后，为每个 imported root 公开 egress pin 生成 `ui.egress.binding.v1` 记录；host 侧索引由 `model.subtableconnection` 表达，child table root 由 `model.subtable` 表达。
 - 该记录至少包含 `from_pin`、`bus`、`host_model_id`、`host_cell`、`host_pin_type`、`host_pin_key`、`target`、`reply_pin`、`owned_by`。
 - `host_pin_type` 默认必须是 `pin.bus.cb.out`（同工作区控制总线 egress）；只有显式管理语义才允许使用 `pin.bus.mb.out`（DEM management egress）。
 - UI 可以投影这个 binding，显示某个公开出口实际接到哪个宿主总线 pin；但正式 authority 仍来自实际 `pin.connect.*` 路径和 worker root 系统总线出口，不能由 UI 直接发送替代。
@@ -908,18 +915,19 @@ Root `(0,0,0)` 可以声明：
   - `pin.connect.label`
   - `pin.connect.cell`
 - `model.submt`
+- `model.submtconnection`
 - “是否外发”的 authority 落在接线路径事实本身，不落在新的辅助字段。
 - `ui.egress.binding.v1` 只是 host-owned 接线说明，供 UI 展示和安装审计使用；它不能替代实际 pin route。
 
 判定规则：
 - UI 动作若只改本地状态 label，且没有进入任何模型边界 out pin，则该动作是本地动作。
-- UI 动作若写入了模型边界 out pin，但该 pin 没有通过父子 hosting cell relay 一路接到 Model 0，则该动作仍视为本地动作。
-- 只有当动作写入的现有 out pin 经 `model.submt` hosting cell + `pin.connect.label` + `cell_connection` 逐层 relay，并最终接到 worker root Model 0 `(0,0,0)` 的系统总线出口时，该动作才允许外发。出口必须是 `pin.bus.mb.out` 或 `pin.bus.cb.out`，由动作语义和 worker role 决定。
+- UI 动作若写入了模型边界 out pin，但该 pin 没有通过父子 connection Cell relay 一路接到 Model 0，则该动作仍视为本地动作。
+- 只有当动作写入的现有 out pin 经父侧 `model.submtconnection` Cell + `pin.connect.label` + `pin.connect.cell` 逐层 relay，并最终接到 worker root Model 0 `(0,0,0)` 的系统总线出口时，该动作才允许外发。出口必须是 `pin.bus.mb.out` 或 `pin.bus.cb.out`，由动作语义和 worker role 决定。
 
 回程规则：
 - 外界返回结果先到 `Model 0`
 - `Model 0` 只能写本层 relay / input pin，不得 direct patch 深层子模型
-- 数据必须经父模型 hosting cell 暴露的 child pin 逐层下传
+- 数据必须经父模型 connection Cell 暴露的 child pin 逐层下传
 - 到达目标模型后，只允许由该模型 root `mt_write` 或显式 owner materializer 完成最终 label 落盘
 - `server` 或任意运行态 handler 若 direct `applyPatch` 目标子模型，应视为 direct patch bypass / 规约违规
 
@@ -927,7 +935,7 @@ Root `(0,0,0)` 可以声明：
 - 不得为“是否远端”再发明新的 pin 类型。
 - 正数业务模型、滑动 App、provider ZIP 不得直接声明 `pin.bus.cb.*` / `pin.bus.mb.*`。
 - 不得要求所有 UI 动作先进入远端候选池，再由宿主特判是否转发。
-- 不得绕过父模型 hosting cell，直接从深层子模型跳接到 Model 0。
+- 不得绕过父模型 connection Cell，直接从深层子模型跳接到 Model 0。
 
 #### 7.4a 颜色生成器参考链路（0181）
 
@@ -947,13 +955,13 @@ Root `(0,0,0)` 可以声明：
   - 先在本地函数中写 `submit_inflight=true`
   - 本地组装 payload
   - 然后写入 `Model 112 (0,0,0)` 的现有 `pin.out submit`
-  - 该 `submit` 端口经父层 hosting cell relay 逐级上送至 worker root Model 0 的控制总线出口 `pin.bus.cb.out submit`
+  - 该 `submit` 端口经父层 connection Cell relay 逐级上送至 worker root Model 0 的控制总线出口 `pin.bus.cb.out submit`
   - 因此只有 `submit` 会外发
 
 每一级父模型只做 relay：
 - 子模型 `(0,0,0).submit` 写入 `pin.out`
-- runtime 将其投递到父模型 hosting cell 的 `(childModelId, submit)` 源端口
-- 父模型 hosting cell 用 `pin.connect.label` 将 `(childModelId, submit)` 接到本 cell relay label
+- runtime 将其投递到父模型 connection Cell 的 `(childModelId, submit)` 源端口
+- 父模型 connection Cell 用 `pin.connect.label` 将 `(childModelId, submit)` 接到本 cell relay label
 - 父模型 root `(0,0,0)` 通过 `pin.connect.cell` 收到 relay label，再写本层 `pin.out submit`
 - 该过程重复直到 Model 0
 
@@ -1031,7 +1039,7 @@ slide-capable app 的最小根标签：
 
 补充要求：
 
-- 若 app 需要 child truth，必须继续通过显式 `model.submt` 挂载。
+- 若 app 需要 child truth，必须继续通过子侧 `model.submt` 声明与父侧 `model.submtconnection` 索引进入层级。
 - `deletable` / `installed_at` / `from_user` / `to_user` 属于 Workspace registry / lifecycle metadata，可选但推荐显式写出。
 - 不满足最小根标签的 Workspace app，不得进入 slide-capable 主线集合。
 

@@ -26,7 +26,7 @@ function labelsAt(patch, modelId, p = 0, r = 0, c = 0) {
 }
 
 function main() {
-  const expectedIds = [-103, -23, 100, 1007, 1011, 1030, 1036, 1050, 1051, 1080, 1081, 1082, 1083];
+  const expectedIds = [-103, -23, 1007, 1011, 1030, 1036, 1050, 1051, 1080, 1081, 1082, 1083, 1086];
   assert.deepEqual(
     [...WORKSPACE_ENTRY_MODEL_IDS],
     expectedIds,

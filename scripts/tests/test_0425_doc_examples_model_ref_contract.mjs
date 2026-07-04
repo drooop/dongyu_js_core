@@ -99,12 +99,33 @@ function test_visible_snapshot_docs_use_table_qualified_refs() {
   }
 }
 
+function test_slide_runtime_docs_do_not_teach_old_install_path() {
+  const files = [
+    'docs/user-guide/slide-app-runtime/slide_app_runtime_developer_guide.md',
+    'docs/user-guide/slide-app-runtime/minimal_submit_app_provider_guide.md',
+    'docs/user-guide/slide-app-runtime/minimal_submit_app_provider_visualized.md',
+    'docs/user-guide/slide-app-runtime/minimal_submit_app_provider_interactive.html',
+    'docs/user-guide/slide-app-runtime/slide_app_runtime_flow_visualized.html',
+    'docs/ssot/runtime_semantics_modeltable_driven.md',
+  ];
+  for (const file of files) {
+    assertNotIncludes(file, 'legacy host-table', `${file} must not describe the old host-table installer as current`);
+    assertNotIncludes(file, 'legacy/current key', `${file} must not call current generated labels legacy/current`);
+    assertNotIncludes(file, '属于后续实现目标', `${file} must not describe app table path as future-only`);
+    assertNotIncludes(file, 'App instance table 的 `model.subtableconnection` 边界属于 0431 target / follow-up', `${file} must not mark subtable boundary as follow-up`);
+    assertNotIncludes(file, '目标实现后', `${file} must not describe table-qualified app instance semantics as future-only`);
+    assertNotIncludes(file, '后续实现债务', `${file} must not describe table-qualified app instance semantics as future-only`);
+    assertNotIncludes(file, 'current v1 host-table implementation fact', `${file} must not teach old host-table fact as current`);
+  }
+}
+
 const tests = [
   test_slide_runtime_guide_uses_subtable_install_language,
   test_minimal_submit_docs_are_table_qualified,
   test_modeltable_user_guide_lists_subtable_and_payload_tables,
   test_ssot_payload_contract_allows_host_endpoint_with_app_reply_target,
   test_visible_snapshot_docs_use_table_qualified_refs,
+  test_slide_runtime_docs_do_not_teach_old_install_path,
 ];
 
 const results = [];

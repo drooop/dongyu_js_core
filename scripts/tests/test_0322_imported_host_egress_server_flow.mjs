@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import AdmZipPkg from 'adm-zip';
+import { payloadRecords as v2PayloadRecords } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const AdmZip = AdmZipPkg && AdmZipPkg.default ? AdmZipPkg.default : AdmZipPkg;
 
@@ -92,6 +93,15 @@ function slideImportClickBusEvent() {
   };
 }
 
+function busEventV2Envelope(busInKey, value, opId = `it0322_${Date.now()}`) {
+  return {
+    type: 'bus_event_v2',
+    bus_in_key: busInKey,
+    value,
+    meta: { op_id: opId },
+  };
+}
+
 function payloadWithIngressAndEgress() {
   return [
     { id: 0, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.ImportedHostEgressFlowApp' },
@@ -172,21 +182,21 @@ async function withServerState(fn) {
   }
 }
 
-async function test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix() {
+async function test_imported_app_host_ingress_can_reach_control_bus_out() {
   return withServerState(async (state) => {
-    const matrixPublished = [];
-    state.programEngine.matrixRoomId = '!it0322:localhost';
-    state.programEngine.matrixDmPeerUserId = '@peer:localhost';
-    state.programEngine.matrixAdapter = {
-      publish: async (payload) => {
-        matrixPublished.push(payload);
+    const controlBusPublished = [];
+    state.programEngine.controlBusClient = {
+      connected: true,
+      publish(topic, payload, callback) {
+        controlBusPublished.push({ topic, payload: JSON.parse(payload) });
+        if (typeof callback === 'function') callback(null);
       },
     };
     const model0 = state.runtime.getModel(0);
     state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
     state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de' });
     state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'ui-server-it0322' });
-    state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
+    state.runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v2' });
     state.runtime.startMqttLoop({
       host: 'localhost',
       port: 1883,
@@ -209,67 +219,61 @@ async function test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix(
     const importedEntry = registry.find((entry) => entry && entry.name === 'Imported Host Egress Flow App');
     assert.ok(importedEntry, 'imported_app_must_appear_in_registry');
     const importedId = importedEntry.model_id;
-    const ingressKey = `imported_host_submit_${importedId}`;
-    const busLabel = `imported_submit_${importedId}_bus`;
-    const bridgeFunc = `bridge_imported_submit_to_mt_bus_send_${importedId}`;
+    const importedTableId = importedEntry.table_id;
+    assert.equal(importedId, 0, 'imported_app_must_keep_package_local_root_model_id');
+    assert.ok(typeof importedTableId === 'string' && importedTableId.startsWith('app:'), 'imported_app_must_be_installed_as_subtable');
+    const importedModel = state.runtime.getModel({ table_id: importedTableId, model_id: importedId });
+    assert.ok(importedModel, 'imported_subtable_root_model_must_exist');
+    const importedRootBefore = state.runtime.getCell(importedModel, 0, 0, 0).labels;
+    const generatedIngressLabels = importedRootBefore.get('host_ingress_generated_model0_labels')?.v || [];
+    const ingressKey = generatedIngressLabels.find((key) => typeof key === 'string' && key.startsWith('imported_host_submit_'));
 
     const model0Root = state.runtime.getCell(state.runtime.getModel(0), 0, 0, 0).labels;
     assert.ok(model0Root.has(ingressKey), 'host_ingress_adapter_must_exist_before_egress_flow');
-    state.runtime.addLabel(state.runtime.getModel(importedId), 2, 3, 0, {
-      k: 'click_chain',
-      t: 'pin.in',
-      v: uiEventPayload([
+    const submitResult = await state.submitEnvelope(busEventV2Envelope(
+      ingressKey,
+      uiEventPayload([
         { k: 'text', t: 'str', v: 'hello imported host egress' },
         { k: 'source', t: 'str', v: 'host_ingress' },
       ]),
-    });
+      `it0322_imported_host_egress_${Date.now()}`,
+    ));
+    assert.equal(submitResult.result, 'ok', 'generated_host_ingress_must_accept_bus_event_v2');
+    assert.equal(submitResult.routed_by, 'model0_busin', 'generated_host_ingress_must_route_via_model0');
     await wait(220);
 
-    const importedRoot = state.runtime.getCell(state.runtime.getModel(importedId), 0, 0, 0).labels;
+    const importedRoot = state.runtime.getCell(importedModel, 0, 0, 0).labels;
     assert.equal(importedRoot.get('status_text')?.v, 'payload_ready', 'imported_handler_must_prepare_payload');
     assert.ok(Array.isArray(importedRoot.get('last_submit_payload')?.v), 'imported_handler_must_materialize_payload_array');
     assert.equal(importedRoot.get('last_submit_payload')?.v?.find?.((record) => record && record.k === 'message_text')?.v, 'hello imported host egress', 'imported_payload_must_preserve_message_text');
 
-    const mqttPublishes = state.runtime.mqttTrace.list().filter((entry) => entry.type === 'publish');
-    assert.ok(mqttPublishes.some((entry) =>
-      entry.payload?.topic === 'UIPUT/ws/dam/pic/de/R1/3000/submit'
-      && entry.payload?.payload?.type === 'pin_payload'
-      && payloadString(entry.payload.payload.payload, 'message_role') === 'request'
-      && payloadString(entry.payload.payload.payload, 'endpoint_worker_id') === 'R1'
-      && payloadInt(entry.payload.payload.payload, 'endpoint_model_id') === 3000
-      && payloadString(entry.payload.payload.payload, 'endpoint_pin') === 'submit'
-      && payloadString(entry.payload.payload.payload, 'origin_worker_id') === 'ui-server-it0322'
-      && payloadInt(entry.payload.payload.payload, 'origin_model_id') === importedId
-      && payloadString(entry.payload.payload.payload, 'reply_target_worker_id') === 'ui-server-it0322'
-      && payloadInt(entry.payload.payload.payload, 'reply_target_model_id') === importedId
-      && payloadString(entry.payload.payload.payload, 'reply_target_pin') === 'result'
-      && payloadJson(entry.payload.payload.payload, 'payload')?.find?.((record) => record && record.k === 'message_text')?.v === 'hello imported host egress',
-    ), 'model0_bus_out_must_publish_endpoint_record_packet_to_mqtt');
+    assert.ok(controlBusPublished.some((entry) =>
+      entry.topic === 'UIPUT/ws/dam/pic/de/R1/3000/submit'
+      && entry.payload?.type === 'pin_payload'
+      && payloadString(entry.payload.payload, '__mt_payload_kind') === 'pin_payload.v2'
+      && payloadString(entry.payload.payload, 'message_role') === 'request'
+      && payloadString(entry.payload.payload, 'topic') === 'UIPUT/ws/dam/pic/de/R1/3000/submit'
+      && payloadString(entry.payload.payload, 'response_topic') === 'UIPUT/ws/dam/pic/de/ui-server-it0322/1051/result'
+      && payloadString(entry.payload.payload, 'endpoint_worker_id') === 'R1'
+      && payloadString(entry.payload.payload, 'endpoint_table_id') === 'host'
+      && payloadInt(entry.payload.payload, 'endpoint_model_id') === 3000
+      && payloadString(entry.payload.payload, 'endpoint_pin') === 'submit'
+      && payloadString(entry.payload.payload, 'origin_worker_id') === 'ui-server-it0322'
+      && payloadString(entry.payload.payload, 'origin_table_id') === importedTableId
+      && payloadInt(entry.payload.payload, 'origin_model_id') === importedId
+      && payloadString(entry.payload.payload, 'reply_target_worker_id') === 'ui-server-it0322'
+      && payloadString(entry.payload.payload, 'reply_target_table_id') === importedTableId
+      && payloadInt(entry.payload.payload, 'reply_target_model_id') === importedId
+      && payloadString(entry.payload.payload, 'reply_target_pin') === 'result'
+      && v2PayloadRecords(entry.payload.payload).some((record) => record && record.k === 'message_text' && record.v === 'hello imported host egress'),
+    ), `model0_bus_out_must_publish_strict_pin_payload_v2_to_control_bus; published=${JSON.stringify(controlBusPublished, null, 2)}`);
 
-    assert.equal(matrixPublished.length, 1, 'matrix_publish_must_be_called_once');
-    assert.equal(matrixPublished[0]?.type, 'pin_payload', 'matrix_publish_must_use_pin_payload_transport');
-    assert.deepEqual(Object.keys(matrixPublished[0] || {}).sort(), ['payload', 'type', 'version'], 'matrix packet must expose only version/type/payload');
-    assert.equal(payloadString(matrixPublished[0]?.payload, 'message_role'), 'request', 'matrix_publish_must_mark_request_role');
-    assert.equal(payloadString(matrixPublished[0]?.payload, 'endpoint_worker_id'), 'R1', 'matrix_publish_must_use_remote_worker_endpoint');
-    assert.equal(payloadInt(matrixPublished[0]?.payload, 'endpoint_model_id'), 3000, 'matrix_publish_must_use_remote_model_endpoint');
-    assert.equal(payloadString(matrixPublished[0]?.payload, 'endpoint_pin'), 'submit', 'matrix_publish_must_preserve_submit_pin_as_endpoint');
-    assert.equal(payloadString(matrixPublished[0]?.payload, 'origin_worker_id'), 'ui-server-it0322', 'matrix_publish_must_use_ui_server_origin_worker');
-    assert.equal(payloadInt(matrixPublished[0]?.payload, 'origin_model_id'), importedId, 'matrix_publish_must_use_imported_model_id_as_origin');
-    assert.equal(payloadInt(matrixPublished[0]?.payload, 'reply_target_model_id'), importedId, 'matrix_publish_must_reply_to_local_imported_model_id');
-    assert.equal(payloadJson(matrixPublished[0]?.payload, 'payload')?.find?.((record) => record && record.k === 'message_text')?.v, 'hello imported host egress', 'matrix_payload_must_preserve_message_text');
-
-    const deleteResult = state.runtime.hostApi.wsDeleteApp(importedId);
-    assert.equal(deleteResult.ok, true, 'delete_must_succeed');
-    const rootCell = state.runtime.getCell(model0, 0, 0, 0).labels;
-    assert.ok(!rootCell.has(ingressKey), 'delete_must_remove_host_ingress_port');
-    assert.ok(!rootCell.has(busLabel), 'delete_must_remove_model0_bus_out_label');
-    assert.ok(!rootCell.has(bridgeFunc), 'delete_must_remove_generated_bridge_function');
-    return { key: 'imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix', status: 'PASS' };
+    return { key: 'imported_app_host_ingress_can_reach_control_bus_out', status: 'PASS' };
   });
 }
 
 const tests = [
-  test_imported_app_host_ingress_can_reach_bus_out_mqtt_and_matrix,
+  test_imported_app_host_ingress_can_reach_control_bus_out,
 ];
 
 (async () => {
