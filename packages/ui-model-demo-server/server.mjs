@@ -5978,6 +5978,127 @@ function buildClientSnapshotForPrincipal(snapshot, principal = null) {
   };
 }
 
+function runtimeModelTableId(model) {
+  return model && typeof model.table_id === 'string' && model.table_id.trim()
+    ? model.table_id.trim()
+    : 'host';
+}
+
+function principalCanAccessRuntimeTable(runtime, principal, tableId) {
+  const normalizedTableId = typeof tableId === 'string' && tableId.trim() ? tableId.trim() : 'host';
+  if (normalizedTableId === 'host') return true;
+  const mount = runtime && runtime.subtableMounts instanceof Map
+    ? runtime.subtableMounts.get(normalizedTableId)
+    : null;
+  if (!mount) return false;
+  const owner = typeof mount.owner_principal_id === 'string' ? mount.owner_principal_id.trim() : '';
+  if (!owner) return true;
+  return principalTableAccessIdentity(principal) === owner;
+}
+
+function runtimeCellLabelsObject(cell) {
+  const labels = {};
+  if (!cell || !(cell.labels instanceof Map)) return labels;
+  for (const [lk, lv] of cell.labels.entries()) {
+    labels[lk] = { k: lv.k, t: lv.t, v: lv.v };
+  }
+  return labels;
+}
+
+function buildClientRuntimeModelForPrincipal(model, principal = null) {
+  if (!model) return null;
+  const tableId = runtimeModelTableId(model);
+  const modelIdText = String(model.id);
+  if (tableId === 'host') {
+    const requiredCapability = requiredCapabilityForClientModel(modelIdText);
+    if (requiredCapability === 'never') return null;
+    if (requiredCapability && !principalHasCapability(principal, requiredCapability)) return null;
+  }
+  const filteredCells = {};
+  for (const [ck, cell] of model.cells.entries()) {
+    const rawCell = {
+      p: cell.p,
+      r: cell.r,
+      c: cell.c,
+      labels: runtimeCellLabelsObject(cell),
+    };
+    if (shouldFilterPrincipalCell(modelIdText, ck, rawCell, principal)) continue;
+    const filteredLabels = {};
+    for (const [lk, lv] of Object.entries(rawCell.labels || {})) {
+      if (shouldFilterClientBaseLabel(lk, lv)) continue;
+      if (shouldFilterPrincipalLabel(lk, lv, principal)) continue;
+      const clientSafeValue = sanitizeClientVisibleValue(lv?.v);
+      if (clientSafeValue === undefined && lv && Object.prototype.hasOwnProperty.call(lv, 'v')) continue;
+      const sanitizedValue = sanitizePrincipalLabelValue(clientSafeValue, principal);
+      if (sanitizedValue === undefined) continue;
+      filteredLabels[lk] = sanitizedValue === lv?.v ? lv : { ...lv, v: sanitizedValue };
+    }
+    filteredCells[ck] = { ...rawCell, labels: filteredLabels };
+  }
+  return {
+    table_id: tableId,
+    id: model.id,
+    name: model.name,
+    type: model.type,
+    cells: filteredCells,
+  };
+}
+
+function runtimeVisibleRefFailure(status, error, extra = {}) {
+  return { ok: false, status, error, body: { ok: false, error, ...extra } };
+}
+
+function buildScopedVisibleClientSnapshotForRuntime(entry, profileOptions = {}) {
+  const profile = profileOptions && typeof profileOptions.profile === 'string'
+    ? profileOptions.profile
+    : 'bootstrap';
+  if (profile !== 'visible') {
+    return runtimeVisibleRefFailure(400, 'unsupported_snapshot_profile');
+  }
+  const runtimeState = entry && entry.state ? entry.state : null;
+  const runtime = runtimeState && runtimeState.runtime ? runtimeState.runtime : null;
+  if (!runtime || typeof runtime.getModel !== 'function') {
+    return runtimeVisibleRefFailure(503, 'runtime_unavailable');
+  }
+  const principal = entry && entry.principal ? entry.principal : null;
+  const visibleModelRefs = normalizeVisibleModelRefsFromOptions(profileOptions);
+  if (visibleModelRefs.length === 0) {
+    return runtimeVisibleRefFailure(400, 'missing_model_id');
+  }
+  const models = {};
+  const tables = {};
+  for (const ref of visibleModelRefs) {
+    if (ref.table_id !== 'host' && !principalCanAccessRuntimeTable(runtime, principal, ref.table_id)) {
+      return runtimeVisibleRefFailure(403, 'model_not_visible');
+    }
+    if (ref.table_id === 'host') {
+      const requiredCapability = requiredCapabilityForClientModel(String(ref.model_id));
+      if (requiredCapability === 'never') return runtimeVisibleRefFailure(403, 'model_not_allowed');
+      if (requiredCapability && !principalHasCapability(principal, requiredCapability)) {
+        return runtimeVisibleRefFailure(403, 'permission_denied', { requiredCapability });
+      }
+    }
+    const model = runtime.getModel(ref);
+    if (!model) return runtimeVisibleRefFailure(404, 'model_not_found');
+    const clientModel = buildClientRuntimeModelForPrincipal(model, principal);
+    if (!clientModel) {
+      return runtimeVisibleRefFailure(ref.table_id === 'host' ? 403 : 403, 'model_not_visible');
+    }
+    if (ref.table_id === 'host') {
+      models[String(ref.model_id)] = clientModel;
+    } else {
+      if (!tables[ref.table_id]) tables[ref.table_id] = { table_id: ref.table_id, models: {} };
+      tables[ref.table_id].models[String(ref.model_id)] = clientModel;
+    }
+  }
+  const snapshot = {
+    models,
+    v1nConfig: sanitizeClientSnapshotV1nConfig(runtime.v1nConfig),
+  };
+  if (Object.keys(tables).length > 0) snapshot.tables = tables;
+  return { ok: true, snapshot };
+}
+
 function readSnapshotRootLabels(snapshot, modelId) {
   return snapshot?.models?.[String(modelId)]?.cells?.['0,0,0']?.labels || {};
 }
@@ -13382,6 +13503,35 @@ function startServer(options) {
     return { ok: false, status, body: { ok: false, error, ...extra } };
   }
 
+  function readRuntimeRootLabelValue(runtime, modelId, labelKey) {
+    const model = runtime && typeof runtime.getModel === 'function' ? runtime.getModel(modelId) : null;
+    if (!model || typeof runtime.getLabelValue !== 'function') return undefined;
+    return runtime.getLabelValue(model, 0, 0, 0, labelKey);
+  }
+
+  function runtimeHostModelIsVisible(runtime, modelId) {
+    if (!runtime || typeof runtime.getModel !== 'function' || !Number.isInteger(modelId)) return false;
+    const model = runtime.getModel(modelId);
+    if (!model) return false;
+    if (readRuntimeRootLabelValue(runtime, modelId, 'ws_deleted') === true) return false;
+    if (BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(modelId)) return true;
+
+    if (modelId <= 0) return false;
+    const allowedWorkspaceEntry = WORKSPACE_ENTRY_MODEL_IDS.includes(modelId);
+    const deletable = readRuntimeRootLabelValue(runtime, modelId, 'deletable') === true;
+    const slideCapable = readRuntimeRootLabelValue(runtime, modelId, 'slide_capable') === true;
+    const installedSlideApp = deletable && slideCapable;
+    if (!allowedWorkspaceEntry && !installedSlideApp) return false;
+    const hasAppName = typeof readRuntimeRootLabelValue(runtime, modelId, 'app_name') === 'string'
+      && readRuntimeRootLabelValue(runtime, modelId, 'app_name').trim();
+    const hasSourceWorker = typeof readRuntimeRootLabelValue(runtime, modelId, 'source_worker') === 'string'
+      && readRuntimeRootLabelValue(runtime, modelId, 'source_worker').trim();
+    const parentInfo = runtime.parentChildMap && typeof runtime.parentChildMap.get === 'function'
+      ? runtime.parentChildMap.get(`host|${modelId}`)
+      : null;
+    return Boolean(hasAppName || hasSourceWorker || (parentInfo && parentInfo.parentModelId === 0));
+  }
+
   function validateVisibleModelId(rawValue, runtimeEntry) {
     const text = String(rawValue || '').trim();
     if (!/^-?\d+$/u.test(text)) {
@@ -13400,10 +13550,11 @@ function startServer(options) {
       return snapshotProfileError(403, 'permission_denied', { requiredCapability });
     }
     const runtimeState = runtimeEntry && runtimeEntry.state ? runtimeEntry.state : state;
-    if (!runtimeState.runtime.getModel(modelId)) {
+    const runtime = runtimeState && runtimeState.runtime ? runtimeState.runtime : null;
+    if (!runtime || !runtime.getModel(modelId)) {
       return snapshotProfileError(404, 'model_not_found');
     }
-    if (!visibleModelIdsForClient(runtimeEntry).has(modelId)) {
+    if (!runtimeHostModelIsVisible(runtime, modelId)) {
       return snapshotProfileError(403, 'model_not_visible');
     }
     return { ok: true, modelId, modelRef: { table_id: 'host', model_id: modelId } };
@@ -13503,8 +13654,8 @@ function startServer(options) {
     if (!runtime || !runtime.getModel(ref)) {
       return snapshotProfileError(404, 'model_not_found');
     }
-    const visibleRefs = visibleModelRefsForClient(runtimeEntry);
-    if (!visibleRefs.has(visibleModelRefKey(ref))) {
+    const principal = runtimeEntry && runtimeEntry.principal ? runtimeEntry.principal : null;
+    if (ref.model_id < 0 || !principalCanAccessRuntimeTable(runtime, principal, ref.table_id)) {
       return snapshotProfileError(403, 'model_not_visible');
     }
     return { ok: true, modelId: ref.model_id, modelRef: ref };
@@ -13552,6 +13703,15 @@ function startServer(options) {
   }
 
   function getProfiledClientSnapForRuntime(entry, profileOptions = {}) {
+    if (profileOptions && profileOptions.profile === 'visible') {
+      const direct = buildScopedVisibleClientSnapshotForRuntime(entry, profileOptions);
+      if (!direct.ok) {
+        const err = new Error(direct.error || 'visible_snapshot_build_failed');
+        err.snapshotProfileError = direct;
+        throw err;
+      }
+      return direct.snapshot;
+    }
     const fullSnap = getClientSnapForRuntime(entry);
     return buildClientSnapshotProfile(fullSnap, profileOptions);
   }
@@ -14515,6 +14675,7 @@ export {
   buildClientSnapshotProfile,
   buildClientSnapshotProfileStats,
   buildClientSnapshotProfileWithStats,
+  buildScopedVisibleClientSnapshotForRuntime,
   buildMgmtBusConsoleMatrixPacket,
   buildWorkspaceAssetBundleRequestPacket,
   buildSlideAppExportPayload,
