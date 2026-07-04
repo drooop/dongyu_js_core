@@ -190,6 +190,38 @@ phase: completed
   - Sub-agent re-reviewed the host-table visible-ref direct validation fix, new HTTP regression test, runlog metrics, and verification set.
   - No findings, no open questions, no verification gaps.
 
+### Post-Commit Current-HEAD Local Deploy Check
+
+- Command:
+  - `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+  - `bash scripts/ops/playwright_session_guard.sh cleanup`
+  - `bash scripts/ops/playwright_session_guard.sh session open 'http://localhost:30900/auth/dev/fake-login?user=drop&returnTo=/' --headed`
+  - Browser fetch for App-table and host-table explicit visible snapshots.
+  - Browser click flow for `E2E 颜色生成器` -> `Generate Color`.
+- Key output:
+  - Current HEAD deployed locally after the host-table visible-ref fix.
+  - Pods ready:
+    - `ui-server-55d88f686c-f9bjf`
+    - `mbr-worker-7d8d7dc7d5-k4z66`
+    - `remote-worker-6cbfbcddd9-qvg58`
+    - `workspace-manager-6b865d4f45-hrgqn`
+  - App-table visible snapshot:
+    - ref: `{ "table_id": "app:drop:e2e:2-0-20:1", "model_id": 0 }`
+    - status: `200`
+    - browser time: `14ms`
+    - bytes: `15285`
+  - Host-table visible snapshot:
+    - ref: `{ "table_id": "host", "model_id": 1086 }`
+    - status: `200`
+    - browser time: `15.6ms`
+    - bytes: `24468`
+  - E2E color generator:
+    - Color changed from `#e33f9f` to `#c5daf9`.
+    - Browser-observed end-to-end latency: `891.2ms`.
+  - Cleanup:
+    - `bash scripts/ops/playwright_session_guard.sh cleanup`: `PASS`
+- Result: PASS
+
 ## Docs Updated
 
 - [x] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed for scope impact; no SSOT semantics change required.
