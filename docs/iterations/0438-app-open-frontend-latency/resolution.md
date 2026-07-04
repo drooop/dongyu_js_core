@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0438 App Open Frontend Latency Resolution"
 doc_type: iteration-resolution
-status: planned
-updated: 2026-07-04
+status: completed
+updated: 2026-07-05
 source: ai
 iteration_id: 0438-app-open-frontend-latency
 id: 0438-app-open-frontend-latency
-phase: planning
+phase: completed
 ---
 
 # Iteration 0438-app-open-frontend-latency Resolution
@@ -125,4 +125,6 @@ Each implementation step requires a sub-agent review using `codex-code-review`. 
 ## Notes
 
 - Generated at: 2026-07-04
-- Phase 1 must remain docs-only.
+- Completed at: 2026-07-05
+- Phase 1 remained docs-only.
+- Final implementation added foreground App-open timing, measured local browser latency, and narrowed foreground visible lazy-load snapshot requests to the target App/model while preserving full visible SSE subscriptions.

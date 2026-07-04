@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0438 App Open Frontend Latency Runlog"
 doc_type: iteration-runlog
-status: in_progress
+status: completed
 updated: 2026-07-05
 source: ai
 iteration_id: 0438-app-open-frontend-latency
 id: 0438-app-open-frontend-latency
-phase: execution
+phase: completed
 ---
 
 # Iteration 0438-app-open-frontend-latency Runlog
@@ -163,6 +163,7 @@ phase: execution
   - `playwright_cli.sh list`: `(no browsers)`.
 - Result: PASS
 - Commit:
+  - `26a7ef2 feat(frontend): instrument app open latency [0438]`
 
 ### Step 3
 
@@ -259,6 +260,33 @@ phase: execution
 - Browser cleanup:
   - Playwright session `0438-app-open-post-change-rerun` closed.
   - `playwright_cli.sh list`: `(no browsers)`.
+- Result: PASS
+- Commit:
+  - `9a47491 perf(frontend): request target app snapshot only [0438]`
+
+### Step 4
+
+- Goal:
+  - Close iteration 0438 with final deterministic regression, build, local deployment/browser evidence already captured, and final review.
+- Docs update:
+  - `docs/ITERATIONS.md`: marked `0438-app-open-frontend-latency` as `Completed`.
+  - `docs/iterations/0438-app-open-frontend-latency/resolution.md`: marked `status: completed`, `phase: completed`.
+  - `docs/iterations/0438-app-open-frontend-latency/runlog.md`: marked `status: completed`, `phase: completed`.
+- Final regression command:
+  - `git diff --check && node scripts/tests/test_0438_app_open_frontend_latency_contract.mjs && node scripts/tests/test_0418_visible_snapshot_projection_latency_contract.mjs && node scripts/tests/test_0423_snapshot_granularity_contract.mjs && node scripts/tests/test_0425_frontend_model_ref_projection_contract.mjs && node scripts/tests/test_0425_visible_model_refs_contract.mjs && node scripts/tests/test_0425_principal_desktop_state_contract.mjs && node scripts/tests/test_0425_slide_app_subtable_install_contract.mjs && node scripts/tests/test_0426_snapshot_patch_recovery_contract.mjs && node scripts/tests/test_0435_visible_snapshot_app_slimming_contract.mjs && node scripts/tests/test_0436_runtime_snapshot_build_latency_contract.mjs && node scripts/tests/test_0437_bootstrap_sse_first_packet_latency_contract.mjs && npm -C packages/ui-model-demo-frontend run build`
+- Final regression key output:
+  - `test_0438_app_open_frontend_latency_contract.mjs`: `6 passed, 0 failed out of 6`
+  - `test_0418_visible_snapshot_projection_latency_contract.mjs`: `PASS 8/8`
+  - `test_0423_snapshot_granularity_contract.mjs`: `13 passed`
+  - `test_0425_frontend_model_ref_projection_contract.mjs`: `12 passed, 0 failed out of 12`
+  - `test_0425_visible_model_refs_contract.mjs`: `7 passed, 0 failed out of 7`
+  - `test_0425_principal_desktop_state_contract.mjs`: `6 passed`
+  - `test_0425_slide_app_subtable_install_contract.mjs`: `5 passed, 0 failed out of 5`
+  - `test_0426_snapshot_patch_recovery_contract.mjs`: `4 passed, 0 failed out of 4`
+  - `test_0435_visible_snapshot_app_slimming_contract.mjs`: `2 passed, 0 failed`
+  - `test_0436_runtime_snapshot_build_latency_contract.mjs`: `6 passed, 0 failed`
+  - `test_0437_bootstrap_sse_first_packet_latency_contract.mjs`: `4 passed, 0 failed`
+  - Frontend build: `✓ built in 2.64s`
 - Result: PASS
 - Commit:
 
@@ -365,3 +393,12 @@ Review Gate Record
 - Decision: Approved
 - Scope: Step 3 target-only foreground visible snapshot optimization after 0418 contract update.
 - Notes: Sub-agent approved the latest Step 3 diff with no findings, open questions, or verification gaps.
+
+Review Gate Record
+- Iteration ID: 0438-app-open-frontend-latency
+- Review Date: 2026-07-05
+- Review Type: AI-assisted / sub-agent
+- Review Index: 9
+- Decision: Approved
+- Scope: Final 0438 completion state, tests, docs, browser evidence, and target-only optimization.
+- Notes: Sub-agent approved the final iteration state with no findings, open questions, or verification gaps.
