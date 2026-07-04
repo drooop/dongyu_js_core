@@ -40,7 +40,7 @@ function test_workspace_patch_defines_slide_creator_models() {
   const hierarchyRecords = getRecords('packages/worker-base/system-models/runtime_hierarchy_mounts.json');
   const creatorMount = findRecord(
     hierarchyRecords,
-    (record) => record?.model_id === 0 && record?.t === 'model.submt' && record?.v === SLIDE_CREATOR_APP_MODEL_ID,
+    (record) => record?.model_id === 0 && record?.t === 'model.submtconnection' && record?.v === SLIDE_CREATOR_APP_MODEL_ID,
   );
 
   assert.ok(
@@ -60,7 +60,7 @@ function test_workspace_patch_defines_slide_creator_models() {
     findRecord(workspaceRecords, (record) => (
       record?.model_id === SLIDE_CREATOR_APP_MODEL_ID
       && record?.k === 'model_type'
-      && record?.t === 'model.submt'
+      && record?.t === 'model.submtconnection'
       && record?.v === SLIDE_CREATOR_TRUTH_MODEL_ID
     )),
     'slide_creator_truth_must_mount_under_creator_app',

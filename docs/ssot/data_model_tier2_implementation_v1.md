@@ -176,7 +176,8 @@ Poor fits:
 - Raw transport envelopes.
 - Secrets and bootstrap credentials.
 - UI component definitions.
-- Model topology such as `model.submt` and pin wiring.
+- Model topology such as parent-side `model.submtconnection`, child-side
+  `model.submt`, `model.subtableconnection`, `model.subtable`, and pin wiring.
 - Compatibility aliases for old Data.* pins.
 
 ## 7. Current Debt

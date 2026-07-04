@@ -55,11 +55,15 @@ function slideCreateClickPayload() {
   ]);
 }
 
-function wsDeleteClickPayload(modelId) {
-  return [
+function wsDeleteClickPayload(modelRef) {
+  const labels = [
     { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'ws_delete_app.v1' },
-    { id: 0, p: 0, r: 0, c: 0, k: 'model_id', t: 'int', v: modelId },
+    { id: 0, p: 0, r: 0, c: 0, k: 'model_id', t: 'int', v: modelRef.model_id },
   ];
+  if (typeof modelRef.table_id === 'string' && modelRef.table_id) {
+    labels.push({ id: 0, p: 0, r: 0, c: 0, k: 'table_id', t: 'str', v: modelRef.table_id });
+  }
+  return labels;
 }
 
 async function withServerState(fn) {
@@ -115,10 +119,14 @@ async function test_filltable_create_materializes_workspace_app_and_delete_clean
     assert.equal(createdEntry.source, 'filltable-create', 'created_filltable_app_must_publish_source_worker');
     assert.equal(typeof createdEntry.summary, 'string', 'created_filltable_app_must_publish_summary');
     assert.ok(createdEntry.summary.trim().length >= 8, 'created_filltable_app_summary_must_be_non_empty');
+    assert.equal(typeof createdEntry.table_id, 'string', 'created_filltable_app_must_publish_table_id');
 
+    const createdTableId = createdEntry.table_id;
     const createdModelId = createdEntry.model_id;
-    const createdTruthId = createdModelId + 1;
-    const createdRoot = snapAfterCreate.models[String(createdModelId)]?.cells?.['0,0,0']?.labels || {};
+    const createdTruthId = 1;
+    assert.equal(createdModelId, 0, 'created_filltable_app_must_keep_package_root_model_id');
+    const createdTable = snapAfterCreate.tables?.[createdTableId] || {};
+    const createdRoot = createdTable.models?.[String(createdModelId)]?.cells?.['0,0,0']?.labels || {};
     assert.equal(createdRoot.app_name?.v, 'Filltable Created App', 'created_root_must_materialize_app_name');
     assert.equal(createdRoot.source_worker?.v, 'filltable-create', 'created_root_must_materialize_source_worker');
     assert.equal(typeof createdRoot.slide_app_summary?.v, 'string', 'created_root_must_materialize_summary');
@@ -126,11 +134,11 @@ async function test_filltable_create_materializes_workspace_app_and_delete_clean
     assert.equal(createdRoot.slide_capable?.v, true, 'created_root_must_materialize_slide_capable');
     assert.equal(createdRoot.slide_surface_type?.v, 'workspace.page', 'created_root_must_materialize_surface_type');
 
-    const createdTruth = snapAfterCreate.models[String(createdTruthId)]?.cells?.['0,0,0']?.labels || {};
+    const createdTruth = createdTable.models?.[String(createdTruthId)]?.cells?.['0,0,0']?.labels || {};
     assert.equal(createdTruth.headline?.v, 'Created by Filltable', 'created_truth_must_materialize_headline');
     assert.equal(createdTruth.body_text?.v, 'This app came from the creator form.', 'created_truth_must_materialize_body_text');
 
-    const createdBind = snapAfterCreate.models[String(createdModelId)]?.cells?.['2,3,0']?.labels?.ui_bind_json?.v;
+    const createdBind = createdTable.models?.[String(createdModelId)]?.cells?.['2,3,0']?.labels?.ui_bind_json?.v;
     assert.equal(createdBind?.read?.model_id, createdTruthId, 'created_app_bind_read_model_id_must_point_to_created_truth');
     assert.equal(createdBind?.write?.target_ref?.model_id, createdTruthId, 'created_app_bind_write_model_id_must_point_to_created_truth');
     assert.equal(createdBind?.write?.commit_policy, 'on_blur', 'created_app_positive_input_must_use_on_blur_commit_policy');
@@ -140,20 +148,27 @@ async function test_filltable_create_materializes_workspace_app_and_delete_clean
       createdModelId,
       'creator_flow_must_select_new_app_after_create',
     );
+    assert.deepEqual(
+      snapAfterCreate.models['-2']?.cells?.['0,0,0']?.labels?.ws_app_selected_ref?.v,
+      { table_id: createdTableId, model_id: createdModelId },
+      'creator_flow_must_select_new_app_with_table_qualified_ref',
+    );
 
     const deleteResult = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 1 },
       'click',
-      wsDeleteClickPayload(createdModelId),
+      wsDeleteClickPayload({ table_id: createdTableId, model_id: createdModelId }),
     ));
     assert.equal(deleteResult.result, 'ok', 'delete_created_filltable_app_pin_must_succeed');
     await wait();
 
     const snapAfterDelete = state.clientSnap();
     const registryAfterDelete = snapAfterDelete.models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
-    assert.ok(!registryAfterDelete.some((entry) => entry && entry.model_id === createdModelId), 'deleted_filltable_app_must_leave_registry');
-    assert.equal(snapAfterDelete.models[String(createdModelId)], undefined, 'deleted_filltable_root_model_must_be_removed');
-    assert.equal(snapAfterDelete.models[String(createdTruthId)], undefined, 'deleted_filltable_truth_model_must_be_removed');
+    assert.ok(
+      !registryAfterDelete.some((entry) => entry && entry.table_id === createdTableId && entry.model_id === createdModelId),
+      'deleted_filltable_app_must_leave_registry',
+    );
+    assert.equal(snapAfterDelete.tables?.[createdTableId], undefined, 'deleted_filltable_app_table_must_be_removed');
 
     return { key: 'filltable_create_materializes_workspace_app_and_delete_cleans_up', status: 'PASS' };
   });

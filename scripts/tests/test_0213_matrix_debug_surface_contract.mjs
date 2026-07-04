@@ -70,11 +70,11 @@ function test_matrix_debug_surface_is_model_defined_and_mounted() {
       (record) => record
         && record.op === 'add_label'
         && record.model_id === 0
-        && record.t === 'model.submt'
+        && record.t === 'model.submtconnection'
         && record.v === -100,
     ),
     true,
-    'runtime_hierarchy_mounts must mount Model -100 via model.submt',
+    'runtime_hierarchy_mounts must mount Model -100 via model.submtconnection',
   );
   assert.doesNotMatch(
     server,

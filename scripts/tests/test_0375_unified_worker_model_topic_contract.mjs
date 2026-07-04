@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { WorkerEngineV0 } from '../worker_engine_v0.mjs';
 import { validateUnifiedEndpointTopicPacket, validateUnifiedMatrixEventPacket } from '../run_worker_v0.mjs';
+import { pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
@@ -48,6 +49,7 @@ function pinPayloadRecords({
   topic = null,
   responseTopic = null,
   payload = [mt('text', 'str', 'hello')],
+  extraRecords = [],
 } = {}) {
   const routeTopic = typeof topic === 'string' && topic.length > 0
     ? topic
@@ -55,25 +57,24 @@ function pinPayloadRecords({
   const routeResponseTopic = typeof responseTopic === 'string' && responseTopic.length > 0
     ? responseTopic
     : `UIPUT/ws/dam/pic/de/${replyTargetWorkerId}/${replyTargetModelId}/${replyTargetPin}`;
-  return [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', opId),
-    mt('op_id', 'str', opId),
-    mt('message_role', 'str', messageRole),
-    mt('topic', 'str', routeTopic),
-    mt('response_topic', 'str', routeResponseTopic),
-    mt('endpoint_worker_id', 'str', endpointWorkerId),
-    mt('endpoint_model_id', 'int', endpointModelId),
-    mt('endpoint_pin', 'str', endpointPin),
-    mt('origin_worker_id', 'str', originWorkerId),
-    mt('origin_model_id', 'int', originModelId),
-    mt('origin_pin', 'str', originPin),
-    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
-    mt('reply_target_model_id', 'int', replyTargetModelId),
-    mt('reply_target_pin', 'str', replyTargetPin),
-    mt('payload', 'json', payload),
-    mt('timestamp', 'int', 1),
-  ];
+  return pinPayloadV2Records({
+    opId,
+    messageRole,
+    topic: routeTopic,
+    responseTopic: routeResponseTopic,
+    endpointWorkerId,
+    endpointModelId,
+    endpointPin,
+    originWorkerId,
+    originModelId,
+    originPin,
+    replyTargetWorkerId,
+    replyTargetModelId,
+    replyTargetPin,
+    payloadRecords: payload,
+    extraRecords,
+    timestamp: 1,
+  });
 }
 
 function legacyRoutePinPayloadRecords({
@@ -176,27 +177,32 @@ function providerBundleResponsePayload() {
     mt('__mt_payload_kind', 'str', 'slide_app_bundle_response.v1'),
     mt('__mt_request_id', 'str', 'req_0389_provider_bundle'),
     mt('asset_id', 'str', 'r1-minimal-submit'),
-    mt('bundle_payload', 'json', [
-      mt('app_name', 'str', '最小 Submit 双总线示例'),
-      mt('slide_capable', 'bool', true),
-      mt('model_type', 'model.table', 'UI.MinimalSubmitDualBusZip'),
-      { id: 0, p: 2, r: 3, c: 0, k: 'ui_component', t: 'str', v: 'Button' },
-      {
-        id: 0,
-        p: 2,
-        r: 3,
-        c: 0,
-        k: 'ui_bind_json',
-        t: 'json',
-        v: {
-          write: {
-            pin: 'click_event',
-            value_t: 'modeltable',
-            commit_policy: 'immediate',
-          },
+    mt('bundle_record_id_offset', 'int', 100),
+  ];
+}
+
+function providerBundleResponseExtraRecords() {
+  return [
+    mt('app_name', 'str', '最小 Submit 双总线示例', 100),
+    mt('slide_capable', 'bool', true, 100),
+    mt('model_type', 'model.table', 'UI.MinimalSubmitDualBusZip', 100),
+    { id: 100, p: 2, r: 3, c: 0, k: 'ui_component', t: 'str', v: 'Button' },
+    {
+      id: 100,
+      p: 2,
+      r: 3,
+      c: 0,
+      k: 'ui_bind_json',
+      t: 'json',
+      v: {
+        write: {
+          bus_event_v2: true,
+          bus_in_key: 'submit_request',
+          value_t: 'modeltable',
+          commit_policy: 'immediate',
         },
       },
-    ]),
+    },
   ];
 }
 
@@ -881,7 +887,7 @@ async function test_mt_bus_send_rejects_deeply_nested_legacy_reply_to() {
   const result = rt._applyBusSendPayload(model0, 0, 0, 0, payload);
 
   assert.equal(result.status, 'rejected', 'mt_bus_send must reject nested route.reply_to metadata');
-  assert.equal(result.code, 'legacy_pin_payload_metadata_removed', 'mt_bus_send must reject nested route.reply_to with the hard-cut legacy metadata code');
+  assert.equal(result.code, 'nested_payload_removed', 'mt_bus_send must reject removed nested payload before inspecting nested route.reply_to metadata');
   assert.equal(model0.getCell(0, 0, 0).labels.has('deep_reply_removed_out'), false, 'mt_bus_send must not materialize bus out when request contains nested route.reply_to');
   return { key: 'mt_bus_send_rejects_deeply_nested_legacy_reply_to', status: 'PASS' };
 }
@@ -908,7 +914,7 @@ async function test_mt_bus_send_rejects_nested_legacy_payload_records() {
   const result = rt._applyBusSendPayload(model0, 0, 0, 0, payload);
 
   assert.equal(result.status, 'rejected', 'mt_bus_send must reject nested legacy source_model_id records');
-  assert.equal(result.code, 'legacy_pin_payload_metadata_removed', 'mt_bus_send must use the hard-cut legacy metadata code');
+  assert.equal(result.code, 'nested_payload_removed', 'mt_bus_send must reject removed nested payload before inspecting nested source_model_id metadata');
   assert.equal(model0.getCell(0, 0, 0).labels.has('nested_source_removed_out'), false, 'mt_bus_send must not materialize bus out when nested payload contains source_model_id');
   return { key: 'mt_bus_send_rejects_nested_legacy_payload_records', status: 'PASS' };
 }
@@ -935,7 +941,7 @@ async function test_mt_bus_send_rejects_plain_json_legacy_keys() {
   const result = rt._applyBusSendPayload(model0, 0, 0, 0, payload);
 
   assert.equal(result.status, 'rejected', 'mt_bus_send must reject plain JSON legacy route keys');
-  assert.equal(result.code, 'legacy_pin_payload_metadata_removed', 'mt_bus_send must use the hard-cut legacy metadata code');
+  assert.equal(result.code, 'nested_payload_removed', 'mt_bus_send must reject removed nested payload before inspecting nested plain JSON route keys');
   assert.equal(model0.getCell(0, 0, 0).labels.has('plain_json_route_removed_out'), false, 'mt_bus_send must not materialize bus out with plain JSON route keys');
   return { key: 'mt_bus_send_rejects_plain_json_legacy_keys', status: 'PASS' };
 }
@@ -1189,10 +1195,11 @@ async function test_generic_worker_bootstrap_validates_topic_payload_endpoint_ma
     topic: `${base}/U1/1051/result`,
     responseTopic: `${base}/U1/1051/result`,
     payload: providerBundleResponsePayload(),
+    extraRecords: providerBundleResponseExtraRecords(),
   }));
 
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, packet, base).ok, true, 'valid topic and matching endpoint records must pass bootstrap validation');
-  assert.equal(validateUnifiedEndpointTopicPacket(`${base}/U1/1051/result`, providerBundleResponse, base).ok, true, 'provider-owned slide app bundle response must pass bootstrap validation even when UI labels use write.pin inside bundle payload');
+  assert.equal(validateUnifiedEndpointTopicPacket(`${base}/U1/1051/result`, providerBundleResponse, base).ok, true, 'provider-owned slide app bundle response must pass bootstrap validation with inline offset bundle records');
   assert.equal(validateUnifiedEndpointTopicPacket('UIPUT/R1/3000/submit', packet, 'UIPUT').ok, false, 'bootstrap validation must reject short-base unified topic shape');
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, packet, ` ${base} `).ok, false, 'bootstrap validation must reject padded mqtt_topic_base');
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/0/submit`, packet, base).ok, false, 'bootstrap validation must reject model_id=0');
@@ -1205,7 +1212,11 @@ async function test_generic_worker_bootstrap_validates_topic_payload_endpoint_ma
   }
   const missingOrigin = externalPacket(withoutRecords(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }), ['origin_worker_id']));
   const missingReplyTarget = externalPacket(withoutRecords(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }), ['reply_target_model_id']));
+  const missingEndpointTable = externalPacket(withoutRecords(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }), ['endpoint_table_id']));
+  const missingOriginTable = externalPacket(withoutRecords(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }), ['origin_table_id']));
+  const missingReplyTargetTable = externalPacket(withoutRecords(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }), ['reply_target_table_id']));
   const missingKind = externalPacket(withoutRecords(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }), ['__mt_payload_kind']));
+  const nestedPayload = externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }).concat([mt('payload', 'json', [mt('text', 'str', 'nested_removed')])]));
   const missingRequestCorrelation = externalPacket(withoutRecords(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }), ['__mt_request_id', 'op_id']));
   const malformedRecord = externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }).concat([{ foo: 'not-a-temp-record' }]));
   const legacyReply = externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }).concat([legacyReplyToRecord()]));
@@ -1247,7 +1258,11 @@ async function test_generic_worker_bootstrap_validates_topic_payload_endpoint_ma
   ));
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, missingOrigin, base).ok, false, 'bootstrap validation must require origin records');
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, missingReplyTarget, base).ok, false, 'bootstrap validation must require reply target records');
-  assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, missingKind, base).ok, false, 'bootstrap validation must require outer pin_payload.v1 kind record');
+  assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, missingEndpointTable, base).ok, false, 'bootstrap validation must require endpoint_table_id');
+  assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, missingOriginTable, base).ok, false, 'bootstrap validation must require origin_table_id');
+  assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, missingReplyTargetTable, base).ok, false, 'bootstrap validation must require reply_target_table_id');
+  assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, missingKind, base).ok, false, 'bootstrap validation must require pin_payload.v2 kind record');
+  assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, nestedPayload, base).ok, false, 'bootstrap validation must reject nested payload records');
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, missingRequestCorrelation, base).ok, false, 'bootstrap validation must require op_id or __mt_request_id');
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, blankRequestCorrelation, base).ok, false, 'bootstrap validation must reject whitespace-only op_id and __mt_request_id');
   assert.equal(validateUnifiedEndpointTopicPacket(`${base}/R1/3000/submit`, malformedRecord, base).ok, false, 'bootstrap validation must reject malformed Temporary ModelTable records');
@@ -2247,6 +2262,9 @@ async function test_server_rejects_plain_json_legacy_keys_inside_pin_payload() {
     state.runtime.addLabel(targetModel, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'ReturnTarget' });
 
     for (const key of ['source_model_id', 'pin', 'route', ...removedReturnTopicKeys]) {
+      const legacyValue = key === 'source_model_id'
+        ? 2000
+        : (key === 'route' ? { to: { worker_id: 'R1', model_id: 3000, pin: 'submit' } } : 'legacy');
       state.programEngine.handleDyBusEvent({
         version: 'v1',
         type: 'pin_payload',
@@ -2261,7 +2279,7 @@ async function test_server_rejects_plain_json_legacy_keys_inside_pin_payload() {
           replyTargetWorkerId: 'U1',
           replyTargetModelId: targetModelId,
           replyTargetPin: 'result',
-          payload: plainJsonLegacyPayloadRecords(key).find((record) => record.k === 'payload').v,
+          payload: [mt('plain_json_legacy', 'json', { meta: { [key]: legacyValue } })],
         }),
       });
     }

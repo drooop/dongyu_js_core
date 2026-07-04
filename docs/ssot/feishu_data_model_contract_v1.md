@@ -47,7 +47,9 @@ Feishu target:
 - The data model's `(0,0,0)` cell declares the data type through `model_type`.
 
 Repository interpretation:
-- The child/parent boundary still follows current `model.submt` and pin-chain rules.
+- The child/parent boundary follows 0431 model relationship rules: parent-side
+  `model.submtconnection`, child-side `model.submt`, and boundary pins routed by
+  `pin.connect.cell`.
 - Parent models must not directly write child model internals.
 - Data model behavior is Tier 2 template / program / worker behavior, not Tier 1 interpreter behavior.
 

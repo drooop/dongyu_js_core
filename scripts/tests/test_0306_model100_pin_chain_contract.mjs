@@ -43,7 +43,7 @@ function test_model0_declares_model100_submit_ingress_route() {
     'model100_submit_ingress_route_must_bind_model0_bus_event_submit_to_model100_host_submit_request',
   );
   assert.ok(
-    findRecord(records, (record) => record?.model_id === 0 && record?.p === 10 && record?.r === 0 && record?.c === 0 && record?.k === 'model_type' && record?.t === 'model.submt' && record?.v === 100),
+    findRecord(records, (record) => record?.model_id === 0 && record?.p === 10 && record?.r === 0 && record?.c === 0 && record?.k === 'model_type' && record?.t === 'model.submtconnection' && record?.v === 100),
     'model100_host_mount_missing',
   );
   return { key: 'model0_declares_model100_submit_ingress_route', status: 'PASS' };

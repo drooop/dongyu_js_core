@@ -216,6 +216,12 @@ spec:
             secretKeyRef:
               name: ui-server-secret
               key: DY_AUTH
+        - name: DY_DEV_FAKE_LOGIN
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: DY_DEV_FAKE_LOGIN
         - name: DY_OIDC_ISSUER
           value: null
           valueFrom:
@@ -246,6 +252,18 @@ spec:
             secretKeyRef:
               name: ui-server-secret
               key: DY_OIDC_SCOPE
+        - name: DY_OIDC_PROXY_URL
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: DY_OIDC_PROXY_URL
+        - name: DY_OIDC_FETCH_TIMEOUT_MS
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: DY_OIDC_FETCH_TIMEOUT_MS
         - name: DY_OIDC_STATE_SECRET
           value: null
           valueFrom:
@@ -382,6 +400,8 @@ spec:
           value: "U1D"
         - name: DY_AUTH
           value: "1"
+        - name: DY_DEV_FAKE_LOGIN
+          value: "0"
         - name: DY_OIDC_ISSUER
           value: null
           valueFrom:
@@ -402,6 +422,18 @@ spec:
             secretKeyRef:
               name: ui-server-secret
               key: DY_OIDC_SCOPE
+        - name: DY_OIDC_PROXY_URL
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: DY_OIDC_PROXY_URL
+        - name: DY_OIDC_FETCH_TIMEOUT_MS
+          value: null
+          valueFrom:
+            secretKeyRef:
+              name: ui-server-secret
+              key: DY_OIDC_FETCH_TIMEOUT_MS
         - name: DY_OIDC_STATE_SECRET
           value: null
           valueFrom:

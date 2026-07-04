@@ -64,11 +64,8 @@ function normalizeAssetJson(rawValue) {
 
 function extractMountedChildId(labelKey, label) {
   if (!label || typeof label !== 'object') return null;
-  if (label.t === 'model.submt' && Number.isInteger(label.v)) return label.v;
-  if (label.t === 'submt') {
-    const parsed = parseSafeInt(labelKey);
-    if (parsed !== null) return parsed;
-  }
+  if (label.t === 'model.submtconnection' && Number.isInteger(label.v)) return label.v;
+  if (label.t === 'model.submtconnection' && label.v && typeof label.v === 'object' && Number.isInteger(label.v.model_id)) return label.v.model_id;
   return null;
 }
 
@@ -99,6 +96,23 @@ function readObjectValue(snapshot, ref, fallback) {
   const value = getSnapshotLabelValue(snapshot, ref);
   if (!value || typeof value !== 'object' || Array.isArray(value)) return fallback;
   return value;
+}
+
+function normalizeWorkspaceModelRef(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const modelId = Number.isInteger(value.model_id)
+    ? value.model_id
+    : parseSafeInt(value.model_id);
+  if (!Number.isInteger(modelId)) return null;
+  const tableId = typeof value.table_id === 'string' && value.table_id.trim()
+    ? value.table_id.trim()
+    : 'host';
+  return { table_id: tableId, model_id: modelId };
+}
+
+function workspaceModelRefKey(value) {
+  const ref = normalizeWorkspaceModelRef(value);
+  return ref ? `${ref.table_id}|${ref.model_id}` : '';
 }
 
 function readModelTableRecordString(records, key, fallback = '') {
@@ -513,11 +527,15 @@ export function deriveStaticUploadReady(snapshot, editorStateModelId) {
 
 export function deriveWorkspaceSelected(snapshot, editorStateModelId, projectSchemaModel) {
   const registry = getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'ws_apps_registry' });
+  const selectedRefRaw = getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'ws_app_selected_ref' });
   const selectedRaw = getSnapshotLabelValue(snapshot, { model_id: editorStateModelId, p: 0, r: 0, c: 0, k: 'ws_app_selected' });
   const selectedId = typeof selectedRaw === 'number' ? selectedRaw : parseSafeInt(selectedRaw);
+  const selectedRef = normalizeWorkspaceModelRef(selectedRefRaw)
+    || (Number.isInteger(selectedId) ? { table_id: 'host', model_id: selectedId } : null);
+  const selectedKey = workspaceModelRefKey(selectedRef);
   const apps = Array.isArray(registry) ? registry : [];
-  const selectedApp = apps.find((entry) => entry && entry.model_id === selectedId) || null;
-  if (!selectedApp || !Number.isInteger(selectedId) || selectedId === 0) {
+  const selectedApp = apps.find((entry) => workspaceModelRefKey(entry) === selectedKey) || null;
+  if (!selectedApp || !selectedRef || !Number.isInteger(selectedRef.model_id) || selectedKey === 'host|0') {
     return {
       title: '应用详情',
       ast: {
@@ -528,27 +546,27 @@ export function deriveWorkspaceSelected(snapshot, editorStateModelId, projectSch
     };
   }
   const mountedIds = readHierarchyMountedModelIds(snapshot);
-  if (!mountedIds.has(selectedId)) {
+  if (selectedRef.table_id === 'host' && !mountedIds.has(selectedRef.model_id)) {
     return {
-      title: selectedApp.name || `App ${selectedId}`,
+      title: selectedApp.name || `App ${selectedRef.model_id}`,
       ast: {
         id: 'ws_not_mounted',
         type: 'Text',
-        props: { type: 'warning', text: `Model ${selectedId} is not mounted into Workspace.` },
+        props: { type: 'warning', text: `Model ${selectedRef.model_id} is not mounted into Workspace.` },
       },
     };
   }
-  const cellwiseAst = buildAstFromCellwiseModel(snapshot, selectedId);
+  const cellwiseAst = buildAstFromCellwiseModel(snapshot, selectedRef);
   if (cellwiseAst) {
-    return { title: selectedApp.name || `App ${selectedId}`, ast: cellwiseAst };
+    return { title: selectedApp.name || `App ${selectedRef.model_id}`, ast: cellwiseAst };
   }
   void projectSchemaModel;
   return {
-    title: selectedApp.name || `App ${selectedId}`,
+    title: selectedApp.name || `App ${selectedRef.model_id}`,
     ast: {
       id: 'ws_no_cellwise_ast',
       type: 'Text',
-      props: { type: 'warning', text: `Model ${selectedId} has no cellwise UI surface.` },
+      props: { type: 'warning', text: `Model ${selectedRef.model_id} has no cellwise UI surface.` },
     },
   };
 }

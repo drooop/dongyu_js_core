@@ -29,8 +29,8 @@ const DOC_WORKSPACE_TRUTH_MODEL_ID = 1014;
 function test_doc_workspace_models_and_mounts_exist() {
   assert.ok(findRecord(workspaceRecords, (record) => record?.op === 'create_model' && record?.model_id === DOC_WORKSPACE_APP_MODEL_ID), 'doc_workspace_app_model_missing');
   assert.ok(findRecord(workspaceRecords, (record) => record?.op === 'create_model' && record?.model_id === DOC_WORKSPACE_TRUTH_MODEL_ID), 'doc_workspace_truth_model_missing');
-  assert.ok(findRecord(hierarchyRecords, (record) => record?.model_id === 0 && record?.t === 'model.submt' && record?.v === DOC_WORKSPACE_APP_MODEL_ID), 'doc_workspace_app_must_mount_under_model0');
-  assert.ok(findRecord(workspaceRecords, (record) => record?.model_id === DOC_WORKSPACE_APP_MODEL_ID && record?.t === 'model.submt' && record?.v === DOC_WORKSPACE_TRUTH_MODEL_ID), 'doc_workspace_truth_must_mount_under_app');
+  assert.ok(findRecord(hierarchyRecords, (record) => record?.model_id === 0 && record?.t === 'model.submtconnection' && record?.v === DOC_WORKSPACE_APP_MODEL_ID), 'doc_workspace_app_must_mount_under_model0');
+  assert.ok(findRecord(workspaceRecords, (record) => record?.model_id === DOC_WORKSPACE_APP_MODEL_ID && record?.t === 'model.submtconnection' && record?.v === DOC_WORKSPACE_TRUTH_MODEL_ID), 'doc_workspace_truth_must_mount_under_app');
   return { key: 'doc_workspace_models_and_mounts_exist', status: 'PASS' };
 }
 

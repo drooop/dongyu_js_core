@@ -2,7 +2,7 @@
 title: "How To Interact With Workspace Manager"
 doc_type: user-guide
 status: active
-updated: 2026-05-23
+updated: 2026-07-01
 source: codex
 ---
 
@@ -15,7 +15,7 @@ source: codex
 - Workspace Manager 只维护资产索引，不拥有滑动 APP bundle 的真实内容。
 - 实际安装时，UI Server 会根据索引向 provider worker 请求 bundle，再把 provider 返回的 ModelTable records 安装成本地滑动 APP。
 - 完整 topic 不是目录真源；它由 Model 0 `mqtt_topic_base` 和目录行里的 endpoint labels 拼接得到。
-- 上传 ZIP 后得到的 `mxc://...` 可以作为资源路径记录在索引里，方便审计、下载或人工核对；当前安装真源仍是 provider endpoint 返回的 `bundle_payload`。
+- 上传 ZIP 后得到的 `mxc://...` 可以作为资源路径记录在索引里，方便审计、下载或人工核对；当前安装真源仍是 provider endpoint 回包里的 bundle records。
 
 ## 1. 术语
 
@@ -168,7 +168,7 @@ POST /api/media/upload?filename=<your-app>.zip
 
 - `bundle_resource_uri` 不是 provider-owned 安装的安装真源。
 - Workspace Manager 的安装按钮不会只凭 `mxc://...` 创建 APP。
-- 安装真源必须来自 provider worker 对 `slide_app_bundle_request.v1` 的回包，其中 `bundle_payload` 才是实际 ModelTable records。
+- 安装真源必须来自 provider worker 对 `slide_app_bundle_request.v1` 的回包。回包必须是 `pin_payload.v2`，其中业务 response records 通过 `payload_model_id` 标出，实际 bundle records 通过 `bundle_record_id_offset` 标出。
 
 ## 5. 如何添加一个滑动 APP 索引
 
@@ -241,7 +241,7 @@ POST /api/media/upload?filename=<your-app>.zip
 
 Workspace Manager 目录行只是告诉 UI Server “去哪里请求 bundle”。真正的 provider worker 需要在 `provider_model_id / provider_bundle_pin` 上响应请求。
 
-请求 payload 的 nested `payload` 是：
+安装请求的 `pin_payload.v2` 会用 `payload_model_id` 指向业务请求 records。业务请求 records 是：
 
 ```json
 [
@@ -251,18 +251,41 @@ Workspace Manager 目录行只是告诉 UI Server “去哪里请求 bundle”�
 ]
 ```
 
-provider 返回的 nested `payload` 必须是：
+provider 返回时也必须使用完整的 `pin_payload.v2` packet。`id = 0` 是 transport envelope；业务 response records 由 `payload_model_id` 指向；实际 bundle records 放在同一个 Temporary ModelTable array 中，并用 `bundle_record_id_offset` 声明起始 id：
 
 ```json
 [
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "slide_app_bundle_response.v1" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "asset_id", "t": "str", "v": "r1-minimal-submit" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bundle_payload", "t": "json", "v": [] },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bundle_sha256", "t": "str", "v": "" }
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "workspace_asset_bundle_123" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "workspace_asset_bundle_123" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/slide_import_result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/slide_import_result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "U1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 1051 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "slide_import_result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "R1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_table_id", "t": "str", "v": "host" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_model_id", "t": "int", "v": 3100 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_pin", "t": "str", "v": "bundle_request" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_worker_id", "t": "str", "v": "U1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "host" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 1051 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "slide_import_result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "slide_app_bundle_response.v1" },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "asset_id", "t": "str", "v": "r1-minimal-submit" },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "bundle_record_id_offset", "t": "int", "v": 100 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "bundle_sha256", "t": "str", "v": "" },
+  { "id": 100, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "UI.MinimalSubmit" },
+  { "id": 100, "p": 0, "r": 0, "c": 0, "k": "app_name", "t": "str", "v": "最小 Submit 双总线示例" }
 ]
 ```
 
-其中 `bundle_payload.v` 是完整滑动 APP ModelTable record array，也就是 ZIP 里的 `app_payload.json` 内容。
+其中 `id >= 100` 的 records 是完整滑动 APP ModelTable record array，也就是 ZIP 里的 `app_payload.json` 内容。实际 offset 不必固定为 `100`，但 provider 必须在 `bundle_record_id_offset` 中明确写出。
 
 ## 7. 安装点击后的完整路径
 
@@ -274,7 +297,7 @@ Workspace Manager 安装按钮
 -> MBR 按 payload.topic 转发
 -> provider worker 返回 slide_app_bundle_response.v1
 -> UI Server 校验 pending install state
--> 校验 bundle_payload
+-> 校验 bundle_record_id_offset 指向的 bundle records
 -> materialize 成新的本地滑动 APP 模型
 -> 挂到桌面 / 滑动 APP 列表
 ```
@@ -297,7 +320,7 @@ Workspace Manager 安装按钮
 | 安装按钮没有显示 | `asset_type` 不是 `slide_app`，或 `installable` 不是 `true` | 修改目录行 |
 | 点击安装后没有生成 APP | provider 没有返回合法 `slide_app_bundle_response.v1` | 检查 provider 模型和 `bundle_request` pin |
 | topic 不符合预期 | `mqtt_topic_base` 或 endpoint labels 填错 | 检查 Model 0 `mqtt_topic_base` 和目录行 |
-| 导入被拒绝 | `bundle_payload` 中缺少 root metadata 或包含禁止 label | 按 slide-app import validator 修正 |
+| 导入被拒绝 | bundle records 中缺少 root metadata 或包含禁止 label | 按 slide-app import validator 修正 |
 | 回包被拒绝 | `asset_id`、topic、route kind 或 reply target 与 pending state 不一致 | 确保 provider 原样保留请求关联字段 |
 
 ## 9. 当前边界

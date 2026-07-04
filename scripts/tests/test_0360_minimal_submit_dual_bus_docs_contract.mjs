@@ -78,7 +78,8 @@ function test_all_public_docs_cover_required_operational_steps() {
     assert.match(text, /click_chain/u, path + ' must explain click_chain button output pin');
     assert.match(text, /handle_submit/u, path + ' must explain handle_submit program model');
     assert.match(text, /3000/u, path + ' must include provider model 3000');
-    assert.match(text, /2000/u, path + ' must include local installed model example 2000');
+    assert.match(text, /App table|app table/u, path + ' must explain app table installation');
+    assert.match(text, /model 0|Model 0/u, path + ' must explain package-local root model 0');
     assert.match(text, /Submitted: <输入内容>|Submitted: &lt;输入内容&gt;/u, path + ' must describe visible submitted result');
     assertNoOld(text, path);
   }
@@ -88,8 +89,8 @@ function test_all_public_docs_cover_required_operational_steps() {
   assert.equal(guide.includes('return payload;'), false, 'guide must not teach returning raw payload from public result path');
   assert.equal(guide.includes('return resultPayload;'), false, 'guide must not teach returning raw resultPayload from public result path');
   assert.equal(guide.includes('!replyTo || !replyTo.worker_id'), false, 'guide must not teach truthy-only reply_to validation');
-  assert.match(guide, /pin_payload\.v1/u, 'guide must teach wrapping remote result as pin_payload.v1');
-  assert.match(readText(PUBLIC_DOCS[1]), /pin_payload\.v1/u, 'visualized doc must show pin_payload.v1 wrapper on public result path');
+  assert.match(guide, /pin_payload\.v2/u, 'guide must teach wrapping remote result as pin_payload.v2');
+  assert.match(readText(PUBLIC_DOCS[1]), /pin_payload\.v2/u, 'visualized doc must show pin_payload.v2 wrapper on public result path');
   assert.equal(readText(PUBLIC_DOCS[1]).includes('resultPayload<br/>'), false, 'visualized doc must not show raw resultPayload on public result path');
   assert.match(guide, /return null/u, 'guide must teach returning null when endpoint records are invalid');
   return { key: 'all_public_docs_cover_required_operational_steps', status: 'PASS' };
@@ -113,7 +114,7 @@ function test_provider_assets_have_no_compatibility_route() {
   const remoteCode = findRecord(remoteRecords, (record) => record.k === 'submit1' && record.t === 'func.js')?.v?.code || '';
   assert.equal(remoteCode.includes('input_value'), false, 'remote 3000 handler must not keep input_value fallback');
   assert.equal(remoteCode.includes('message_text'), false, 'remote 3000 handler must not keep message_text fallback');
-  assert.match(remoteCode, /recordOf\(businessPayload, 'text'\)/u, 'remote 3000 handler must read the current text record');
+  assert.match(remoteCode, /businessPayload\.find\(\(record\) => record && record\.k === 'text'\)/u, 'remote 3000 handler must read the current text record');
   assert.match(remoteCode, /replyTarget/u, 'remote 3000 handler must use reply_target records');
   assert.equal(remoteCode.includes('V1N.table'), false, 'remote 3000 non-root handler must not use V1N.table');
 
@@ -159,7 +160,11 @@ function test_model0_mbr_remote_worker_contract_is_complete() {
   const subscriptions = findRecord(remoteConfigRecords, (record) => record.k === 'remote_subscriptions')?.v || [];
   assert.equal(systemRecords.some((record) => String(record.k || '').startsWith('mbr_route_')), false, 'system models must not seed static MBR routes');
   assert.equal(mbrRecords.some((record) => record.k === 'mbr_mqtt_model_ids'), false, 'MBR must not use static MQTT model id list');
-  assert.ok(readText('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json').includes('endpoint_worker_id'), 'MBR function must derive destination from endpoint records');
+  const mbrPatchText = readText('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json');
+  assert.ok(
+    mbrPatchText.includes("prefix + '_worker_id'") && mbrPatchText.includes("prefix + '_table_id'") && mbrPatchText.includes("prefix + '_model_id'") && mbrPatchText.includes("prefix + '_pin'"),
+    'MBR function must derive destination from endpoint records',
+  );
   assert.ok(subscriptions.includes('UIPUT/ws/dam/pic/de/R1/3000/submit1'), 'remote-worker must subscribe provider submit1 endpoint topic');
   assert.equal(subscriptions.some((topic) => String(topic).includes('/1050/')), false, 'remote-worker must not subscribe old 1050 topics');
   return { key: 'model0_mbr_remote_worker_contract_is_complete', status: 'PASS' };
@@ -168,7 +173,11 @@ function test_model0_mbr_remote_worker_contract_is_complete() {
 function test_provider_docs_result_payload_examples_keep_current_shape() {
   for (const path of PUBLIC_DOCS) {
     const doc = readText(path);
-    const manualResultIndex = doc.indexOf('manual_result_2000_001');
+    assert.equal(doc.includes('UIPUT/ws/dam/pic/de/U1/1087/result'), false, `${path} must not keep stale app-table response topic U1/1087/result`);
+    assert.equal(doc.includes('U1 / 1087 / result'), false, `${path} must not keep stale host endpoint U1 / 1087 / result`);
+    assert.ok(doc.includes('UIPUT/ws/dam/pic/de/U1/1051/result'), `${path} must show current Workspace Manager app-table response topic example`);
+    assert.match(doc, /actual `response_topic`|实际 `response_topic`|use request response_topic|请求 records 中实际/u, `${path} must tell readers to use the actual response_topic from request records`);
+    const manualResultIndex = doc.indexOf('manual_result_app_table_001');
     assert.ok(manualResultIndex >= 0, `${path} must include manual result example`);
     const manualResult = doc.slice(manualResultIndex, manualResultIndex + 2500);
     for (const required of [
@@ -231,7 +240,7 @@ function test_minimal_submit_docs_explain_ui_server_install_materialization() {
   ]) {
     for (const required of [
       'UI Server 安装',
-      'model.submt',
+      'model.subtable',
       'deletable',
       'installed_at',
       'imported_bundle_model_ids',

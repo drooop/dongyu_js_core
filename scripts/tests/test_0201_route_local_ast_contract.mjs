@@ -42,6 +42,7 @@ function test_prompt_route_prefers_local_path_over_shared_ui_page() {
   setStateLabel(store, 'ws_apps_registry', 'json', [{ model_id: 100, name: 'Model 100', source: 'k8s-worker' }]);
   setStateLabel(store, 'ui_page', 'str', 'workspace');
   setStateLabel(store, 'ws_app_selected', 'int', 100);
+  setStateLabel(store, 'ws_app_selected_ref', 'json', { table_id: 'host', model_id: 100 });
   setStateLabel(store, 'selected_model_id', 'str', '100');
 
   const resolved = resolveRouteUiAst(store.snapshot, '/prompt', { projectSchemaModel: buildAstFromSchema });
@@ -54,6 +55,7 @@ function test_workspace_route_prefers_local_path_over_shared_ui_page() {
   setStateLabel(store, 'ws_apps_registry', 'json', [{ model_id: 100, name: 'Model 100', source: 'k8s-worker' }]);
   setStateLabel(store, 'ui_page', 'str', 'prompt');
   setStateLabel(store, 'ws_app_selected', 'int', 100);
+  setStateLabel(store, 'ws_app_selected_ref', 'json', { table_id: 'host', model_id: 100 });
   setStateLabel(store, 'selected_model_id', 'str', '0');
 
   const resolved = resolveRouteUiAst(store.snapshot, '/workspace', { projectSchemaModel: buildAstFromSchema });
@@ -63,9 +65,8 @@ function test_workspace_route_prefers_local_path_over_shared_ui_page() {
     '请从左侧选择一个应用',
     'workspace route must not fall back to the empty selection placeholder when ws_app_selected exists',
   );
-  assert.equal(findNodeById(resolved.ast, 'sliding_flow_root')?.type, 'Container', 'workspace route must wrap Model 100 in sliding flow shell');
-  assert.equal(findNodeById(resolved.ast, 'sliding_flow_process_table')?.type, 'Table', 'workspace route must expose process summary table');
-  assert.equal(findNodeById(resolved.ast, 'sliding_flow_debug_table')?.type, 'Table', 'workspace route must expose debug summary table');
+  assert.equal(findNodeById(resolved.ast, 'ws_right_panel')?.props?.title, 'Model 100', 'workspace route must retitle the selected app panel');
+  assert.equal(findNodeById(resolved.ast, 'ws_selected_slot'), null, 'workspace route must replace the selected app slot');
   assert.equal(findNodeById(resolved.ast, 'model100_cellwise_root')?.type, 'Container', 'workspace route must keep the selected app AST inside the shell');
 }
 

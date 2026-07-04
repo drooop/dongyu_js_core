@@ -20,7 +20,7 @@ source: ai
 
 - 新建 `model_id`
 - 新写 `model.table`
-- 新写 `model.submt`
+- 新写父侧 `model.submtconnection` 与 child root `model.submt`
 - 新增 `Model -25` 挂载
 
 原因不是“理论上不想支持”，而是按当前仓库事实，这几条还不是现有界面路径的已交付能力。
@@ -155,7 +155,7 @@ Cell `(0,1,0)`
 
 - 自己新增一个 `model_id`
 - 自己写 `model.table`
-- 自己写 `model.submt`
+- 自己写父侧 `model.submtconnection` 与 child root `model.submt`
 - 自己往 `-25` 增加挂载位
 
 因此，这份文档不再把“新增挂载”伪装成现有界面能力。
@@ -168,7 +168,7 @@ Cell `(0,1,0)`
 - `candidate_changes`
 - `action: "set_label"` 这类对外 FillTable 合同
 - 新建 model / 新挂载 Workspace 的教程
-- parent/child `model.submt` 的手工创建教程
+- parent/child `model.submtconnection` + child root `model.submt` 的手工创建教程
 
 原因很简单：
 

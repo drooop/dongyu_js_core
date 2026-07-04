@@ -169,7 +169,7 @@ const ctx = {
 };
 ```
 
-Matrix/MQTT 发送由 `ProgramModelEngine` 观察 Model 0 root split bus out pin 后完成。程序模型只能生成 ModelTable-like `pin_payload.v1` records 并写入合法 pin 链路。
+Matrix/MQTT 发送由 `ProgramModelEngine` 观察 Model 0 root split bus out pin 后完成。程序模型只能生成 ModelTable-like `pin_payload.v2` records 并写入合法 pin 链路。
 
 **0177 边界补充**：
 - `/api/modeltable/patch` 不再作为公共建模入口，固定返回 `direct_patch_api_disabled`
@@ -177,7 +177,7 @@ Matrix/MQTT 发送由 `ProgramModelEngine` 观察 Model 0 root split bus out pin
 
 ### 4. 程序模型函数示例
 
-**必需配置**: UI 模型或 imported slide app 在 root 声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`，业务程序只把 Temporary ModelTable records 写到公开 root `pin.out`。UI Server 运行时负责生成 host egress adapter，把 `topic`、`route_kind=control`、`message_role=request`、endpoint、origin 和 server-owned reply target 写成 `pin_payload.v1` records 后经 Model 0 `mt_bus_send` / `pin.bus.cb.out` 外发；不得恢复旧的 Model 0 egress label/function 或 `ctx.getLabel/writeLabel/rmLabel`。
+**必需配置**: UI 模型或 imported slide app 在 root 声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`，业务程序只把 Temporary ModelTable records 写到公开 root `pin.out`。UI Server 运行时负责生成 host egress adapter，把 `topic`、`route_kind=control`、`message_role=request`、endpoint、origin、server-owned reply target 和 `payload_model_id` 写成 `pin_payload.v2` records 后经 Model 0 `mt_bus_send` / `pin.bus.cb.out` 外发；不得恢复旧的 Model 0 egress label/function 或 `ctx.getLabel/writeLabel/rmLabel`。
 
 ```javascript
 // 示例：业务程序只准备模型表形态 payload，并写到公开 root pin.out。
@@ -196,7 +196,7 @@ V1N.addLabel('submit', 'pin.out', payload);
 
 **位置**: `scripts/run_worker_mbr_v0.mjs`
 
-MBR Worker 监听 Matrix room 的消息，解析 `pin_payload.v1` Temporary ModelTable records，然后：
+MBR Worker 监听 Matrix room 的消息，解析 `pin_payload.v2` Temporary ModelTable records，然后：
 1. 读取消息内 `topic` record
 2. 校验 `message_role=request` 和可选 `route_kind`
 3. 校验 topic 正好是 `UIPUT/<ws>/<dam>/<pic>/<de>/<worker_id>/<model_id>/<pin>`
@@ -208,7 +208,7 @@ MBR Worker 监听 Matrix room 的消息，解析 `pin_payload.v1` Temporary Mode
 - `mbr_cb_dispatch` 必须通过消息体中的 `topic` record 解析目标 topic，并且只接受合法 `message_role` 与 `route_kind`；缺少 topic、目标不合法、或出现旧 `result_topic` / `return_topic` / `route.reply_to` 时必须拒绝并写错误。
 - `mbr_route_<source_model_id>` 不再是当前规约输入面，也不得作为兼容兜底恢复。
 - `runtime_mode=edit` 时，MBR 可以建立 Matrix/MQTT 连接，但入站 Matrix/MQTT 消息必须直接丢弃，不得先写 inbox 再等到 `running` 后补处理。
-- 当前 canonical 业务桥接是 endpoint-addressed `pin_payload.v1`：
+- 当前 canonical 业务桥接是 endpoint-addressed `pin_payload.v2`：
   - Control bus packet -> MBR -> MQTT `UIPUT/<ws>/<dam>/<pic>/<de>/<worker_id>/<model_id>/<pin>`
   - MQTT control bus response topic -> MBR / UI Server control bus packet -> owner materialization
 
@@ -234,7 +234,7 @@ MBR Worker 监听 Matrix room 的消息，解析 `pin_payload.v1` Temporary Mode
 
 ### 程序模型配置
 - [ ] **System Model (-10) 中存在 function label**
-- [ ] **函数写入合法 `pin_payload.v1` 到 split bus pin 链路**
+- [ ] **函数写入合法 `pin_payload.v2` 到 split bus pin 链路**
 - [ ] **函数在 `tick()` 时被执行**
 
 ## 常见问题

@@ -209,28 +209,10 @@ function containsLegacyPinPayloadMetadata(value, seen = new WeakSet()) {
   return false;
 }
 
-function isSlideAppBundleResponsePayload(records) {
-  if (!isTemporaryPayloadRecordArray(records)) return false;
-  const kind = records.find((record) => record
-    && record.id === 0
-    && record.p === 0
-    && record.r === 0
-    && record.c === 0
-    && record.k === '__mt_payload_kind');
-  return kind && kind.t === 'str' && kind.v === 'slide_app_bundle_response.v1';
-}
-
-function recordsContainLegacyPinPayloadMetadata(records, options = {}) {
+function recordsContainLegacyPinPayloadMetadata(records) {
   if (!isTemporaryPayloadRecordArray(records)) return true;
-  const allowSlideAppBundlePayload = options.allowSlideAppBundlePayload === true
-    && isSlideAppBundleResponsePayload(records);
   for (const record of records) {
     if (isLegacyPinPayloadKey(record.k)) return true;
-    if (allowSlideAppBundlePayload && record.k === 'bundle_payload') {
-      if (!isTemporaryPayloadRecordArray(record.v)) return true;
-      if (record.v.some((bundleRecord) => isLegacyPinPayloadKey(bundleRecord.k))) return true;
-      continue;
-    }
     if (containsLegacyPinPayloadMetadata(record.v)) return true;
   }
   return false;
@@ -267,6 +249,7 @@ function hasDuplicatePinPayloadRecordKeys(payload, keys) {
   const seen = new Set();
   for (const record of payload.payload) {
     if (!record || !watched.has(record.k)) continue;
+    if (record.id !== 0) continue;
     if (seen.has(record.k)) return true;
     seen.add(record.k);
   }
@@ -285,7 +268,10 @@ function validatePinPayloadRecordEnvelope(payload) {
     return { ok: false, reason: 'invalid_pin_payload_records' };
   }
   const kind = pinPayloadString(payload, '__mt_payload_kind');
-  if (kind !== 'pin_payload.v1') {
+  if (kind === 'pin_payload.v1') {
+    return { ok: false, reason: 'legacy_pin_payload_kind_removed' };
+  }
+  if (kind !== 'pin_payload.v2') {
     return { ok: false, reason: 'invalid_payload_kind' };
   }
   const stringMetadataKeys = [
@@ -295,18 +281,22 @@ function validatePinPayloadRecordEnvelope(payload) {
     'topic',
     'response_topic',
     'endpoint_worker_id',
+    'endpoint_table_id',
     'endpoint_pin',
     'origin_worker_id',
+    'origin_table_id',
     'origin_pin',
     'reply_target_worker_id',
+    'reply_target_table_id',
     'reply_target_pin',
+    'reply_target_principal_key',
   ];
   const metadataKeys = stringMetadataKeys.concat([
     '__mt_payload_kind',
     'endpoint_model_id',
     'origin_model_id',
     'reply_target_model_id',
-    'payload',
+    'payload_model_id',
     'timestamp',
     'bus_out_key',
     'bus',
@@ -346,48 +336,58 @@ function validatePinPayloadRecordEnvelope(payload) {
     if (isLegacyPinPayloadKey(record.k)) {
       return { ok: false, reason: 'legacy_pin_payload_metadata_removed' };
     }
-    if (record.k !== 'payload' && containsLegacyPinPayloadMetadata(record.v)) {
+    if (containsLegacyPinPayloadMetadata(record.v)) {
       return { ok: false, reason: 'legacy_pin_payload_metadata_removed' };
     }
   }
   const endpointWorkerId = pinPayloadString(payload, 'endpoint_worker_id');
+  const endpointTableId = pinPayloadString(payload, 'endpoint_table_id');
   const endpointModelId = pinPayloadInt(payload, 'endpoint_model_id');
   const endpointPin = pinPayloadString(payload, 'endpoint_pin');
   const originWorkerId = pinPayloadString(payload, 'origin_worker_id');
+  const originTableId = pinPayloadString(payload, 'origin_table_id');
   const originModelId = pinPayloadInt(payload, 'origin_model_id');
   const originPin = pinPayloadString(payload, 'origin_pin');
   const replyTargetWorkerId = pinPayloadString(payload, 'reply_target_worker_id');
+  const replyTargetTableId = pinPayloadString(payload, 'reply_target_table_id');
   const replyTargetModelId = pinPayloadInt(payload, 'reply_target_model_id');
   const replyTargetPin = pinPayloadString(payload, 'reply_target_pin');
+  const payloadModelId = pinPayloadInt(payload, 'payload_model_id');
   const nestedPayload = pinPayloadRecord(payload, 'payload');
+  if (nestedPayload) {
+    return { ok: false, reason: 'nested_payload_removed' };
+  }
   if (
     !isSafeTopicSegment(endpointWorkerId)
+    || !isSafeTopicSegment(endpointTableId)
     || !Number.isInteger(endpointModelId)
     || endpointModelId <= 0
     || !isSafeTopicSegment(endpointPin)
     || !isSafeTopicSegment(originWorkerId)
+    || !isSafeTopicSegment(originTableId)
     || !Number.isInteger(originModelId)
     || originModelId <= 0
     || !isSafeTopicSegment(originPin)
     || !isSafeTopicSegment(replyTargetWorkerId)
+    || !isSafeTopicSegment(replyTargetTableId)
     || !Number.isInteger(replyTargetModelId)
     || replyTargetModelId <= 0
     || !isSafeTopicSegment(replyTargetPin)
-    || !nestedPayload
-    || nestedPayload.t !== 'json'
-    || !isTemporaryPayloadRecordArray(nestedPayload.v)
+    || !Number.isInteger(payloadModelId)
+    || payloadModelId <= 0
+    || !payload.payload.some((record) => record && record.id === payloadModelId)
   ) {
     return { ok: false, reason: 'invalid_pin_payload_records' };
   }
-  if (recordsContainLegacyPinPayloadMetadata(nestedPayload.v, { allowSlideAppBundlePayload: true })) {
-    return { ok: false, reason: 'legacy_pin_payload_metadata_removed' };
-  }
+  const endpoint = { worker_id: endpointWorkerId, table_id: endpointTableId, model_id: endpointModelId, pin: endpointPin };
+  const origin = { worker_id: originWorkerId, table_id: originTableId, model_id: originModelId, pin: originPin };
+  const replyTarget = { worker_id: replyTargetWorkerId, table_id: replyTargetTableId, model_id: replyTargetModelId, pin: replyTargetPin };
   const topicContractError = validatePinPayloadTopicContract({
     messageRole,
     topic: topicValue,
     responseTopic: responseTopicValue,
-    endpoint: { worker_id: endpointWorkerId, model_id: endpointModelId, pin: endpointPin },
-    replyTarget: { worker_id: replyTargetWorkerId, model_id: replyTargetModelId, pin: replyTargetPin },
+    endpoint,
+    replyTarget,
   });
   if (topicContractError) {
     return { ok: false, reason: topicContractError };
@@ -397,9 +397,9 @@ function validatePinPayloadRecordEnvelope(payload) {
     message_role: messageRole,
     topic: topicValue,
     response_topic: responseTopicValue,
-    endpoint: { worker_id: endpointWorkerId, model_id: endpointModelId, pin: endpointPin },
-    origin: { worker_id: originWorkerId, model_id: originModelId, pin: originPin },
-    reply_target: { worker_id: replyTargetWorkerId, model_id: replyTargetModelId, pin: replyTargetPin },
+    endpoint,
+    origin,
+    reply_target: replyTarget,
   };
 }
 

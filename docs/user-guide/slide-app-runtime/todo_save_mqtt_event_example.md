@@ -2,7 +2,7 @@
 title: "To Do 保存按钮外发 MQTT 示例"
 doc_type: user-guide
 status: active
-updated: 2026-06-04
+updated: 2026-07-01
 source: ai
 ---
 
@@ -22,7 +22,7 @@ test_files/todo_save_mqtt_event_app_payload.json
 
 | 名称 | 示例 | 谁使用 | 含义 |
 |---|---|---|---|
-| Model 0 ingress key | `bus_event_submit_0_0_0_0` | `ui_bind_json.write.bus_in_key` | ZIP 作者可写的 submit 占位入口。安装后 UI Server 改成 `imported_host_submit_<modelId>`。 |
+| Model 0 ingress key | `bus_event_submit_0_0_0_0` | `ui_bind_json.write.bus_in_key` | ZIP 作者可写的 submit 占位入口。安装后 UI Server 会替换成宿主内部生成的真实入口；开发者不要自己填写安装后的 id。 |
 | App 内部入口 pin | `todo_request` / `submit_request` | App root 的 `pin.in` | App 自己接收业务事件的入口，不能直接写到 `bus_in_key`。 |
 | App 对外出口 pin | `submit1` | 程序模型写入 `pin.out` | 程序模型写入这里后，安装器生成的 host egress adapter 才会发 MQTT。 |
 
@@ -63,13 +63,13 @@ test_files/todo_save_mqtt_event_app_payload.json
 
 这一步只表示“把按钮事件交给当前 App 的正式业务入口”。它还不是 MQTT。
 
-安装后，UI Server 会把 `bus_event_submit_0_0_0_0` 改成真实入口，例如：
+安装后，UI Server 会把 `bus_event_submit_0_0_0_0` 改成宿主内部真实入口，例如：
 
 ```text
 imported_host_submit_2017
 ```
 
-开发者不要自己填写 `imported_host_submit_<modelId>`，因为正式 `modelId` 是安装时分配的。
+开发者不要自己填写这个真实入口，因为它依赖安装时分配的 App table / model 信息。
 
 ## 3. Root 还必须有哪些 labels
 
@@ -146,7 +146,7 @@ V1N.addLabel('submit_inflight', 'bool', true);
 V1N.addLabel('submit1', 'pin.out', taskPayload);
 ```
 
-`submit1` 被写入后，安装器生成的 host egress adapter 会自动包装为 `pin_payload.v1`，并补齐这些 records：
+`submit1` 被写入后，安装器生成的 host egress adapter 会自动包装为 `pin_payload.v2`，并补齐这些 records：
 
 | record | 示例 |
 |---|---|
@@ -154,6 +154,7 @@ V1N.addLabel('submit1', 'pin.out', taskPayload);
 | `topic` | `UIPUT/ws/dam/pic/de/R1/3000/submit1` |
 | `response_topic` | UI Server 的 host transport endpoint，例如 `UIPUT/ws/dam/pic/de/U1/1087/result` |
 | `endpoint_worker_id` | `R1` |
+| `endpoint_table_id` | `host` |
 | `endpoint_model_id` | `3000` |
 | `endpoint_pin` | `submit1` |
 | `origin_worker_id` | `U1` |
@@ -162,7 +163,7 @@ V1N.addLabel('submit1', 'pin.out', taskPayload);
 | `reply_target_table_id` | 回包要写回的 App instance table id |
 | `reply_target_model_id` | 回包要写回的 App table 内 model id，root 通常是 `0` |
 | `origin_pin` | `submit1` |
-| `payload` | 上面的 `taskPayload` |
+| `payload_model_id` | 指向上面的 `taskPayload`；task payload records 与 envelope records 在同一个 Temporary ModelTable array 中。 |
 
 最终 MQTT topic 是：
 

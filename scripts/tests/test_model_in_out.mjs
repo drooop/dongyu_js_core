@@ -9,7 +9,7 @@ function test_model_in_register() {
   const model = rt.createModel({ id: 100, name: 'test', type: 'sub' });
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
   rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
-  assert(rt.modelInPorts.has('100:cmd'), 'should register MODEL_IN port');
+  assert(rt.modelInPorts.has('host|100:cmd'), 'should register MODEL_IN port');
   return { key: 'model_in_register', status: 'PASS' };
 }
 
@@ -21,7 +21,7 @@ function test_model_in_wrong_position() {
   rt.addLabel(model, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: payload });
   const cell = rt.getCell(model, 1, 0, 0);
   assert.deepEqual(cell.labels.get('cmd')?.v, payload, 'non-root pin.in should stay cell-local');
-  assert.equal(rt.modelInPorts.has('101:cmd'), false, 'non-root pin.in must not register model boundary input');
+  assert.equal(rt.modelInPorts.has('host|101:cmd'), false, 'non-root pin.in must not register model boundary input');
   return { key: 'model_in_wrong_position', status: 'PASS' };
 }
 
@@ -49,7 +49,7 @@ function test_model_out_register() {
   const model = rt.createModel({ id: 103, name: 'test', type: 'sub' });
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
   rt.addLabel(model, 0, 0, 0, { k: 'result', t: 'pin.out', v: null });
-  assert(rt.modelOutPorts.has('103:result'), 'should register MODEL_OUT port');
+  assert(rt.modelOutPorts.has('host|103:result'), 'should register MODEL_OUT port');
   return { key: 'model_out_register', status: 'PASS' };
 }
 
@@ -61,7 +61,7 @@ function test_model_out_wrong_position() {
   rt.addLabel(model, 2, 0, 0, { k: 'result', t: 'pin.out', v: payload });
   const cell = rt.getCell(model, 2, 0, 0);
   assert.deepEqual(cell.labels.get('result')?.v, payload, 'non-root pin.out should stay cell-local');
-  assert.equal(rt.modelOutPorts.has('104:result'), false, 'non-root pin.out must not register model boundary output');
+  assert.equal(rt.modelOutPorts.has('host|104:result'), false, 'non-root pin.out must not register model boundary output');
   return { key: 'model_out_wrong_position', status: 'PASS' };
 }
 
@@ -69,7 +69,7 @@ async function test_model_out_notifies_parent() {
   const rt = new ModelTableRuntime();
   const parent = rt.createModel({ id: 50, name: 'parent', type: 'app' });
   rt.addLabel(parent, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Flow' });
-  rt.addLabel(parent, 1, 0, 0, { k: 'model_type', t: 'model.submt', v: 60 });
+  rt.addLabel(parent, 1, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: 60 });
   rt.addLabel(parent, 1, 0, 0, { k: 'result', t: 'pin.out', v: null });
   rt.addLabel(parent, 1, 0, 0, { k: 'final_out', t: 'pin.out', v: null });
   rt.addLabel(parent, 0, 0, 0, {
@@ -94,7 +94,7 @@ function test_single_model_root_pin_in_registers_boundary() {
   const model = rt.createModel({ id: 106, name: 'single', type: 'sub' });
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.single', v: 'Code.JS' });
   rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: mt('value', 'int', 1) });
-  assert(rt.modelInPorts.has('106:cmd'), 'model.single root pin.in should register boundary input');
+  assert(rt.modelInPorts.has('host|106:cmd'), 'model.single root pin.in should register boundary input');
   return { key: 'single_model_root_pin_in_registers_boundary', status: 'PASS' };
 }
 

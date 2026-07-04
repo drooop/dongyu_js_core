@@ -32,11 +32,12 @@ async function test_full_e2e_model0_framework() {
   rt.setRuntimeMode('running');
 
   // Verify subModel registered
-  assert(rt.parentChildMap.has(100), 'child 100 should be registered');
+  assert(rt.parentChildMap.has('host|100'), 'child 100 should be registered');
   assert(rt.getModel(100), 'child model 100 should be created');
 
   // Setup child model 100 with processing
   const child = rt.getModel(100);
+  rt.addLabel(child, 0, 0, 0, { k: 'model_type', t: 'model.submt', v: 'Flow.Worker' });
   rt.addLabel(child, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
   rt.addLabel(child, 0, 0, 0, { k: 'result', t: 'pin.out', v: null });
   rt.addLabel(child, 1, 0, 0, { k: 'input', t: 'pin.in', v: null });
@@ -115,16 +116,17 @@ async function test_bus_in_priority_over_pin() {
 function test_submodel_lifecycle() {
   const rt = new ModelTableRuntime();
   const parent = rt.createModel({ id: 10, name: 'app', type: 'app' });
-  // Register subModel
-  rt.addLabel(parent, 0, 0, 0, { k: '20', t: 'submt', v: { alias: 'worker' } });
+  // Register subModel through the parent-side connection index.
+  rt.addLabel(parent, 1, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: { model_id: 20, mount_kind: 'worker' } });
   // Verify parentChildMap
-  const info = rt.parentChildMap.get(20);
+  const info = rt.parentChildMap.get('host|20');
   assert(info, 'should have parentChildMap entry');
-  assert.strictEqual(info.parentModelId, 10);
+  assert.strictEqual(info.parent.model_id, 10);
   // Verify model created
   const child = rt.getModel(20);
   assert(child, 'child model should exist');
-  assert.strictEqual(child.name, 'worker');
+  rt.addLabel(child, 0, 0, 0, { k: 'model_type', t: 'model.submt', v: 'Flow.Worker' });
+  assert.strictEqual(child.name, '20');
   assert.strictEqual(child.type, 'sub');
   return { key: 'submodel_lifecycle', status: 'PASS' };
 }

@@ -45,8 +45,8 @@ Conflict behavior:
 - **总线解耦**：消息、指令、状态更新应通过“总线抽象”解耦，不绑定具体实现名。
 - **工作区隔离**：跨网络/跨组织的协作必须在“工作区（Workspace）”边界内进行隔离与加密。
 - **填表优先**：新能力必须优先通过填充模型（JSON patches）实现，运行时代码变更仅限于新增 label.t 解释或修复解释器 bug。
-- **模型类型二维性**：Cell 有效模型标签来自 `model.single / model.matrix / model.table / model.submt`，以及 0424 target 中用于挂载一整张 child ModelTable namespace 的 `model.subtable`。普通未物化 Cell 在 table/matrix 作用域内默认有效类型为 `model.single`；类型值仍由 `model_type` 的 value 承载。
-- **显式挂载**：除 host table 的 Model 0 外，每个 host-table child model 都必须通过父模型 Cell 上的 `model.submt` 显式进入层级；每个已安装滑动 App 实例的 child ModelTable 必须通过 host-owned `model.subtable` hosting Cell 显式进入宿主层级。`model.subtable` 不是 `model.submt` 的别名。
+- **模型类型二维性**：Cell 有效模型标签来自 `model.single / model.matrix / model.table / model.submt / model.subtable` 这些子侧/自身声明，以及 `model.submtconnection / model.subtableconnection` 这些父侧/主侧索引。普通未物化 Cell 在 table/matrix 作用域内默认有效类型为 `model.single`；类型值仍由 `model_type` 的 value 承载。
+- **显式索引**：除 host table 的 Model 0 外，每个 host-table child model 都必须由父模型 Cell 上的 `model.submtconnection` 显式索引进入层级，并在 child model root 写 `model.submt`；每个已安装滑动 App 实例的 child ModelTable 必须由 host-owned `model.subtableconnection` Cell 显式索引进入宿主层级，并在 child ModelTable root 写 `model.subtable`。`model.subtable` 不是 `model.submt` 的别名；connection 标签也不是 pin wiring 标签。
 - **禁止默认兼容**：历史别名/旧 label 类型不构成当前规范输入面；如需兼容保留，必须显式批准。
 - **可审计可验证**：任何关键能力必须有脚本化验收路径；关键变更可回滚、可追踪。
 
@@ -153,8 +153,11 @@ Conflict behavior:
 ### 3.4 Model Forms（模型形态）
 
 Cell 有效模型标签均为 Tier 1 定义，由 `model_type` 标签的 `label.t` 区分。
-当前已冻结的主表模型形态包括 `model.single` / `model.matrix` / `model.table` / `model.submt`。
-0424 target 额外引入 `model.subtable`，用于声明 host-owned hosting Cell 挂载一整张 child ModelTable namespace；它不是 `model.submt` 的别名。
+当前已冻结的模型形态与关系索引包括：
+- 子侧/自身声明：`model.single` / `model.matrix` / `model.table` / `model.submt` / `model.subtable`
+- 父侧/主侧索引：`model.submtconnection` / `model.subtableconnection`
+
+0424/0431 target 额外明确：`model.subtable` 写在 child ModelTable 的 Model 0 root `(0,0,0)`，`model.subtableconnection` 写在 host/main/parent table 的索引 Cell。`model.subtable` 不是 `model.submt` 的别名，`model.subtableconnection` 也不是 `pin.connect.cell` 或 `pin.connect.model` 的替代品。
 
 **简单模型（model.single）**
 - 单 Cell 模型，程序只能操作自身 Cell。
@@ -175,29 +178,30 @@ Cell 有效模型标签均为 Tier 1 定义，由 `model_type` 标签的 `label.
 - **(0323) (0,0,0) 默认三程序**：每个 model.table 的 (0,0,0) 必须包含三个 `func.js` 默认程序（`mt_write` / `mt_bus_receive` / `mt_bus_send`），作为模型的控制面入口。详见 `docs/ssot/runtime_semantics_modeltable_driven.md` §5.3。
 - **(0323) 权限模型**：用户程序仅可写自身 Cell（V1N.addLabel）、读当前模型内任意 Cell（V1N.readLabel）；跨 Cell 写入经 (0,0,0) mt_write，跨模型通信经 pin 链路。详见 `docs/ssot/host_ctx_api.md`。
 
-**子模型映射位（model.submt）**
-- 某个 Cell 的 `model_type` 若声明为 `model.submt`，则该 Cell 是 child model 的挂载/映射位。
-- 该 Cell 只允许 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 等普通引脚标签共存。
-- 删除 `model.submt` 只解除挂载，不自动删除 child model 数据。
-- child model 挂载采用 single-parent 语义。
+**子模型声明与索引（model.submt / model.submtconnection）**
+- `model.submt` 写在 child model 自己的 root `(0,0,0)`，声明“我是一个 child model”。
+- `model.submtconnection` 写在父模型/主模型/副模型的索引 Cell，value 指向 child model id 或 `{model_id, mount_kind?}`。
+- 父侧 `model.submtconnection` Cell 只允许 relationship label 与 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 等边界引脚共存。
+- 删除 `model.submtconnection` 只解除父侧索引，不自动删除 child model 数据；删除 child root 的 `model.submt` 才是 child 侧生命周期动作。
+- child model 索引采用 single-parent 语义。
 
-**子模型表映射位（model.subtable，0424 target）**
-- 某个 host-owned hosting Cell 的 `model_type` 若声明为 `model.subtable`，则该 Cell 是 child ModelTable namespace 的挂载边界。
-- 该 value 指向 `{table_id, root_model_id, mount_kind, owner_principal_id?}` 这类挂载描述，不是 child model id。
+**子模型表声明与索引（model.subtable / model.subtableconnection，0424/0431 target）**
+- `model.subtable` 写在 child ModelTable 的 Model 0 root `(0,0,0)`，声明“我是一个 child ModelTable namespace”。
+- `model.subtableconnection` 写在 host/main/parent table 的索引 Cell，value 指向 `{table_id, root_model_id, mount_kind, owner_principal_id?}` 这类 child table ref。
 - child table 内 `model_id >= 0` 独立编号，root 通常是 `{table_id, model_id: 0}`。
-- `model.subtable` 不能当作 `model.submt` 的兼容写法；跨表连接只能经过 hosting Cell 和 child table root pins。
+- `model.subtable` 不能当作 `model.submt` 的兼容写法；跨表连接只能经过父侧 `model.subtableconnection` Cell 和 child table root pins。
 
 **模型类型二维编码**
-- label.t = 形态（model.single | model.matrix | model.table | model.submt | model.subtable）
-- label.v = 类型（Code.JS | Data.Array.One | Flow | Doc.Markdown | ...），但 `model.submt` 的 value 为 child model id，`model.subtable` 的 value 为 child table mount descriptor
+- label.t = 形态或关系索引（model.single | model.matrix | model.table | model.submt | model.subtable | model.submtconnection | model.subtableconnection）
+- label.v = 类型（Code.JS | Data.Array.One | Flow | Doc.Markdown | ...）用于自身声明；child model ref 用在 `model.submtconnection`，child table ref 用在 `model.subtableconnection`
 - 无效的形态×类型组合必须在注册时被拒绝。
 
 补充：
 - materialized Cell 仍只有一个 effective model label（主归属 / 主执行形态）。
 - 但一个 Cell 可以被多个上层 model scope 派生发现：
-  - 父模型可沿 `model.submt` ancestry 逐层看到 descendants
+  - 父模型可沿 `model.submtconnection` ancestry 逐层看到 descendants
   - `model.matrix` 可看到其范围内的 `model.single` 与更小矩阵
-- host 可通过 `model.subtable` hosting Cell 发现 child table root，但不得跨 table 直接 `pin.connect.cell`
+- host 可通过 `model.subtableconnection` index Cell 发现 child table root，但不得跨 table 直接 `pin.connect.cell`
 - 执行时不按“当前处于哪些 scope”分支，而按 pin 链与目标坐标传播。
 
 ---
@@ -285,7 +289,7 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
 | pin.connect.label | Cell 内接线 | pin 名称字符串 | 任意 Cell |
 | pin.connect.cell | Model 内跨 Cell 路由 | [p, r, c, pinName] | 仅 (0,0,0) |
 
-0356 后不再有 `pin.connect.model`。跨模型连接通过 `model.submt` hosting Cell 的边界引脚、子模型 root `(0,0,0)` 的边界引脚，以及父模型内 `pin.connect.cell` 表达。
+0356 后不再有 `pin.connect.model`。跨模型连接通过父侧 `model.submtconnection` Cell 的边界引脚、子模型 root `(0,0,0)` 的边界引脚，以及父模型内 `pin.connect.cell` 表达。
 
 ### 6.3 通道隔离与函数引脚
 

@@ -38,31 +38,31 @@ function findRecord(records, predicate) {
   return records.find((record) => predicate(record)) || null;
 }
 
-function test_workspace_filltable_example_is_registered_for_workspace_mount() {
+function test_workspace_filltable_example_is_mounted_without_workspace_registry_entry() {
   const positive = readJson('packages/worker-base/system-models/workspace_positive_models.json').records || [];
   const hierarchy = readJson('packages/worker-base/system-models/runtime_hierarchy_mounts.json').records || [];
 
-  assert.ok(findRecord(positive, (record) => (
+  assert.equal(Boolean(findRecord(positive, (record) => (
     record?.model_id === -2
     && record?.k === 'ws_apps_registry'
     && Array.isArray(record?.v)
     && record.v.some((entry) => entry?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID)
-  )), 'workspace_registry_missing_0270_entry');
+  ))), false, 'workspace_registry_must_not_expose_0270_legacy_entry');
 
   assert.ok(findRecord(hierarchy, (record) => (
     record?.model_id === 0
-    && record?.t === 'model.submt'
+    && record?.t === 'model.submtconnection'
     && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
   )), 'model0_missing_0270_app_mount');
 
   assert.ok(findRecord(positive, (record) => (
     record?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
     && record?.k === 'model_type'
-    && record?.t === 'model.submt'
+    && record?.t === 'model.submtconnection'
     && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
   )), 'app_host_missing_truth_submt');
 
-  return { key: 'workspace_filltable_example_is_registered_for_workspace_mount', status: 'PASS' };
+  return { key: 'workspace_filltable_example_is_mounted_without_workspace_registry_entry', status: 'PASS' };
 }
 
 async function test_home_save_label_can_create_positive_model_from_root_model_type() {
@@ -112,7 +112,7 @@ async function test_home_save_label_can_create_positive_model_from_root_model_ty
 }
 
 const tests = [
-  test_workspace_filltable_example_is_registered_for_workspace_mount,
+  test_workspace_filltable_example_is_mounted_without_workspace_registry_entry,
   test_home_save_label_can_create_positive_model_from_root_model_type,
 ];
 

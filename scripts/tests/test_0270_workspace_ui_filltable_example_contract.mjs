@@ -47,7 +47,7 @@ function test_workspace_filltable_example_models_and_mounts_exist() {
   );
   assert.ok(
     findRecord(hierarchyRecords, (record) => (
-      record?.model_id === 0 && record?.t === 'model.submt' && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
+      record?.model_id === 0 && record?.t === 'model.submtconnection' && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
     )),
     'workspace_example_app_must_be_mounted_under_model0',
   );
@@ -55,14 +55,14 @@ function test_workspace_filltable_example_models_and_mounts_exist() {
     findRecord(positiveRecords, (record) => (
       record?.model_id === WORKSPACE_FILLTABLE_EXAMPLE_APP_MODEL_ID
       && record?.k === 'model_type'
-      && record?.t === 'model.submt'
+      && record?.t === 'model.submtconnection'
       && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
     )),
     'workspace_example_truth_must_be_mounted_under_app_host',
   );
   assert.equal(
     Boolean(findRecord(hierarchyRecords, (record) => (
-      record?.model_id === 0 && record?.t === 'model.submt' && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
+      record?.model_id === 0 && record?.t === 'model.submtconnection' && record?.v === WORKSPACE_FILLTABLE_EXAMPLE_TRUTH_MODEL_ID
     ))),
     false,
     'workspace_example_truth_must_not_be_mounted_directly_under_model0',

@@ -1,12 +1,12 @@
 ---
-title: "Temporary ModelTable Payload v1"
+title: "Temporary ModelTable Payload"
 doc_type: ssot
 status: active
-updated: 2026-05-12
+updated: 2026-07-01
 source: ai
 ---
 
-# Temporary ModelTable Payload v1
+# Temporary ModelTable Payload
 
 ## Purpose
 
@@ -27,6 +27,7 @@ Authority:
 
 Scope:
 - Temporary ModelTable message shape, metadata labels, validation rules, and materialization boundary.
+- 0430 起，正式 bus / pin transport 的目标协议名是 `pin_payload.v2`。本文件名中的 `v1` 是历史文件名，不代表当前正式 transport 仍使用 `pin_payload.v1`。
 
 Conflict behavior:
 - If a lower doc describes formal business pin payload as plain object/string instead of record array, update the lower doc.
@@ -74,7 +75,7 @@ Conflict behavior:
 通用 payload 约束：
 - `id` / `p` / `r` / `c` 必须是整数。
 - 通用 pin payload 可以携带多 cell / 多临时模型记录。
-- `write_label.v1`、`bus_send.v1`、`pin_payload.v1` 等具名协议 payload 的控制 label 默认放在 `id=0,p=0,r=0,c=0`；协议解析只从这个 root cell 读取控制字段。
+- `write_label.v1`、`bus_send.v1`、`pin_payload.v2` 等具名协议 payload 的控制 label 默认放在 `id=0,p=0,r=0,c=0`；协议解析只从这个 root cell 读取控制字段。
 
 ### 1.1 Temporary ModelTable Message Boundary (0347)
 
@@ -140,6 +141,8 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 | `__mt_target_cell` | `json` | 目标 cell，格式 `{ "p": 2, "r": 2, "c": 2 }` |
 | `__mt_status` | `str` | 处理结果状态，例如 `"ok"` / `"rejected"` |
 | `__mt_error` | `json` | 接收方写回的结构化错误 |
+| `payload_model_id` | `int` | `pin_payload.v2` / `bus_send.v1` 中业务 payload 所在的 message-local model id |
+| `bundle_record_id_offset` | `int` | provider bundle response 中 app bundle records 的 id 偏移量，避免与 envelope / response records 冲突 |
 
 约束：
 - `__mt_*` 只表达传输/处理过程所需信息。
@@ -238,7 +241,7 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 
 ### 2.4 Canonical bus_send Payload (0332)
 
-`bus_send.v1` 是 Model 0 root 上 `mt_bus_send_in` 的内部请求格式。它用于把一个已经是临时模型表数组的业务 payload 转成 `pin.bus.cb.out` 或 `pin.bus.mb.out` 上的临时模型表值。
+`bus_send.v1` 是 Model 0 root 上 `mt_bus_send_in` 的内部请求格式。它用于把同一条 Temporary ModelTable Message 中的业务 payload records 转成 `pin.bus.cb.out` 或 `pin.bus.mb.out` 上的 `pin_payload.v2` value。
 
 合法 payload：
 
@@ -249,6 +252,9 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "management" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus_out_key", "t": "str", "v": "model100_submit_bus" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/R1/3000/submit" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/100/result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "management" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
@@ -261,61 +267,38 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "host" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 100 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_text", "t": "str", "v": "hello" }
-  ] }
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "message_text", "t": "str", "v": "hello" }
 ]
 ```
 
 接收方规则：
 - `bus_send.v1` 只能由 Model 0 `(0,0,0)` 的 `mt_bus_send` 处理。
-- `bus` 必须是 `"control"` 或 `"management"`；UI / 滑动 App 交互默认使用 `"management"`。
-- `payload` label 的 `v` 必须仍是临时模型表 record array。
+- `bus` 必须是 `"control"` 或 `"management"`；UI / 滑动 App 同工作区交互默认使用 `"control"`，只有显式管理语义才使用 `"management"`。
+- `payload_model_id` 必须指向同一 record array 中存在的 message-local model id。
 - `message_role` 必须是 `"request"` 或 `"response"`；UI / 滑动 App 发起外发时写 `"request"`。
 - `endpoint_*`、`origin_*`、`reply_target_*` 必须是 record array 中的 records，不能放在外层 JSON object 上。
+- 正式 bus / pin transport 不允许把 ModelTable records 放进 `payload.v`、`bundle_payload.v`、`json_patch.v` 或其他 `json` label 中。业务 records 必须作为同一数组中的 records 出现。
 - 旧对象请求，例如 `{ "op": "submit", "model_id": 100, ... }`，不得作为 `mt_bus_send_in` 的合法 pin value。
 
-### 2.5 Canonical pin_payload Payload (0332)
+### 2.5 Canonical pin_payload Payload (0430)
 
-`pin_payload.v1` 是 Model 0 `pin.bus.cb.out` / `pin.bus.mb.out` 的内部业务值格式。它本身仍是临时模型表数组；运行时或 server 在真正跨出系统边界时，可以把它还原为既有 transport packet：
+`pin_payload.v2` 是 Model 0 `pin.bus.cb.out` / `pin.bus.mb.out` 的内部业务值格式。它本身是临时模型表数组；运行时或 server 在真正跨出系统边界时，可以把这个数组放进外层 transport packet，但业务 pin value 仍只能是 record array。
 
 对 imported slide app，远端 worker / model 来自 app root 的 `remote_bus_endpoint_v1`；远端 pin 来自当前被触发的公开 pin。UI Server 本地实例的 table-qualified `ModelRef`、host transport endpoint、回写目标和请求关联信息必须作为 payload record array 内的 metadata records 传递。
 
-### 2.5a Provider-Owned Slide App Bundle Payload（0384 合同）
-
-provider-owned 安装链路同样只传 Temporary ModelTable records。format is ModelTable-like, persistence is explicit materialization：传输过程中的 request / response 不会自动落表；只有 UI Server installer 在通过校验后才把 provider 返回的 bundle records materialize 成正式模型表。
-
-bundle request 是 `pin_payload.v1 message_role=request` 的 nested `payload`：
+合法 `pin_payload.v2` 内部业务值示例：
 
 ```json
 [
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "slide_app_bundle_request.v1" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "asset_id", "t": "str", "v": "r1-color-generator" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "requested_version", "t": "str", "v": "current" }
-]
-```
-
-bundle response 是 `pin_payload.v1 message_role=response` 的 nested `payload`：
-
-```json
-[
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "slide_app_bundle_response.v1" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "asset_id", "t": "str", "v": "r1-color-generator" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bundle_payload", "t": "json", "v": [] },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bundle_sha256", "t": "str", "v": "" }
-]
-```
-
-`bundle_payload.v` 必须是可被 slide-app import validator 接受的 ModelTable record array。UI Server 必须把 pending install state 与 response envelope 一起校验：`op_id` 或 request correlation、`asset_id`、provider endpoint、computed `topic`、`route_kind`、`reply_target` 都必须匹配。任何 stale / mismatched response 都不得 materialize。
-
-合法 `pin_payload.v1` 内部业务值示例：
-
-```json
-[
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/R1/3000/submit" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
@@ -328,9 +311,8 @@ bundle response 是 `pin_payload.v1 message_role=response` 的 nested `payload`�
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "app:subject:drop:submit:001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 0 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
-  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload", "t": "json", "v": [
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
-  ] }
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
 ]
 ```
 
@@ -343,10 +325,14 @@ bundle response 是 `pin_payload.v1 message_role=response` 的 nested `payload`�
   "version": "v1",
   "type": "pin_payload",
   "payload": [
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v1" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "req_123" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/R1/3000/submit" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3000 },
@@ -358,15 +344,17 @@ bundle response 是 `pin_payload.v1 message_role=response` 的 nested `payload`�
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_worker_id", "t": "str", "v": "U1" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "app:subject:drop:submit:001" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 0 },
-    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" }
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+    { "id": 1, "p": 0, "r": 0, "c": 0, "k": "text", "t": "str", "v": "hello" }
   ]
 }
 ```
 
 边界转换规则：
-- `pin.bus.cb.out` / `pin.bus.mb.out` label 的 `v` 必须是 `pin_payload.v1` 临时模型表数组，而不是上述 object packet。
+- `pin.bus.cb.out` / `pin.bus.mb.out` label 的 `v` 必须是 `pin_payload.v2` 临时模型表数组，而不是上述 object packet。
 - MQTT / Matrix / MBR 等外层 transport 可以继续使用 object packet；这是系统边界 envelope，不是业务 pin value。
-- `pin_payload.v1.payload` 里的业务内容必须仍是临时模型表 record array。
+- `pin_payload.v2` 的业务内容由 `payload_model_id` 指向同一 record array 中的 records；不得出现 nested `payload.v`。
 - `message_role` 必须存在；`request` 触发目标程序链路，`response` 只作为回包转发和 UI materialization 输入。
 - `response_topic` 必须由 UI Server / 宿主在发出 request 时生成。host-table 目标可直接由 `<mqtt_topic_base>/<reply_target_worker_id>/<reply_target_model_id>/<reply_target_pin>` 派生；App instance 目标必须使用 host transport endpoint，并在 records 中另写 `reply_target_table_id + reply_target_model_id` 作为 materialization target。request 的 `response_topic` 必须合法且不得等于 `topic`；response 的 `topic` 必须等于 `response_topic`。
 - `endpoint_*` records 是远端公开入口目标，使用 `worker_id + model_id + pin` 定位目标 worker 上的目标模型 root 公开 pin。
@@ -376,6 +364,76 @@ bundle response 是 `pin_payload.v1 message_role=response` 的 nested `payload`�
 - MBR / MQTT adapter 只能使用 `topic` record 作为当前 packet 的 transport topic。唯一合法 topic 形态是 `UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>`。
 - 请求使用远端 endpoint topic；回包使用 `response_topic`。response packet 的 `endpoint_*` 必须与当前 `topic` 的 host transport endpoint 一致；`reply_target_*` 必须与最终本地 materialization target 一致。host-table 目标下两者可以相同；App instance 目标下二者通常不同。
 - `route.reply_to`、`return_topic`、`returnTopic`、`result_topic` 与旧 result topic 不是当前输入面；不能作为回包目标、不能兼容解析。
+
+### 2.5a Provider-Owned Slide App Bundle Payload（0430 target）
+
+provider-owned 安装链路同样只传 Temporary ModelTable records。format is ModelTable-like, persistence is explicit materialization：传输过程中的 request / response 不会自动落表；只有 UI Server installer 在通过校验后才把 provider 返回的 bundle records materialize 成正式模型表。
+
+bundle request 是 `pin_payload.v2 message_role=request`，其业务 records 由 `payload_model_id` 指向：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "bundle-req-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "bundle-req-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/R1/3100/bundle_request" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/bundle_result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "R1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 3100 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "bundle_request" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "U1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_table_id", "t": "str", "v": "host" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_model_id", "t": "int", "v": 1051 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_pin", "t": "str", "v": "install" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_worker_id", "t": "str", "v": "U1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "host" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 1051 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "bundle_result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "slide_app_bundle_request.v1" },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "asset_id", "t": "str", "v": "r1-color-generator" },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "requested_version", "t": "str", "v": "current" }
+]
+```
+
+bundle response 是 `pin_payload.v2 message_role=response`。response metadata 由 `payload_model_id` 指向；实际 app bundle records 作为同一数组中的 records 出现，并通过 `bundle_record_id_offset` 避免和 envelope / response metadata id 冲突：
+
+```json
+[
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "bundle-req-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "bundle-req-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/bundle_result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/bundle_result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "U1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 1051 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_pin", "t": "str", "v": "bundle_result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_worker_id", "t": "str", "v": "R1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_table_id", "t": "str", "v": "host" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_model_id", "t": "int", "v": 3100 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "origin_pin", "t": "str", "v": "bundle_request" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_worker_id", "t": "str", "v": "U1" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_table_id", "t": "str", "v": "host" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 1051 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "bundle_result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "slide_app_bundle_response.v1" },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "asset_id", "t": "str", "v": "r1-color-generator" },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "bundle_record_id_offset", "t": "int", "v": 1000 },
+  { "id": 1, "p": 0, "r": 0, "c": 0, "k": "bundle_sha256", "t": "str", "v": "" },
+  { "id": 1000, "p": 0, "r": 0, "c": 0, "k": "model_type", "t": "model.table", "v": "SlideApp" }
+]
+```
+
+UI Server 必须把 pending install state 与 response envelope 一起校验：`op_id` 或 request correlation、`asset_id`、provider endpoint、computed `topic`、`route_kind`、`reply_target` 都必须匹配。任何 stale / mismatched response 都不得 materialize。`bundle_payload.v`、nested `payload.v` 或 nested JSON patch 不属于当前正式输入面。
 
 ## 3. Imported Feishu Evidence
 

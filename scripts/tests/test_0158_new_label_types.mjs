@@ -17,7 +17,7 @@ async function test_pin_connect_cell_routes_bus_to_submodel_host() {
   const child = rt.createModel({ id: 100, name: 'm100', type: 'app' });
   const root = rt.getModel(0);
 
-  rt.addLabel(root, 1, 0, 0, { k: 'model_type', t: 'model.submt', v: 100 });
+  rt.addLabel(root, 1, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: 100 });
   rt.addLabel(root, 1, 0, 0, { k: 'input', t: 'pin.in', v: null });
   rt.addLabel(root, 0, 0, 0, {
     k: 'bus_to_host_cell',

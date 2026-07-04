@@ -725,9 +725,11 @@ async function test_snapshot_profiles_expose_bootstrap_and_visible_shapes() {
     const visibleSnapshot = responseSnapshot(visibleBody);
     assert.equal(Boolean(getModel(visibleSnapshot, target)), true, 'visible profile must include requested model');
     assert.equal(Boolean(getModel(visibleSnapshot, unrelated)), false, 'visible profile must exclude unrelated app model');
-    assertBootstrapModel0Minimal(visibleSnapshot, 'visible snapshot');
-    assertBootstrapShellRootLabels(visibleSnapshot, 'visible snapshot');
-    assertBootstrapModelAllowlist(visibleSnapshot, fullSnapshot, 'visible snapshot', [target]);
+    assert.deepEqual(
+      modelIds(visibleSnapshot),
+      [target],
+      'explicit profile=visible snapshot must contain only the requested model body',
+    );
     assertNoPositiveWorkspaceAppBodies(
       visibleSnapshot,
       allPositiveWorkspaceAppIds.filter((modelId) => modelId !== target),
@@ -1528,8 +1530,8 @@ function assertDemoAppForegroundLazyLoadSourceContract() {
   assert.match(syncBody, /ensureForegroundAppVisibleModelLoaded[\s\S]*\.then\s*\([\s\S]*foregroundVisibleLoadTick\.value/u, 'syncDesktopForeground must tick after visible model lazy-load resolves');
   const playerBody = extractFunctionBody(source, 'ForegroundPlayer');
   assert.match(playerBody, /foregroundVisibleLoadTick\.value/u, 'ForegroundPlayer must read the visible-load tick so lazy-load completion re-renders the shell');
-  assert.match(playerBody, /snapshot\??\.models/u, 'ForegroundPlayer must read the selected model from the reactive snapshot model map');
-  assert.match(playerBody, /hasSnapshotModel\s*\([^)]*app\.model_id[^)]*\)/u, 'ForegroundPlayer must check store.hasSnapshotModel(app.model_id) inside its own function body');
+  assert.match(playerBody, /getForegroundModelLoadState\s*\(\s*mainStore\s*,\s*app\s*\)/u, 'ForegroundPlayer must derive table-qualified visible model load state from the store snapshot');
+  assert.match(playerBody, /mainStore\?\.\s*snapshot/u, 'ForegroundPlayer must render foreground content from the reactive snapshot cache');
   assert.match(playerBody, /foreground_visible_model_loading/u, 'ForegroundPlayer must render a loading state while foreground workspace model is still lazy-loading');
 
   const routeSourcePath = new URL('../../packages/ui-model-demo-frontend/src/route_ui_projection.js', import.meta.url);

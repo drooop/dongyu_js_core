@@ -106,7 +106,7 @@ source: ai
 1. `Button` 触发 `Model 1010 ui_event`
 2. `prepare_workspace_filltable_submit` 把事件送到 `Model 1010 (1,0,0) confirm`
 3. `dispatch_remote` 把 payload 写到 `Model 1010 / submit`
-4. `Model 1009` hosting cell 把 child `submit` 接出来
+4. `Model 1009` 的 parent-side connection Cell 把 child `submit` 接出来
 5. UI Server 根据 `remote_bus_endpoint_v1` 和 `egress_pins` 生成 host egress adapter
 6. generated adapter 把 payload 包成 `pin_payload`，通过 Model 0 `mt_bus_send` / `pin.bus.mb.out` 发到双总线
 7. `MBR -> remote-worker`
@@ -233,7 +233,8 @@ source: ai
 
 然后补挂载：
 
-- `Model 1009 / (0,2,0) / model_type = model.submt -> 1010`
+- `Model 1009 / (0,2,0) / model_type = model.submtconnection -> 1010`
+- `Model 1010 / (0,0,0) / model_type = model.submt`
 
 再补 UI 节点：
 
@@ -247,7 +248,7 @@ source: ai
 
 最后补：
 
-- `Model 0 -> 1009` 的 `model.submt`
+- `Model 0 -> 1009` 的 `model.submtconnection`，以及 `Model 1009 (0,0,0)` 的 `model.submt`
 - `-2 / ws_apps_registry` 中的 app 条目
 
 做完后刷新页面，新的 Workspace 侧边栏条目应重新出现。

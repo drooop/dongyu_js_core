@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { WorkerEngineV0, loadSystemPatch } from '../worker_engine_v0.mjs';
+import { payloadRecords, pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
@@ -53,26 +54,25 @@ function requestPayload() {
     mt('model_type', 'model.single', 'Data.WorkspaceManagerRefresh'),
     mt('request_kind', 'str', 'asset_tree'),
   ];
-  return [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', '0377_wm_refresh'),
-    mt('op_id', 'str', '0377_wm_refresh'),
-    mt('message_role', 'str', 'request'),
-    mt('topic', 'str', 'UIPUT/ws/dam/pic/de/WM1/4000/refresh'),
-    mt('route_kind', 'str', 'control'),
-    mt('bus', 'str', 'control'),
-    mt('endpoint_worker_id', 'str', 'WM1'),
-    mt('endpoint_model_id', 'int', 4000),
-    mt('endpoint_pin', 'str', 'refresh'),
-    mt('origin_worker_id', 'str', 'U1'),
-    mt('origin_model_id', 'int', 2000),
-    mt('origin_pin', 'str', 'refresh'),
-    mt('reply_target_worker_id', 'str', 'U1'),
-    mt('reply_target_model_id', 'int', 2000),
-    mt('reply_target_pin', 'str', 'result'),
-    mt('payload', 'json', businessPayload),
-    mt('timestamp', 'int', 1700000000000),
-  ];
+  return pinPayloadV2Records({
+    opId: '0377_wm_refresh',
+    topic: 'UIPUT/ws/dam/pic/de/WM1/4000/refresh',
+    endpointWorkerId: 'WM1',
+    endpointModelId: 4000,
+    endpointPin: 'refresh',
+    originWorkerId: 'U1',
+    originModelId: 2000,
+    originPin: 'refresh',
+    replyTargetWorkerId: 'U1',
+    replyTargetModelId: 2000,
+    replyTargetPin: 'result',
+    payloadRecords: businessPayload,
+    timestamp: 1700000000000,
+  });
+}
+
+function requestPayloadMissing(missingKey) {
+  return requestPayload().filter((item) => item.k !== missingKey);
 }
 
 function loadWorkspaceManagerRuntime() {
@@ -181,16 +181,35 @@ async function test_workspace_manager_patch_loads_and_returns_asset_tree_respons
   const out = cell.labels.get('wm_cb_out');
   assert.equal(out?.t, 'pin.bus.cb.out', 'refresh handler must write control-bus response');
   const response = out.v;
-  assert.equal(payloadString(response, '__mt_payload_kind'), 'pin_payload.v1', 'response must be temporary ModelTable payload');
+  assert.equal(payloadString(response, '__mt_payload_kind'), 'pin_payload.v2', 'response must be temporary ModelTable payload');
   assert.equal(payloadString(response, 'message_role'), 'response', 'response must mark message_role=response');
+  assert.equal(payloadString(response, 'topic'), 'UIPUT/ws/dam/pic/de/U1/2000/result', 'response must publish to the reply target response topic');
+  assert.equal(payloadJson(response, 'payload'), null, 'response must not carry nested payload label');
   assert.equal(payloadString(response, 'origin_worker_id'), 'WM1', 'response origin worker must be Workspace Manager');
   assert.equal(payloadInt(response, 'origin_model_id'), 4000, 'response origin model must be service model 4000');
   assert.equal(payloadString(response, 'reply_target_worker_id'), 'U1', 'response must preserve UI reply target');
-  const resultPayload = payloadJson(response, 'payload');
+  const resultPayload = payloadRecords(response);
   const tree = payloadJson(resultPayload, 'asset_tree_json');
   assert.ok(Array.isArray(tree), 'response payload must include asset_tree_json array');
   assert.ok(tree.some((item) => item && item.id === 'workspace-manager-dem' && item.kind === 'DEM'), 'tree must include Workspace Manager DEM');
   return { key: 'workspace_manager_patch_loads_and_returns_asset_tree_response', status: 'PASS' };
+}
+
+async function test_workspace_manager_rejects_missing_table_refs() {
+  for (const missingKey of ['endpoint_table_id', 'origin_table_id', 'reply_target_table_id']) {
+    const rt = loadWorkspaceManagerRuntime();
+    const model0 = rt.getModel(0);
+    rt.addLabel(model0, 0, 0, 0, {
+      k: 'wm_cb_in',
+      t: 'pin.bus.cb.in',
+      v: requestPayloadMissing(missingKey),
+    });
+    await wait();
+    const cell = rt.getCell(model0, 0, 0, 0);
+    assert.equal(cell.labels.get('wm_cb_out')?.v ?? null, null, `workspace manager must not respond when ${missingKey} is missing`);
+    assert.equal(cell.labels.get('bus_in_error')?.v?.code, `bus_in_missing_${missingKey}`, `workspace manager must write visible bus error for missing ${missingKey}`);
+  }
+  return { key: 'workspace_manager_rejects_missing_table_refs', status: 'PASS' };
 }
 
 async function test_workspace_manager_control_bus_out_publishes_to_payload_topic() {
@@ -204,7 +223,7 @@ async function test_workspace_manager_control_bus_out_publishes_to_payload_topic
   await wait();
   const { mqttPublished, mgmtPublished } = drainWorkerEngine(rt);
   assert.equal(mqttPublished.length, 1, 'worker engine must publish one control-bus response');
-  assert.equal(mqttPublished[0].topic, 'UIPUT/ws/dam/pic/de/WM1/4000/refresh', 'publish topic must come from payload topic');
+  assert.equal(mqttPublished[0].topic, 'UIPUT/ws/dam/pic/de/U1/2000/result', 'publish topic must come from response topic');
   assert.equal(mgmtPublished.length, 0, 'control refresh must not publish management bus event');
   return { key: 'workspace_manager_control_bus_out_publishes_to_payload_topic', status: 'PASS' };
 }
@@ -225,7 +244,7 @@ async function test_workspace_manager_runtime_accepts_endpoint_topic_via_model0_
   assert.deepEqual(model0.getCell(0, 0, 0).labels.get('wm_cb_in')?.v, packet.payload, 'Model 0 control-bus boundary must receive the strict pin payload records');
   const service = rt.getModel(4000);
   assert.equal(service.getCell(0, 0, 0).labels.get('refresh')?.t, 'pin.in', 'Model 0 wm_cb_in route must deliver to model 4000 refresh pin');
-  const publish = rt.mqttTrace.list().find((entry) => entry.type === 'publish' && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/WM1/4000/refresh');
+  const publish = rt.mqttTrace.list().find((entry) => entry.type === 'publish' && entry.payload?.topic === 'UIPUT/ws/dam/pic/de/U1/2000/result');
   assert.ok(publish, 'workspace-manager response must publish on the payload topic');
   assert.equal(publish.payload?.payload?.type, 'pin_payload', 'published response must use strict pin_payload packet');
   return { key: 'workspace_manager_runtime_accepts_endpoint_topic_via_model0_boundary', status: 'PASS' };
@@ -274,12 +293,12 @@ function test_workspace_manager_slide_app_contract_is_cellwise_and_host_egress_o
 
   const statusCell = rt.getCell(model, 2, 4, 0);
   assert.deepEqual(statusCell.labels.get('ui_bind_json')?.v, {
-    read: { model_id: 1051, p: 0, r: 0, c: 0, k: 'workspace_manager_status' },
+    read: { p: 0, r: 0, c: 0, k: 'workspace_manager_status' },
   }, 'Workspace Manager status badge must use current ui_bind_json.read binding');
   assert.equal([...statusCell.labels.keys()].some((key) => key.startsWith('ui_text_ref_')), false, 'Workspace Manager status badge must not keep old ui_text_ref_* bindings');
   const terminalCell = rt.getCell(model, 2, 5, 0);
   assert.deepEqual(terminalCell.labels.get('ui_bind_json')?.v, {
-    read: { model_id: 1051, p: 0, r: 0, c: 0, k: 'asset_tree_text' },
+    read: { p: 0, r: 0, c: 0, k: 'asset_tree_text' },
   }, 'Workspace Manager terminal must use current ui_bind_json.read binding');
   assert.equal([...terminalCell.labels.keys()].some((key) => key.startsWith('ui_text_ref_')), false, 'Workspace Manager terminal must not keep old ui_text_ref_* bindings');
 
@@ -374,6 +393,7 @@ const tests = process.argv.includes('--docs-only')
       test_workspace_manager_dem_patch_identity_and_bus_pins,
       test_workspace_manager_patch_has_no_legacy_inputs,
       test_workspace_manager_patch_loads_and_returns_asset_tree_response,
+      test_workspace_manager_rejects_missing_table_refs,
       test_workspace_manager_control_bus_out_publishes_to_payload_topic,
       test_workspace_manager_runtime_accepts_endpoint_topic_via_model0_boundary,
       test_workspace_manager_slide_app_contract_is_cellwise_and_host_egress_only,

@@ -127,15 +127,16 @@ async function test_saved_zip_imports_and_exports_reimportable_zip() {
     });
     const importResult = state.runtime.hostApi.slideImportAppFromMxc('mxc://localhost/0361-minimal-submit');
     assert.equal(importResult.ok, true, 'saved_zip_import_must_succeed');
-    const importedId = importResult.data?.model_id;
-    assert.equal(Number.isInteger(importedId), true, 'imported_model_id_must_be_int');
-    const importedModel = state.runtime.getModel(importedId);
+    const importedRef = importResult.data?.model_ref;
+    assert.equal(typeof importedRef?.table_id, 'string', 'imported_table_id_must_be_string');
+    assert.equal(Number.isInteger(importedRef?.model_id), true, 'imported_model_id_must_be_int');
+    const importedModel = state.runtime.getModel(importedRef);
     const root = state.runtime.getCell(importedModel, 0, 0, 0).labels;
     assert.equal(root.get('app_name')?.v, '最小 Submit 双总线示例', 'imported_app_name_must_match');
     assert.deepEqual(root.get('remote_bus_endpoint_v1')?.v, { transport: 'mqtt', to: { worker_id: 'R1', model_id: 3000 } }, 'remote_endpoint_must_be_preserved_without_reply_to');
     assert.deepEqual(root.get('dual_bus_model')?.v, { mode: 'imported_host_egress', egress_pins: ['submit1'] }, 'dual_bus_must_declare_public_egress_pin');
     assert.ok(root.has('host_egress_generated_model0_labels'), 'host_egress_adapter_must_be_generated');
-    const statusCell = state.runtime.getCell(state.runtime.getModel(importedId), 2, 5, 0).labels;
+    const statusCell = state.runtime.getCell(state.runtime.getModel(importedRef), 2, 5, 0).labels;
     assert.deepEqual(statusCell.get('ui_bind_read_json')?.v, { p: 0, r: 0, c: 0, k: 'remote_status' }, 'status_badge_must_use_current_model_bind_read_without_model_id');
     assert.equal([...statusCell.keys()].some((key) => String(key).startsWith('ui_text_ref_')), false, 'status_badge_must_not_keep_scalar_ui_text_ref_bindings');
     state.runtime.addLabel(importedModel, 0, 0, 0, { k: 'owner_request', t: 'pin.in', v: [] });
@@ -146,7 +147,7 @@ async function test_saved_zip_imports_and_exports_reimportable_zip() {
     state.runtime.addLabel(importedModel, 0, 0, 2, { k: 'bus_event_error', t: 'json', v: null });
     state.runtime.addLabel(importedModel, 0, 0, 2, { k: 'bus_event_custom', t: 'json', v: { runtime: true } });
 
-    const exportResult = buildSlideAppExportZip(state.runtime, importedId);
+    const exportResult = buildSlideAppExportZip(state.runtime, importedRef);
     assert.equal(exportResult.ok, true, 'export_zip_must_succeed');
     const exportedZip = new AdmZip(exportResult.data.buffer);
     const entries = exportedZip.getEntries().filter((entry) => entry && !entry.isDirectory);
@@ -188,7 +189,9 @@ function test_docs_explain_generation_and_export_paths() {
     ['interactive', interactive],
   ]) {
     assert.match(text, /app_payload\.json/u, `${label}_must_name_app_payload`);
-    assert.match(text, /\/api\/slide-apps\/(?:<modelId>|&lt;modelId&gt;)\/export\.zip/u, `${label}_must_document_export_endpoint`);
+    assert.match(text, /\/api\/slide-apps\/export\.zip\?table_id=/u, `${label}_must_document_table_qualified_export_endpoint`);
+    assert.match(text, /\/api\/slide-apps\/(?:<modelId>|&lt;modelId&gt;)\/export\.zip/u, `${label}_must_document_legacy_export_endpoint_as_rejected`);
+    assert.match(text, /已废弃|rejected|拒绝/u, `${label}_must_mark_legacy_export_endpoint_rejected`);
     assert.match(text, /Zip/u, `${label}_must_document_workspace_zip_export`);
   }
   assert.match(guide, /test_files\/minimal_submit_dual_bus_app_payload\.json/u, 'guide_must_reference_saved_payload_fixture');

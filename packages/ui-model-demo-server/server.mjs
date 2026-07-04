@@ -36,7 +36,7 @@ import {
   desktopAppRefKey,
   normalizeDesktopForegroundApp,
   normalizeDesktopTaskStack,
-  readDesktopForegroundWorkspaceModelId,
+  readDesktopForegroundApp,
 } from '../ui-model-demo-frontend/src/desktop_app_state.js';
 import {
   deriveEditorModelOptions,
@@ -76,6 +76,9 @@ import {
   loadHomeservers, addHomeserver, removeHomeserver,
   checkLoginRateLimit,
   validateHomeserverUrl,
+  isDevFakeLoginEnabled,
+  listDevFakeLoginUsers,
+  loginWithDevFakeUser,
   startOidcLogin,
   completeOidcLogin,
   startMatrixSso,
@@ -134,6 +137,7 @@ const BOOTSTRAP_EDITOR_STATE_LABEL_KEYS = new Set([
   'ui_page_catalog_json',
   'ws_apps_registry',
   'ws_app_selected',
+  'ws_app_selected_ref',
   'selected_model_id',
   DESKTOP_FOREGROUND_APP_LABEL,
   DESKTOP_TASK_STACK_LABEL,
@@ -173,7 +177,9 @@ function slideAppExportUrlForRef(tableId, modelId) {
   const normalizedTableId = typeof tableId === 'string' && tableId.trim() ? tableId.trim() : 'host';
   if (!Number.isInteger(modelId)) return '';
   if (normalizedTableId === 'host') {
-    return modelId > 0 ? `/api/slide-apps/${modelId}/export.zip` : '';
+    return modelId > 0
+      ? `/api/slide-apps/export.zip?table_id=host&model_id=${encodeURIComponent(String(modelId))}`
+      : '';
   }
   if (!isSafePinRouteSegment(normalizedTableId) || modelId < 0) return '';
   return `/api/slide-apps/export.zip?table_id=${encodeURIComponent(normalizedTableId)}&model_id=${encodeURIComponent(String(modelId))}`;
@@ -1545,7 +1551,7 @@ const DEFAULT_LLM_FILLTABLE_PROMPT_TEMPLATE = [
   '- If a field is ambiguous or no schema key matches confidently, omit that field from candidate_changes and ask one concise clarification question in proposal.confirmation_question',
   '- If the request needs structural changes or child-model creation that policy forbids, keep candidate_changes: [] and explain the block briefly in proposal.summary/confirmation_question',
   '- obey policy.allowed_label_types and policy.allow_structural_types',
-  '- Structural t (func.js/func.python/pin.connect.label/pin.connect.cell/pin.bus.cb.in/pin.bus.cb.out/pin.bus.mb.in/pin.bus.mb.out/pin.table.in/pin.table.out/pin.single.in/pin.single.out/model.single/model.matrix/model.table/submt) are forbidden unless policy.allow_structural_types=true',
+  '- Structural t (func.js/func.python/pin.connect.label/pin.connect.cell/pin.bus.cb.in/pin.bus.cb.out/pin.bus.mb.in/pin.bus.mb.out/pin.table.in/pin.table.out/pin.single.in/pin.single.out/model.single/model.matrix/model.table/model.subtable/model.subtableconnection/model.submt/model.submtconnection) are forbidden unless policy.allow_structural_types=true',
   '- pin.table.in / pin.table.out are for table-or-matrix models, and pin.single.in / pin.single.out are for model.single',
   '- For func.js/func.python, v must be object and include non-empty string field code',
   '- For pin.connect.*, v must be an array',
@@ -2507,6 +2513,7 @@ const SLIDE_EXPORT_EXCLUDED_LABEL_KEYS = new Set([
   'installed_at',
   'imported_bundle_model_ids',
   'import_root_temp_id',
+  'slide_app_table_id',
   'host_ingress_generated_model0_labels',
   'host_ingress_generated_mount',
   'host_ingress_generated_root_labels',
@@ -2700,21 +2707,7 @@ function containsLegacyPinPayloadMetadata(value, seen = new WeakSet()) {
 }
 
 function containsLegacyPinPayloadMetadataInPinPayloadRecords(records) {
-  const nestedPayloadLabel = findTemporaryPayloadRecord(records, 'payload');
-  const nestedPayload = nestedPayloadLabel && nestedPayloadLabel.t === 'json' ? nestedPayloadLabel.v : null;
-  const nestedKind = readTemporaryPayloadString(nestedPayload, '__mt_payload_kind');
-  if (nestedKind !== 'slide_app_bundle_response.v1') {
-    return containsLegacyPinPayloadMetadata(records);
-  }
-  const outerRecords = records.map((record) => (record && record.k === 'payload' ? { ...record, v: [] } : record));
-  if (containsLegacyPinPayloadMetadata(outerRecords)) return true;
-  for (const nestedRecord of nestedPayload) {
-    if (!nestedRecord || typeof nestedRecord.k !== 'string') return true;
-    if (isLegacyPinPayloadKey(nestedRecord.k)) return true;
-    if (nestedRecord.k === 'bundle_payload') continue;
-    if (containsLegacyPinPayloadMetadata(nestedRecord.v)) return true;
-  }
-  return false;
+  return containsLegacyPinPayloadMetadata(records);
 }
 
 function resolveUiServerWorkerId() {
@@ -2794,8 +2787,15 @@ function shouldExcludeSlideExportLabel(label) {
   return false;
 }
 
-function normalizeSlideExportRuntimeStateLabel(label, actualToTempId) {
+function normalizeSlideExportRuntimeStateLabel(label, actualToTempId, context = {}) {
   if (!label || typeof label.k !== 'string' || typeof label.t !== 'string') return label;
+  if (
+    context.isRootModel === true
+    && label.k === 'model_type'
+    && (label.t === 'model.submt' || label.t === 'model.subtable')
+  ) {
+    return { ...label, t: 'model.table' };
+  }
   if (label.t === 'pin.in' || label.t === 'pin.out') {
     return { ...label, v: null };
   }
@@ -2848,8 +2848,11 @@ function collectSlideExportModelRefs(runtime, rootRef) {
     refs.push({ table_id: rootRef.table_id, model_id: modelId });
     for (const cell of model.cells.values()) {
       for (const label of cell.labels.values()) {
-        if (label && label.t === 'model.submt' && Number.isInteger(label.v)) {
-          visit(label.v);
+        if (label && label.t === 'model.submtconnection') {
+          const childModelId = Number.isInteger(label.v)
+            ? label.v
+            : (label.v && typeof label.v === 'object' && Number.isInteger(label.v.model_id) ? label.v.model_id : null);
+          if (Number.isInteger(childModelId)) visit(childModelId);
         }
       }
     }
@@ -2898,7 +2901,7 @@ function normalizeSlideExportLabelValue(label, actualToTempId) {
       : [];
     return { mode, egress_pins: egressPins };
   }
-  if (label && label.t === 'model.submt' && Number.isInteger(label.v) && actualToTempId.has(label.v)) {
+  if (label && label.t === 'model.submtconnection' && Number.isInteger(label.v) && actualToTempId.has(label.v)) {
     return actualToTempId.get(label.v);
   }
   if (label && isModelIdReferenceKey(label.k) && Number.isInteger(label.v) && actualToTempId.has(label.v)) {
@@ -2938,7 +2941,9 @@ function buildSlideAppExportPayload(runtime, rootModelId) {
       const labels = Array.from(cell.labels.values()).sort((a, b) => String(a.k).localeCompare(String(b.k)));
       for (const label of labels) {
         if (shouldExcludeSlideExportLabel(label)) continue;
-        const normalizedLabel = normalizeSlideExportRuntimeStateLabel(label, actualToTempId);
+        const normalizedLabel = normalizeSlideExportRuntimeStateLabel(label, actualToTempId, {
+          isRootModel: ref.table_id === rootRef.table_id && ref.model_id === rootRef.model_id,
+        });
         records.push({
           id: tempId,
           p: cell.p,
@@ -2984,6 +2989,9 @@ function slideAppExportRefFromUrl(url) {
   const exportMatch = url.pathname.match(/^\/api\/slide-apps\/(\d+)\/export\.zip$/);
   const queryExport = url.pathname === '/api/slide-apps/export.zip';
   if (!exportMatch && !queryExport) return null;
+  if (exportMatch) {
+    return { ok: false, code: 'table_id_required' };
+  }
   if (queryExport && !url.searchParams.has('table_id')) {
     return { ok: false, code: 'table_id_required' };
   }
@@ -3356,9 +3364,9 @@ function validateSlideImportPayload(payload) {
   };
 }
 
-function remapImportedValue(value, idMap) {
+function remapImportedValue(value, idMap, busIngressKeyMap = new Map()) {
   if (Array.isArray(value)) {
-    return value.map((item) => remapImportedValue(item, idMap));
+    return value.map((item) => remapImportedValue(item, idMap, busIngressKeyMap));
   }
   if (!isPlainObject(value)) return value;
   const out = {};
@@ -3379,26 +3387,28 @@ function remapImportedValue(value, idMap) {
           void rText;
           void cText;
           const tempId = Number(tempIdText);
+          const mappedIngressKey = busIngressKeyMap.get(`${tempId}|${pinName}`);
+          if (mappedIngressKey) return mappedIngressKey;
           if (!idMap.has(tempId)) return match;
           return buildImportedHostIngressKeys(idMap.get(tempId), pinName).ingressKey;
         },
       );
       continue;
     }
-    out[key] = remapImportedValue(child, idMap);
+    out[key] = remapImportedValue(child, idMap, busIngressKeyMap);
   }
   return out;
 }
 
-function remapImportedLabelValue(record, idMap) {
-  if (record.t === 'model.submt' && Number.isInteger(record.v) && idMap.has(record.v)) {
+function remapImportedLabelValue(record, idMap, busIngressKeyMap = new Map()) {
+  if (record.t === 'model.submtconnection' && Number.isInteger(record.v) && idMap.has(record.v)) {
     return idMap.get(record.v);
   }
   if (isModelIdReferenceKey(record.k) && Number.isInteger(record.v) && idMap.has(record.v)) {
     return idMap.get(record.v);
   }
   if (isPlainObject(record.v) || Array.isArray(record.v)) {
-    return remapImportedValue(record.v, idMap);
+    return remapImportedValue(record.v, idMap, busIngressKeyMap);
   }
   return record.v;
 }
@@ -3410,7 +3420,7 @@ function resolveNextWorkspaceMountCell(runtime) {
   for (const cell of model0.cells.values()) {
     if (cell.p !== 2 || cell.r !== 0) continue;
     for (const label of cell.labels.values()) {
-      if (label && (label.t === 'model.submt' || label.t === 'model.subtable')) {
+      if (label && (label.t === 'model.submtconnection' || label.t === 'model.subtableconnection')) {
         maxC = Math.max(maxC, cell.c);
       }
     }
@@ -3438,6 +3448,37 @@ function readRuntimePrincipalOwnerId(runtime) {
   return key || 'local-dev';
 }
 
+function buildRuntimePrincipalForSnapshot(runtime) {
+  const key = readRuntimePrincipalKey(runtime);
+  const capabilities = [
+    'app:read',
+    'app:write',
+    'workspace:read',
+    'workspace:write',
+    'slide_app:use',
+    'matrix:connect',
+    'management_bus:use',
+  ];
+  if (!key) {
+    return {
+      provider: 'disabled',
+      userId: 'local-dev',
+      subject: 'local-dev',
+      roles: ['local.dev'],
+      capabilities,
+      matrixConnected: false,
+    };
+  }
+  const principal = { provider: 'runtime', capabilities, matrixConnected: false };
+  const match = key.match(/^(subject|userId|email|username):(.*)$/s);
+  if (match && match[2].trim()) {
+    principal[match[1]] = match[2].trim();
+  } else {
+    principal.subject = key;
+  }
+  return principal;
+}
+
 function buildSlideAppInstanceTableId(runtime, validation, mountCell) {
   const owner = sanitizeSlideAppTableSegment(readRuntimePrincipalOwnerId(runtime), 'local-dev');
   const app = sanitizeSlideAppTableSegment(validation?.metadata?.appName || 'slide-app');
@@ -3454,8 +3495,36 @@ function buildSlideAppInstanceTableId(runtime, validation, mountCell) {
   return candidate;
 }
 
-function buildImportedHostIngressKeys(rootModelId, semantic) {
-  const base = `imported_host_${semantic}_${rootModelId}`;
+function normalizeImportedAdapterRootRef(rootModelRefOrId) {
+  if (Number.isInteger(rootModelRefOrId)) {
+    return { table_id: 'host', model_id: rootModelRefOrId };
+  }
+  if (
+    rootModelRefOrId
+    && typeof rootModelRefOrId === 'object'
+    && !Array.isArray(rootModelRefOrId)
+    && typeof rootModelRefOrId.table_id === 'string'
+    && rootModelRefOrId.table_id.trim()
+    && Number.isInteger(rootModelRefOrId.model_id)
+  ) {
+    return {
+      table_id: rootModelRefOrId.table_id.trim(),
+      model_id: rootModelRefOrId.model_id,
+    };
+  }
+  return null;
+}
+
+function importedAdapterRootSuffix(rootModelRefOrId) {
+  const ref = normalizeImportedAdapterRootRef(rootModelRefOrId);
+  if (!ref) return '';
+  if (ref.table_id === 'host') return String(ref.model_id);
+  return `${sanitizeSlideAppTableSegment(ref.table_id, 'app')}_${ref.model_id}`;
+}
+
+function buildImportedHostIngressKeys(rootModelRefOrId, semantic) {
+  const suffix = importedAdapterRootSuffix(rootModelRefOrId);
+  const base = `imported_host_${semantic}_${suffix}`;
   return {
     ingressKey: base,
     routeKey: `${base}_route`,
@@ -3464,16 +3533,17 @@ function buildImportedHostIngressKeys(rootModelId, semantic) {
   };
 }
 
-function buildImportedHostEgressKeys(rootModelId, semantic) {
-  const base = `imported_${semantic}_${rootModelId}`;
+function buildImportedHostEgressKeys(rootModelRefOrId, semantic) {
+  const suffix = importedAdapterRootSuffix(rootModelRefOrId);
+  const base = `imported_${semantic}_${suffix}`;
   return {
     busOutKey: `${base}_bus`,
-    mountRelayPin: `__host_egress_${semantic}_relay_${rootModelId}`,
-    mountBridgeKey: `__host_egress_${semantic}_bridge_${rootModelId}`,
-    model0BridgeIn: `__host_egress_${semantic}_bridge_in_${rootModelId}`,
+    mountRelayPin: `__host_egress_${semantic}_relay_${suffix}`,
+    mountBridgeKey: `__host_egress_${semantic}_bridge_${suffix}`,
+    model0BridgeIn: `__host_egress_${semantic}_bridge_in_${suffix}`,
     model0BridgeRouteKey: `${base}_route`,
     model0BridgeWiringKey: `${base}_bridge_wiring`,
-    bridgeFunc: `bridge_imported_${semantic}_to_mt_bus_send_${rootModelId}`,
+    bridgeFunc: `bridge_imported_${semantic}_to_mt_bus_send_${suffix}`,
   };
 }
 
@@ -3482,7 +3552,11 @@ function findModel0SubmodelMount(runtime, childModelId) {
   if (!model0) return null;
   for (const cell of model0.cells.values()) {
     for (const label of cell.labels.values()) {
-      if (label && label.t === 'model.submt' && label.v === childModelId) {
+      if (!label || label.t !== 'model.submtconnection') continue;
+      const indexedModelId = Number.isInteger(label.v)
+        ? label.v
+        : (label.v && Number.isInteger(label.v.model_id) ? label.v.model_id : null);
+      if (indexedModelId === childModelId) {
         return { p: cell.p, r: cell.r, c: cell.c };
       }
     }
@@ -3498,16 +3572,22 @@ function ensureModel0SubmodelMount(runtime, childModelId, preferredCell = null) 
   const mountCell = preferredCell && Number.isInteger(preferredCell.p) && Number.isInteger(preferredCell.r) && Number.isInteger(preferredCell.c)
     ? preferredCell
     : { p: 9, r: 0, c: Math.abs(childModelId) };
-  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'model_type', t: 'model.submt', v: childModelId });
+  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, {
+    k: 'model_type',
+    t: 'model.submtconnection',
+    v: { model_id: childModelId, mount_kind: 'host_runtime_adapter' },
+  });
   return mountCell;
 }
 
-function materializeImportedHostIngressAdapter(runtime, rootModelId, mountCell, hostIngress) {
+function materializeImportedHostIngressAdapter(runtime, rootModelRefOrId, mountCell, hostIngress) {
   if (!hostIngress) return null;
-  const rootModel = runtime.getModel(rootModelId);
+  const rootRef = normalizeImportedAdapterRootRef(rootModelRefOrId);
+  if (!rootRef) return null;
+  const rootModel = runtime.getModel(rootRef);
   const model0 = runtime.getModel(0);
   if (!rootModel || !model0 || !mountCell) return null;
-  const keys = buildImportedHostIngressKeys(rootModelId, hostIngress.semantic);
+  const keys = buildImportedHostIngressKeys(rootRef, hostIngress.semantic);
   runtime.addLabel(rootModel, 0, 0, 0, { k: keys.relayPin, t: 'pin.in', v: null });
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: keys.relayRouteKey,
@@ -3534,14 +3614,16 @@ function materializeImportedHostIngressAdapter(runtime, rootModelId, mountCell, 
   return keys;
 }
 
-function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, hostEgress, remoteEndpoint) {
+function materializeImportedHostEgressAdapter(runtime, rootModelRefOrId, mountCell, hostEgress, remoteEndpoint) {
   if (!hostEgress) return null;
-  const rootModel = runtime.getModel(rootModelId);
+  const rootRef = normalizeImportedAdapterRootRef(rootModelRefOrId);
+  if (!rootRef) return null;
+  const rootModel = runtime.getModel(rootRef);
   const model0 = runtime.getModel(0);
   if (!rootModel || !model0 || !mountCell) {
     runtime.eventLog.record({
       op: 'host_egress_adapter_skipped',
-      cell: { model_id: rootModelId, p: 0, r: 0, c: 0 },
+      cell: { table_id: rootRef.table_id, model_id: rootRef.model_id, p: 0, r: 0, c: 0 },
       label: { k: 'host_egress_v1', t: 'json' },
       result: 'skipped',
       reason: !rootModel ? 'root_model_missing'
@@ -3551,15 +3633,23 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
     return null;
   }
   if (!remoteEndpoint || !remoteEndpoint.to) return null;
-  const keys = buildImportedHostEgressKeys(rootModelId, hostEgress.semantic);
+  const keys = buildImportedHostEgressKeys(rootRef, hostEgress.semantic);
   const routeTopic = buildRemoteEndpointTopic(runtime, remoteEndpoint, hostEgress.pinName);
-  const responseTopic = buildEndpointTopic(runtime, {
-    worker_id: resolveUiServerWorkerId(),
-    model_id: rootModelId,
-    pin: SLIDE_IMPORT_REPLY_PIN,
-  });
+  const responseTopicEndpoint = rootRef.table_id === 'host'
+    ? { worker_id: resolveUiServerWorkerId(), model_id: rootRef.model_id, pin: SLIDE_IMPORT_REPLY_PIN }
+    : { worker_id: resolveUiServerWorkerId(), model_id: WORKSPACE_MANAGER_APP_MODEL_ID, pin: SLIDE_IMPORT_REPLY_PIN };
+  const responseTopic = buildEndpointTopic(runtime, responseTopicEndpoint);
+  const hostWorkerId = resolveUiServerWorkerId();
+  const rootTableId = rootRef.table_id;
+  const rootModelId = rootRef.model_id;
+  const endpointWorkerId = remoteEndpoint.to.worker_id;
+  const endpointModelId = remoteEndpoint.to.model_id;
+  const endpointPin = hostEgress.pinName;
+  const replyPin = SLIDE_IMPORT_REPLY_PIN;
   const routeKind = normalizeRemoteEndpointRouteKind(remoteEndpoint) || 'control';
   const hostPinType = routeKind === 'management' ? 'pin.bus.mb.out' : 'pin.bus.cb.out';
+  const responseTopicValue = responseTopic || '';
+  const routeTopicValue = routeTopic || '';
   const rootCell = runtime.getCell(rootModel, 0, 0, 0);
   const rootIngressPins = rootCell
     ? Array.from(rootCell.labels.entries())
@@ -3578,8 +3668,9 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
     v: {
       code: [
         `const opId = 'imported_${rootModelId}_' + Date.now() + '_' + Math.random().toString(16).slice(2);`,
-        `const mt = (k, t, v) => ({ id: 0, p: 0, r: 0, c: 0, k, t, v });`,
+        `const mt = (k, t, v, id = 0) => ({ id, p: 0, r: 0, c: 0, k, t, v });`,
         `const payload = Array.isArray(label && label.v) ? label.v : [];`,
+        `const payloadRecords = payload.filter((record) => record && typeof record === 'object' && !Array.isArray(record) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && typeof record.t === 'string' && Object.prototype.hasOwnProperty.call(record, 'v')).map((record) => ({ ...record, id: 1 }));`,
         `const principalLabel = V1N.readLabel(0, 0, 0, 'principal_runtime_key');`,
         `const principalKey = principalLabel && principalLabel.t === 'str' && typeof principalLabel.v === 'string' ? principalLabel.v : '';`,
         `V1N.addLabel('mt_bus_send_in', 'pin.in', [`,
@@ -3588,23 +3679,24 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
         `  mt('message_role', 'str', 'request'),`,
         `  mt('bus', 'str', ${JSON.stringify(routeKind)}),`,
         `  mt('route_kind', 'str', ${JSON.stringify(routeKind)}),`,
-        `  mt('topic', 'str', ${JSON.stringify(routeTopic)}),`,
-        `  mt('response_topic', 'str', ${JSON.stringify(responseTopic)}),`,
+        `  mt('topic', 'str', ${JSON.stringify(routeTopicValue)}),`,
+        `  mt('response_topic', 'str', ${JSON.stringify(responseTopicValue)}),`,
         `  mt('bus_out_key', 'str', ${JSON.stringify(keys.busOutKey)}),`,
-        `  mt('endpoint_worker_id', 'str', ${JSON.stringify(remoteEndpoint.to.worker_id)}),`,
+        `  mt('endpoint_worker_id', 'str', ${JSON.stringify(endpointWorkerId)}),`,
         `  mt('endpoint_table_id', 'str', 'host'),`,
-        `  mt('endpoint_model_id', 'int', ${remoteEndpoint.to.model_id}),`,
-        `  mt('endpoint_pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
-        `  mt('origin_worker_id', 'str', ${JSON.stringify(resolveUiServerWorkerId())}),`,
-        `  mt('origin_table_id', 'str', 'host'),`,
+        `  mt('endpoint_model_id', 'int', ${endpointModelId}),`,
+        `  mt('endpoint_pin', 'str', ${JSON.stringify(endpointPin)}),`,
+        `  mt('origin_worker_id', 'str', ${JSON.stringify(hostWorkerId)}),`,
+        `  mt('origin_table_id', 'str', ${JSON.stringify(rootTableId)}),`,
         `  mt('origin_model_id', 'int', ${rootModelId}),`,
-        `  mt('origin_pin', 'str', ${JSON.stringify(hostEgress.pinName)}),`,
-        `  mt('reply_target_worker_id', 'str', ${JSON.stringify(resolveUiServerWorkerId())}),`,
-        `  mt('reply_target_table_id', 'str', 'host'),`,
+        `  mt('origin_pin', 'str', ${JSON.stringify(endpointPin)}),`,
+        `  mt('reply_target_worker_id', 'str', ${JSON.stringify(hostWorkerId)}),`,
+        `  mt('reply_target_table_id', 'str', ${JSON.stringify(rootTableId)}),`,
         `  mt('reply_target_model_id', 'int', ${rootModelId}),`,
-        `  mt('reply_target_pin', 'str', ${JSON.stringify(SLIDE_IMPORT_REPLY_PIN)}),`,
+        `  mt('reply_target_pin', 'str', ${JSON.stringify(replyPin)}),`,
         `  ...(principalKey ? [mt('reply_target_principal_key', 'str', principalKey)] : []),`,
-        `  mt('payload', 'json', payload),`,
+        `  mt('payload_model_id', 'int', 1),`,
+        `  ...payloadRecords,`,
         `]);`,
         'return;',
       ].join('\n'),
@@ -3669,12 +3761,12 @@ function materializeImportedHostEgressAdapter(runtime, rootModelId, mountCell, h
       target: {
         transport: remoteEndpoint.transport,
         route_kind: routeKind,
-        worker_id: remoteEndpoint.to.worker_id,
-        model_id: remoteEndpoint.to.model_id,
+        worker_id: endpointWorkerId,
+        model_id: endpointModelId,
         pin: hostEgress.pinName,
         topic: routeTopic,
       },
-      reply_pin: SLIDE_IMPORT_REPLY_PIN,
+      reply_pin: replyPin,
       owned_by: 'ui-server-installer',
     },
   });
@@ -3780,6 +3872,14 @@ function materializeSlideImportPayload(runtime, payload, validation) {
   const mountCell = resolveNextWorkspaceMountCell(runtime);
   const tableId = buildSlideAppInstanceTableId(runtime, validation, mountCell);
   const ownerPrincipalId = readRuntimePrincipalOwnerId(runtime);
+  const rootModelId = validation.rootTempId;
+  const rootModelRef = { table_id: tableId, model_id: rootModelId };
+  const idMap = new Map(validation.tempIds.map((tempId) => [tempId, tempId]));
+  const busIngressKeyMap = new Map();
+  if (validation.hostIngress) {
+    const precomputedIngressKeys = buildImportedHostIngressKeys(rootModelRef, validation.hostIngress.semantic);
+    busIngressKeyMap.set(`${validation.rootTempId}|${validation.hostIngress.semantic}`, precomputedIngressKeys.ingressKey);
+  }
 
   for (const tempId of validation.tempIds) {
     const name = tempId === validation.rootTempId
@@ -3790,17 +3890,18 @@ function materializeSlideImportPayload(runtime, payload, validation) {
 
   for (const record of payload) {
     const model = runtime.getModel({ table_id: tableId, model_id: record.id });
-    const nextValue = record.v;
+    const nextValue = remapImportedLabelValue(record, idMap, busIngressKeyMap);
     runtime.addLabel(model, record.p, record.r, record.c, { k: record.k, t: record.t, v: nextValue });
   }
 
-  const rootModelId = validation.rootTempId;
-  const rootModel = runtime.getModel({ table_id: tableId, model_id: rootModelId });
+  const rootModel = runtime.getModel(rootModelRef);
   const installedAt = new Date().toISOString();
+  runtime.addLabel(rootModel, 0, 0, 0, { k: 'model_type', t: 'model.subtable', v: 'UI.SlideApp.Table' });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'deletable', t: 'bool', v: true });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'installed_at', t: 'str', v: installedAt });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'imported_bundle_model_ids', t: 'json', v: [...validation.tempIds] });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'import_root_temp_id', t: 'int', v: validation.rootTempId });
+  runtime.addLabel(rootModel, 0, 0, 0, { k: 'slide_app_table_id', t: 'str', v: tableId });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'from_user', t: 'str', v: validation.metadata.fromUser });
   runtime.addLabel(rootModel, 0, 0, 0, { k: 'to_user', t: 'str', v: validation.metadata.toUser });
   if (validation.hostIngress) {
@@ -3816,28 +3917,144 @@ function materializeSlideImportPayload(runtime, payload, validation) {
   const model0 = runtime.getModel(0);
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, {
     k: 'model_type',
-    t: 'model.subtable',
+    t: 'model.subtableconnection',
     v: {
       table_id: tableId,
       root_model_id: rootModelId,
+      mount_kind: 'slide_app',
       owner_principal_id: ownerPrincipalId,
     },
   });
-  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'app_name', t: 'str', v: validation.metadata.appName });
-  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'slide_app_summary', t: 'str', v: validation.metadata.slideSummary });
-  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: 'slide_app_table_id', t: 'str', v: tableId });
-  const hostIngressKeys = null;
-  const hostEgressKeys = null;
+  const hostIngressKeys = validation.hostIngress
+    ? materializeImportedHostIngressAdapter(runtime, rootModelRef, mountCell, validation.hostIngress)
+    : null;
+  const hostEgressKeys = validation.hostEgress && validation.remoteEndpoint
+    ? validation.hostEgress.entries
+      .map((entry) => materializeImportedHostEgressAdapter(runtime, rootModelRef, mountCell, entry, validation.remoteEndpoint))
+      .filter(Boolean)
+    : [];
 
   return {
     tableId,
     rootModelId,
-    rootModelRef: { table_id: tableId, model_id: rootModelId },
+    rootModelRef,
     modelIds: [...validation.tempIds],
     mountCell,
     hostIngressKeys,
     hostEgressKeys,
   };
+}
+
+const SEEDED_SLID_IN_APP_SUBTABLE_MIGRATIONS = Object.freeze([
+  {
+    sourceHostModelId: 100,
+    sourceLabel: 'E2E 颜色生成器',
+  },
+]);
+
+function readModelRootLabelValue(runtime, modelRef, key) {
+  const model = runtime && typeof runtime.getModel === 'function' ? runtime.getModel(modelRef) : null;
+  if (!model || typeof runtime.getLabelValue !== 'function') return undefined;
+  return runtime.getLabelValue(model, 0, 0, 0, key);
+}
+
+function findSeededSlidInAppSubtable(runtime, sourceHostModelId) {
+  if (!runtime || !(runtime.modelTables instanceof Map)) return null;
+  const ownerPrincipalId = readRuntimePrincipalOwnerId(runtime);
+  for (const [tableId, models] of runtime.modelTables.entries()) {
+    if (!tableId || tableId === 'host' || !(models instanceof Map)) continue;
+    if (!models.has(0)) continue;
+    const rootRef = { table_id: tableId, model_id: 0 };
+    const sourceLabel = readModelRootLabelValue(runtime, rootRef, 'slid_in_source_host_model_id');
+    if (sourceLabel !== sourceHostModelId) continue;
+    const connection = findSubtableConnectionLabel(runtime, tableId);
+    const owner = connection && typeof connection.label?.v?.owner_principal_id === 'string'
+      ? connection.label.v.owner_principal_id.trim()
+      : '';
+    if (owner === ownerPrincipalId || owner === '') {
+      if (owner === '') updateSubtableConnectionOwner(runtime, tableId, ownerPrincipalId);
+      return rootRef;
+    }
+  }
+  return null;
+}
+
+function findSubtableConnectionLabel(runtime, tableId) {
+  const model0 = runtime && typeof runtime.getModel === 'function' ? runtime.getModel(0) : null;
+  if (!model0) return null;
+  for (const cell of model0.cells.values()) {
+    for (const label of cell.labels.values()) {
+      if (!label || label.t !== 'model.subtableconnection' || !label.v || label.v.table_id !== tableId) continue;
+      return { cell, label };
+    }
+  }
+  return null;
+}
+
+function updateSubtableConnectionOwner(runtime, tableId, ownerPrincipalId) {
+  const model0 = runtime && typeof runtime.getModel === 'function' ? runtime.getModel(0) : null;
+  if (!model0) return false;
+  let updated = false;
+  for (const cell of model0.cells.values()) {
+    for (const label of cell.labels.values()) {
+      if (!label || label.t !== 'model.subtableconnection' || !label.v || label.v.table_id !== tableId) continue;
+      runtime.addLabel(model0, cell.p, cell.r, cell.c, {
+        k: label.k,
+        t: label.t,
+        v: {
+          ...label.v,
+          owner_principal_id: ownerPrincipalId,
+        },
+      });
+      updated = true;
+    }
+  }
+  return updated;
+}
+
+function materializeSeededSlidInAppSubtables(runtime) {
+  if (!runtime) return [];
+  const materialized = [];
+  for (const migration of SEEDED_SLID_IN_APP_SUBTABLE_MIGRATIONS) {
+    const existing = findSeededSlidInAppSubtable(runtime, migration.sourceHostModelId);
+    if (existing) {
+      materialized.push({ ...existing, sourceHostModelId: migration.sourceHostModelId, status: 'existing' });
+      continue;
+    }
+
+    const exportResult = buildSlideAppExportPayload(runtime, migration.sourceHostModelId);
+    if (!exportResult || exportResult.ok !== true) {
+      runtime.eventLog.record({
+        op: 'seeded_slid_in_subtable_materialize',
+        cell: { table_id: 'host', model_id: migration.sourceHostModelId, p: 0, r: 0, c: 0 },
+        label: { k: 'model_type', t: 'model.subtable' },
+        result: 'error',
+        reason: exportResult?.code || 'export_failed',
+        detail: exportResult?.detail || '',
+      });
+      continue;
+    }
+    const validation = validateSlideImportPayload(exportResult.data.payload);
+    if (!validation.ok) {
+      runtime.eventLog.record({
+        op: 'seeded_slid_in_subtable_materialize',
+        cell: { table_id: 'host', model_id: migration.sourceHostModelId, p: 0, r: 0, c: 0 },
+        label: { k: 'model_type', t: 'model.subtable' },
+        result: 'error',
+        reason: validation.code || 'invalid_export',
+        detail: validation.detail || '',
+      });
+      continue;
+    }
+
+    const result = materializeSlideImportPayload(runtime, exportResult.data.payload, validation);
+    const rootModel = runtime.getModel(result.rootModelRef);
+    runtime.addLabel(rootModel, 0, 0, 0, { k: 'slid_in_source_host_model_id', t: 'int', v: migration.sourceHostModelId });
+    runtime.addLabel(rootModel, 0, 0, 0, { k: 'slid_in_source_label', t: 'str', v: migration.sourceLabel });
+    runtime.addLabel(rootModel, 0, 0, 0, { k: 'slid_in_seed_kind', t: 'str', v: 'host_model_migration' });
+    materialized.push({ ...result.rootModelRef, sourceHostModelId: migration.sourceHostModelId, status: 'created' });
+  }
+  return materialized;
 }
 
 function buildFilltableCreatedSlidePayload(spec) {
@@ -3862,7 +4079,7 @@ function buildFilltableCreatedSlidePayload(spec) {
     { id: 0, p: 0, r: 0, c: 0, k: 'to_user', t: 'str', v: 'workspace_local' },
     { id: 0, p: 0, r: 0, c: 0, k: 'ui_authoring_version', t: 'str', v: 'cellwise.ui.v1' },
     { id: 0, p: 0, r: 0, c: 0, k: 'ui_root_node_id', t: 'str', v: 'created_slide_root' },
-    { id: 0, p: 0, r: 2, c: 0, k: 'model_type', t: 'model.submt', v: 1 },
+    { id: 0, p: 0, r: 2, c: 0, k: 'model_type', t: 'model.submtconnection', v: { model_id: 1, mount_kind: 'truth' } },
     { id: 0, p: 2, r: 0, c: 0, k: 'ui_node_id', t: 'str', v: 'created_slide_root' },
     { id: 0, p: 2, r: 0, c: 0, k: 'ui_component', t: 'str', v: 'Container' },
     { id: 0, p: 2, r: 0, c: 0, k: 'ui_layout', t: 'str', v: 'column' },
@@ -3882,17 +4099,14 @@ function buildFilltableCreatedSlidePayload(spec) {
     { id: 0, p: 2, r: 4, c: 0, k: 'ui_component', t: 'str', v: 'Text' },
     { id: 0, p: 2, r: 4, c: 0, k: 'ui_parent', t: 'str', v: 'created_slide_root' },
     { id: 0, p: 2, r: 4, c: 0, k: 'ui_bind_json', t: 'json', v: { read: { model_id: 1, p: 0, r: 0, c: 0, k: 'body_text' } } },
-    { id: 1, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.FilltableCreatedSlideTruth' },
+    { id: 1, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.submt', v: 'UI.FilltableCreatedSlideTruth' },
     { id: 1, p: 0, r: 0, c: 0, k: 'headline', t: 'str', v: headline },
     { id: 1, p: 0, r: 0, c: 0, k: 'body_text', t: 'str', v: bodyText },
   ];
 }
 
-function removeImportedBundleFromRuntime(runtime, rootModelId) {
-  const rootModel = runtime.getModel(rootModelId);
-  if (!rootModel) {
-    return { ok: false, code: 'model_not_found' };
-  }
+function cleanupImportedHostGeneratedLabels(runtime, rootModel, rootRef = {}) {
+  if (!runtime || !rootModel) return { systemLabels: [] };
   const rootCell = rootModel.getCell(0, 0, 0);
   const generatedModel0Labels = Array.isArray(rootCell.labels.get('host_ingress_generated_model0_labels')?.v)
     ? rootCell.labels.get('host_ingress_generated_model0_labels').v.filter((item) => typeof item === 'string' && item)
@@ -3909,11 +4123,6 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
   const generatedEgressSystemLabels = Array.isArray(rootCell.labels.get('host_egress_generated_system_labels')?.v)
     ? rootCell.labels.get('host_egress_generated_system_labels').v.filter((item) => typeof item === 'string' && item)
     : [];
-  const importedIdsRaw = rootCell.labels.get('imported_bundle_model_ids');
-  const modelIds = Array.isArray(importedIdsRaw && importedIdsRaw.v)
-    ? importedIdsRaw.v.filter((item) => Number.isInteger(item))
-    : [rootModelId];
-  const targetIds = new Set(modelIds);
 
   if (generatedModel0Labels.length > 0) {
     const model0 = runtime.getModel(0);
@@ -3958,27 +4167,54 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
     } else {
       runtime.eventLog.record({
         op: 'host_egress_cleanup_skipped',
-        cell: { model_id: rootModelId, p: 0, r: 0, c: 0 },
+        cell: {
+          table_id: typeof rootRef.table_id === 'string' ? rootRef.table_id : 'host',
+          model_id: Number.isInteger(rootRef.model_id) ? rootRef.model_id : rootModel.id,
+          p: 0,
+          r: 0,
+          c: 0,
+        },
         label: { k: 'host_egress_generated_system_labels', t: 'json' },
         result: 'skipped',
         reason: 'sys_model_missing',
       });
     }
   }
+  return { systemLabels: generatedEgressSystemLabels };
+}
+
+function removeImportedBundleFromRuntime(runtime, rootModelId) {
+  const rootModel = runtime.getModel(rootModelId);
+  if (!rootModel) {
+    return { ok: false, code: 'model_not_found' };
+  }
+  const rootCell = rootModel.getCell(0, 0, 0);
+  const cleanup = cleanupImportedHostGeneratedLabels(runtime, rootModel, { table_id: 'host', model_id: rootModelId });
+  const importedIdsRaw = rootCell.labels.get('imported_bundle_model_ids');
+  const modelIds = Array.isArray(importedIdsRaw && importedIdsRaw.v)
+    ? importedIdsRaw.v.filter((item) => Number.isInteger(item))
+    : [rootModelId];
+  const targetIds = new Set(modelIds);
 
   for (const model of runtime.models.values()) {
     for (const cell of model.cells.values()) {
       for (const [key, label] of [...cell.labels.entries()]) {
-        if (label && label.t === 'model.submt' && targetIds.has(label.v)) {
+        const indexedModelId = label && label.t === 'model.submtconnection'
+          ? (Number.isInteger(label.v) ? label.v : (label.v && Number.isInteger(label.v.model_id) ? label.v.model_id : null))
+          : null;
+        if (targetIds.has(indexedModelId)) {
           runtime.rmLabel(model, cell.p, cell.r, cell.c, key);
         }
       }
     }
   }
 
-  for (const [childId, parentInfo] of [...runtime.parentChildMap.entries()]) {
-    if (targetIds.has(childId) || (parentInfo && targetIds.has(parentInfo.parentModelId))) {
-      runtime.parentChildMap.delete(childId);
+  for (const [childKey, parentInfo] of [...runtime.parentChildMap.entries()]) {
+    const childModelId = parentInfo && parentInfo.child && Number.isInteger(parentInfo.child.model_id)
+      ? parentInfo.child.model_id
+      : null;
+    if (targetIds.has(childModelId) || (parentInfo && targetIds.has(parentInfo.parentModelId))) {
+      runtime.parentChildMap.delete(childKey);
     }
   }
 
@@ -3986,7 +4222,134 @@ function removeImportedBundleFromRuntime(runtime, rootModelId) {
     runtime.models.delete(modelId);
   }
 
-  return { ok: true, modelIds, systemLabels: generatedEgressSystemLabels };
+  return { ok: true, modelIds, systemLabels: cleanup.systemLabels };
+}
+
+function normalizeWorkspaceAppRef(value) {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) && Object.prototype.hasOwnProperty.call(value, 'v') && typeof value.t === 'string'
+    ? value.v
+    : value;
+  if (Number.isInteger(raw)) return { table_id: 'host', model_id: raw };
+  if (typeof raw === 'string' && /^-?\d+$/.test(raw.trim())) {
+    return { table_id: 'host', model_id: Number(raw.trim()) };
+  }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const modelId = Number.isInteger(raw.model_id)
+    ? raw.model_id
+    : (typeof raw.model_id === 'string' && /^-?\d+$/.test(raw.model_id.trim()) ? Number(raw.model_id.trim()) : null);
+  if (!Number.isInteger(modelId)) return null;
+  const tableId = typeof raw.table_id === 'string' && raw.table_id.trim()
+    ? raw.table_id.trim()
+    : 'host';
+  return { table_id: tableId, model_id: modelId };
+}
+
+function normalizeWorkspaceAppDeleteRef(value) {
+  return normalizeWorkspaceAppRef(value);
+}
+
+function deleteWorkspaceAppTableFromRuntime(runtime, tableId, programEngine = null) {
+  if (typeof tableId !== 'string' || !tableId.trim() || tableId === 'host') {
+    return { ok: false, code: 'invalid_target', detail: 'invalid_table_id' };
+  }
+  const normalizedTableId = tableId.trim();
+  const tableModels = runtime.modelTables instanceof Map ? runtime.modelTables.get(normalizedTableId) : null;
+  if (!tableModels) return { ok: false, code: 'invalid_target', detail: 'table_not_found' };
+  const removedModelRefs = Array.from(tableModels.keys()).map((modelId) => ({ table_id: normalizedTableId, model_id: modelId }));
+  const generatedSystemLabels = [];
+  for (const [modelId, model] of tableModels.entries()) {
+    const cleanup = cleanupImportedHostGeneratedLabels(runtime, model, { table_id: normalizedTableId, model_id: modelId });
+    if (cleanup && Array.isArray(cleanup.systemLabels)) generatedSystemLabels.push(...cleanup.systemLabels);
+  }
+  if (generatedSystemLabels.length > 0 && programEngine) {
+    const sys = firstSystemModel(runtime);
+    for (const key of generatedSystemLabels) {
+      programEngine.functions.delete(key);
+      if (sys && sys.functions instanceof Map) sys.functions.delete(key);
+    }
+  }
+  const routePrefix = `${normalizedTableId}|`;
+  if (runtime.cellConnectGraph instanceof Map) {
+    for (const key of Array.from(runtime.cellConnectGraph.keys())) {
+      if (String(key).startsWith(routePrefix)) runtime.cellConnectGraph.delete(key);
+    }
+  }
+  if (runtime.cellConnectionRoutes instanceof Map) {
+    for (const key of Array.from(runtime.cellConnectionRoutes.keys())) {
+      if (String(key).startsWith(routePrefix)) runtime.cellConnectionRoutes.delete(key);
+    }
+  }
+  if (runtime.parentChildMap instanceof Map) {
+    for (const key of Array.from(runtime.parentChildMap.keys())) {
+      if (String(key).startsWith(routePrefix)) runtime.parentChildMap.delete(key);
+    }
+  }
+  runtime.modelTables.delete(normalizedTableId);
+  if (runtime.subtableMounts instanceof Map) runtime.subtableMounts.delete(normalizedTableId);
+  const model0 = runtime.getModel(0);
+  if (model0) {
+    for (const cell of model0.cells.values()) {
+      const mountLabel = Array.from(cell.labels.values()).find((label) => (
+        label && label.t === 'model.subtableconnection' && label.v && label.v.table_id === normalizedTableId
+      ));
+      if (!mountLabel) continue;
+      for (const key of Array.from(cell.labels.keys())) {
+        runtime.rmLabel(model0, cell.p, cell.r, cell.c, key);
+      }
+      if (runtime.subtableMountsByHostCell instanceof Map) {
+        runtime.subtableMountsByHostCell.delete(runtime._subtableHostCellKey(model0, cell.p, cell.r, cell.c));
+      }
+    }
+  }
+  const runtimePersister = runtime && runtime.persistence ? runtime.persistence : null;
+  if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
+    runtimePersister.db.prepare('delete from mt_data where table_id = ?').run(normalizedTableId);
+  }
+  return { ok: true, removed_model_refs: removedModelRefs, systemLabels: generatedSystemLabels };
+}
+
+function deleteWorkspaceAppRefFromRuntime(runtime, target, options = {}) {
+  const normalized = normalizeWorkspaceAppDeleteRef(target);
+  if (!normalized) return { ok: false, code: 'invalid_target', detail: 'invalid_model_ref' };
+  if (normalized.table_id !== 'host') {
+    const targetModel = runtime.getModel({ table_id: normalized.table_id, model_id: normalized.model_id });
+    if (!targetModel) return { ok: false, code: 'invalid_target', detail: 'model_not_found' };
+    const rootCell = targetModel.getCell(0, 0, 0);
+    const deletable = rootCell.labels.get('deletable');
+    const slideCapable = rootCell.labels.get('slide_capable');
+    if (!deletable || deletable.v !== true || !slideCapable || slideCapable.v !== true) {
+      return { ok: false, code: 'protected_model', detail: 'protected_model' };
+    }
+    return deleteWorkspaceAppTableFromRuntime(runtime, normalized.table_id, options.programEngine || null);
+  }
+  const targetId = normalized.model_id;
+  if (targetId < 100) return { ok: false, code: 'protected_model', detail: 'protected_model' };
+  const targetModel = runtime.getModel(targetId);
+  if (!targetModel) return { ok: false, code: 'invalid_target', detail: 'model_not_found' };
+  const deletable = targetModel.getCell(0, 0, 0).labels.get('deletable');
+  if (!deletable || deletable.v !== true) return { ok: false, code: 'protected_model', detail: 'protected_model' };
+  const removed = removeImportedBundleFromRuntime(runtime, targetId);
+  if (!removed.ok) return { ok: false, code: 'invalid_target', detail: removed.code };
+  if (options.programEngine && Array.isArray(removed.systemLabels)) {
+    const sys = firstSystemModel(runtime);
+    for (const key of removed.systemLabels) {
+      options.programEngine.functions.delete(key);
+      if (sys && sys.functions instanceof Map) sys.functions.delete(key);
+    }
+  }
+  const runtimePersister = runtime && runtime.persistence ? runtime.persistence : null;
+  if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
+    const stmt = runtimePersister.db.prepare("delete from mt_data where table_id = 'host' and mt_id = ?");
+    for (const modelIdToDelete of removed.modelIds) {
+      stmt.run(modelIdToDelete);
+    }
+  }
+  return {
+    ok: true,
+    model_id: targetId,
+    removed_model_ids: removed.modelIds,
+    systemLabels: removed.systemLabels,
+  };
 }
 
 function corsHeaders(req, originOverride) {
@@ -4143,10 +4506,31 @@ function findTemporaryPayloadRecord(payload, key) {
     && record.k === key) || null;
 }
 
+function findPayloadModelRecord(payload, key) {
+  if (!Array.isArray(payload) || typeof key !== 'string') return null;
+  return payload.find((record) => record
+    && Number.isInteger(record.id)
+    && record.p === 0
+    && record.r === 0
+    && record.c === 0
+    && record.k === key) || null;
+}
+
 function readTemporaryPayloadString(payload, key, fallback = '') {
   const record = findTemporaryPayloadRecord(payload, key);
   if (!record) return fallback;
   return record.t === 'str' && typeof record.v === 'string' ? record.v : fallback;
+}
+
+function readPayloadModelString(payload, key, fallback = '') {
+  const record = findPayloadModelRecord(payload, key);
+  if (!record) return fallback;
+  return record.t === 'str' && typeof record.v === 'string' ? record.v : fallback;
+}
+
+function readPayloadModelInt(payload, key) {
+  const record = findPayloadModelRecord(payload, key);
+  return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null;
 }
 
 function readTemporaryPayloadInt(payload, key) {
@@ -4157,6 +4541,20 @@ function readTemporaryPayloadInt(payload, key) {
 function readTemporaryPayloadJson(payload, key) {
   const record = findTemporaryPayloadRecord(payload, key);
   return record && record.t === 'json' ? record.v : null;
+}
+
+function readPayloadModelJson(payload, key) {
+  const record = findPayloadModelRecord(payload, key);
+  return record && record.t === 'json' ? record.v : null;
+}
+
+function readSlideAppBundleRecordsFromPayload(records, payloadRecords) {
+  const offset = readPayloadModelInt(payloadRecords, 'bundle_record_id_offset');
+  if (!Number.isInteger(offset) || offset <= 1) return null;
+  const bundleRecords = records
+    .filter((record) => record && Number.isInteger(record.id) && record.id >= offset)
+    .map((record) => ({ ...record, id: record.id - offset }));
+  return bundleRecords.length > 0 ? bundleRecords : null;
 }
 
 function hasClientAuthoredAuthorityMetadata(records) {
@@ -4182,6 +4580,7 @@ function hasDuplicateTemporaryPayloadRecordKeys(payload, keys) {
   const seen = new Set();
   for (const record of payload) {
     if (!record || !watched.has(record.k)) continue;
+    if (record.id !== 0) continue;
     if (seen.has(record.k)) return true;
     seen.add(record.k);
   }
@@ -4205,16 +4604,20 @@ function parsePinPayloadRecordEnvelope(content) {
     return { ok: false, code: 'temporary_modeltable_required' };
   }
   const kind = readTemporaryPayloadString(records, '__mt_payload_kind');
-  if (kind !== 'pin_payload.v1') {
+  if (kind === 'pin_payload.v1') {
+    return { ok: false, code: 'legacy_pin_payload_kind_removed' };
+  }
+  if (kind !== 'pin_payload.v2') {
     return { ok: false, code: 'invalid_payload_kind' };
   }
   const stringMetadataKeys = [
     '__mt_request_id',
     'op_id',
     'message_role',
+    'bus',
+    'route_kind',
     'topic',
     'response_topic',
-    'route_kind',
     'endpoint_worker_id',
     'endpoint_table_id',
     'endpoint_pin',
@@ -4231,10 +4634,10 @@ function parsePinPayloadRecordEnvelope(content) {
     'endpoint_model_id',
     'origin_model_id',
     'reply_target_model_id',
+    'payload_model_id',
     'payload',
     'timestamp',
     'bus_out_key',
-    'bus',
   ]);
   if (hasDuplicateTemporaryPayloadRecordKeys(records, metadataKeys)) {
     return { ok: false, code: 'invalid_pin_payload_records' };
@@ -4266,6 +4669,10 @@ function parsePinPayloadRecordEnvelope(content) {
   if (!isValidControlBusEndpointTopic(responseTopic)) {
     return { ok: false, code: 'invalid_response_topic' };
   }
+  const nestedPayload = readTemporaryPayloadJson(records, 'payload');
+  if (isTemporaryPayloadRecordArray(nestedPayload)) {
+    return { ok: false, code: 'nested_payload_removed' };
+  }
   for (const record of records) {
     if (!record || typeof record.k !== 'string') {
       return { ok: false, code: 'invalid_pin_payload_records' };
@@ -4277,14 +4684,30 @@ function parsePinPayloadRecordEnvelope(content) {
   if (hasClientAuthoredAuthorityMetadata(records)) {
     return { ok: false, code: 'client_authority_metadata_rejected' };
   }
+  if (!findTemporaryPayloadRecord(records, 'endpoint_table_id')) {
+    return { ok: false, code: 'missing_endpoint_table_id' };
+  }
+  if (!findTemporaryPayloadRecord(records, 'origin_table_id')) {
+    return { ok: false, code: 'missing_origin_table_id' };
+  }
+  if (!findTemporaryPayloadRecord(records, 'reply_target_table_id')) {
+    return { ok: false, code: 'missing_reply_target_table_id' };
+  }
+  const payloadModelId = readTemporaryPayloadInt(records, 'payload_model_id');
+  if (!Number.isInteger(payloadModelId)) {
+    return { ok: false, code: 'missing_payload_model_id' };
+  }
+  const payloadRecords = records.filter((record) => record && record.id === payloadModelId);
+  if (payloadRecords.length === 0) {
+    return { ok: false, code: 'missing_payload_records' };
+  }
   const endpoint = readPinPayloadEndpoint(records, 'endpoint');
   const origin = readPinPayloadEndpoint(records, 'origin');
   const replyTarget = readPinPayloadEndpoint(records, 'reply_target');
   const validEndpoint = isValidPinPayloadEndpoint(endpoint) && endpoint.table_id === 'host';
   const validOrigin = isValidPinPayloadEndpoint(origin, { allowNonHostModelZero: true });
   const validReplyTarget = isValidPinPayloadEndpoint(replyTarget, { allowNonHostModelZero: true });
-  const nestedPayload = readTemporaryPayloadJson(records, 'payload');
-  if (!validEndpoint || !validOrigin || !validReplyTarget || !isTemporaryPayloadRecordArray(nestedPayload)) {
+  if (!validEndpoint || !validOrigin || !validReplyTarget) {
     return { ok: false, code: 'invalid_pin_payload_records' };
   }
   if (origin.table_id !== 'host' && (!replyTarget.table_id_present || replyTarget.table_id === 'host')) {
@@ -4301,7 +4724,7 @@ function parsePinPayloadRecordEnvelope(content) {
     return { ok: false, code: topicContractError };
   }
   const opId = opIdLabel || requestId;
-  return { ok: true, records, endpoint, origin, replyTarget, nestedPayload, opId, messageRole, topic: topicValue, responseTopic };
+  return { ok: true, records, endpoint, origin, replyTarget, payloadRecords, payloadModelId, opId, messageRole, topic: topicValue, responseTopic };
 }
 
 function upsertTemporaryPayloadRecord(payload, record) {
@@ -4399,9 +4822,10 @@ function parsePrincipalRuntimePinPayload(payload) {
     return { ok: false, code: 'temporary_modeltable_required' };
   }
   const kind = readTemporaryPayloadString(records, '__mt_payload_kind');
-  if (kind !== 'pin_payload.v1') return { ok: false, code: 'invalid_payload_kind' };
+  if (kind === 'pin_payload.v1') return { ok: false, code: 'legacy_pin_payload_kind_removed' };
+  if (kind !== 'pin_payload.v2') return { ok: false, code: 'invalid_payload_kind' };
   const nestedPayload = readTemporaryPayloadJson(records, 'payload');
-  if (!isTemporaryPayloadRecordArray(nestedPayload)) return { ok: false, code: 'invalid_nested_payload' };
+  if (isTemporaryPayloadRecordArray(nestedPayload)) return { ok: false, code: 'nested_payload_removed' };
   const topic = readTemporaryPayloadString(records, 'topic');
   const responseTopic = readTemporaryPayloadString(records, 'response_topic');
   if (!isValidPrincipalRuntimeControlTopic(topic)) return { ok: false, code: 'invalid_topic' };
@@ -4427,6 +4851,20 @@ function parsePrincipalRuntimePinPayload(payload) {
   if (origin.table_id !== 'host' && (!replyTarget.table_id_present || replyTarget.table_id === 'host')) {
     return { ok: false, code: 'missing_reply_target_table_id' };
   }
+  if (!findTemporaryPayloadRecord(records, 'origin_table_id')) {
+    return { ok: false, code: 'missing_origin_table_id' };
+  }
+  if (!findTemporaryPayloadRecord(records, 'reply_target_table_id')) {
+    return { ok: false, code: 'missing_reply_target_table_id' };
+  }
+  const payloadModelId = readTemporaryPayloadInt(records, 'payload_model_id');
+  if (!Number.isInteger(payloadModelId)) {
+    return { ok: false, code: 'missing_payload_model_id' };
+  }
+  const payloadRecords = records.filter((record) => record && record.id === payloadModelId);
+  if (payloadRecords.length === 0) {
+    return { ok: false, code: 'missing_payload_records' };
+  }
   return {
     ok: true,
     records,
@@ -4438,7 +4876,8 @@ function parsePrincipalRuntimePinPayload(payload) {
     endpoint,
     origin,
     replyTarget,
-    nestedPayload,
+    payloadRecords,
+    payloadModelId,
   };
 }
 
@@ -4754,7 +5193,7 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
       version: 'v1',
       type: 'pin_payload',
       payload: [
-        mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+        mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v2'),
         mtPayloadRecord('__mt_request_id', 'str', opId),
         mtPayloadRecord('op_id', 'str', opId),
         mtPayloadRecord('message_role', 'str', 'request'),
@@ -4775,8 +5214,9 @@ function buildMgmtBusConsoleMatrixPacket(payload, options = {}) {
         mtPayloadRecord('reply_target_model_id', 'int', replyTarget.model_id),
         mtPayloadRecord('reply_target_pin', 'str', replyTarget.pin),
         ...(principalKey ? [mtPayloadRecord('reply_target_principal_key', 'str', principalKey)] : []),
-        mtPayloadRecord('payload', 'json', normalizedPayload),
+        mtPayloadRecord('payload_model_id', 'int', 1),
         mtPayloadRecord('timestamp', 'int', now),
+        ...payloadModelRecords(normalizedPayload, 1),
       ],
     },
   };
@@ -4804,6 +5244,13 @@ const GENERIC_PIN_ERROR_LABEL = 'owner_pin_error';
 
 function mtPayloadRecord(k, t, v) {
   return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function payloadModelRecords(records, payloadModelId = 1) {
+  if (!Array.isArray(records)) return [];
+  return records
+    .filter((record) => isTemporaryModelTableRecord(record))
+    .map((record) => ({ ...record, id: payloadModelId }));
 }
 
 function ownerRequestToTemporaryPayload(request, kind = 'owner_request.v1') {
@@ -5363,7 +5810,7 @@ function snapshotSubtableMount(snapshot, tableId) {
   for (const model of Object.values(snapshot.models || {})) {
     for (const cell of Object.values(model?.cells || {})) {
       for (const label of Object.values(cell?.labels || {})) {
-        if (!label || label.t !== 'model.subtable' || !label.v || typeof label.v !== 'object') continue;
+        if (!label || label.t !== 'model.subtableconnection' || !label.v || typeof label.v !== 'object') continue;
         if (label.v.table_id !== tableId) continue;
         return {
           found: true,
@@ -5531,6 +5978,180 @@ function buildClientSnapshotForPrincipal(snapshot, principal = null) {
   };
 }
 
+function runtimeModelTableId(model) {
+  return model && typeof model.table_id === 'string' && model.table_id.trim()
+    ? model.table_id.trim()
+    : 'host';
+}
+
+function principalCanAccessRuntimeTable(runtime, principal, tableId) {
+  const normalizedTableId = typeof tableId === 'string' && tableId.trim() ? tableId.trim() : 'host';
+  if (normalizedTableId === 'host') return true;
+  const mount = runtime && runtime.subtableMounts instanceof Map
+    ? runtime.subtableMounts.get(normalizedTableId)
+    : null;
+  if (!mount) return false;
+  const owner = typeof mount.owner_principal_id === 'string' ? mount.owner_principal_id.trim() : '';
+  if (!owner) return true;
+  return principalTableAccessIdentity(principal) === owner;
+}
+
+function runtimeCellLabelsObject(cell) {
+  const labels = {};
+  if (!cell || !(cell.labels instanceof Map)) return labels;
+  for (const [lk, lv] of cell.labels.entries()) {
+    labels[lk] = { k: lv.k, t: lv.t, v: lv.v };
+  }
+  return labels;
+}
+
+function buildClientRuntimeModelForPrincipal(model, principal = null) {
+  if (!model) return null;
+  const tableId = runtimeModelTableId(model);
+  const modelIdText = String(model.id);
+  if (tableId === 'host') {
+    const requiredCapability = requiredCapabilityForClientModel(modelIdText);
+    if (requiredCapability === 'never') return null;
+    if (requiredCapability && !principalHasCapability(principal, requiredCapability)) return null;
+  }
+  const filteredCells = {};
+  for (const [ck, cell] of model.cells.entries()) {
+    const rawCell = {
+      p: cell.p,
+      r: cell.r,
+      c: cell.c,
+      labels: runtimeCellLabelsObject(cell),
+    };
+    if (shouldFilterPrincipalCell(modelIdText, ck, rawCell, principal)) continue;
+    const filteredLabels = {};
+    for (const [lk, lv] of Object.entries(rawCell.labels || {})) {
+      if (shouldFilterClientBaseLabel(lk, lv)) continue;
+      if (shouldFilterPrincipalLabel(lk, lv, principal)) continue;
+      const clientSafeValue = sanitizeClientVisibleValue(lv?.v);
+      if (clientSafeValue === undefined && lv && Object.prototype.hasOwnProperty.call(lv, 'v')) continue;
+      const sanitizedValue = sanitizePrincipalLabelValue(clientSafeValue, principal);
+      if (sanitizedValue === undefined) continue;
+      filteredLabels[lk] = sanitizedValue === lv?.v ? lv : { ...lv, v: sanitizedValue };
+    }
+    filteredCells[ck] = { ...rawCell, labels: filteredLabels };
+  }
+  return {
+    table_id: tableId,
+    id: model.id,
+    name: model.name,
+    type: model.type,
+    cells: filteredCells,
+  };
+}
+
+function runtimeVisibleRefFailure(status, error, extra = {}) {
+  return { ok: false, status, error, body: { ok: false, error, ...extra } };
+}
+
+function buildScopedVisibleClientSnapshotForRuntime(entry, profileOptions = {}) {
+  const profile = profileOptions && typeof profileOptions.profile === 'string'
+    ? profileOptions.profile
+    : 'bootstrap';
+  if (profile !== 'visible') {
+    return runtimeVisibleRefFailure(400, 'unsupported_snapshot_profile');
+  }
+  const runtimeState = entry && entry.state ? entry.state : null;
+  const runtime = runtimeState && runtimeState.runtime ? runtimeState.runtime : null;
+  if (!runtime || typeof runtime.getModel !== 'function') {
+    return runtimeVisibleRefFailure(503, 'runtime_unavailable');
+  }
+  const principal = entry && entry.principal ? entry.principal : null;
+  const visibleModelRefs = normalizeVisibleModelRefsFromOptions(profileOptions);
+  if (visibleModelRefs.length === 0) {
+    return runtimeVisibleRefFailure(400, 'missing_model_id');
+  }
+  const models = {};
+  const tables = {};
+  for (const ref of visibleModelRefs) {
+    if (ref.table_id !== 'host' && !principalCanAccessRuntimeTable(runtime, principal, ref.table_id)) {
+      return runtimeVisibleRefFailure(403, 'model_not_visible');
+    }
+    if (ref.table_id === 'host') {
+      const requiredCapability = requiredCapabilityForClientModel(String(ref.model_id));
+      if (requiredCapability === 'never') return runtimeVisibleRefFailure(403, 'model_not_allowed');
+      if (requiredCapability && !principalHasCapability(principal, requiredCapability)) {
+        return runtimeVisibleRefFailure(403, 'permission_denied', { requiredCapability });
+      }
+    }
+    const model = runtime.getModel(ref);
+    if (!model) return runtimeVisibleRefFailure(404, 'model_not_found');
+    const clientModel = buildClientRuntimeModelForPrincipal(model, principal);
+    if (!clientModel) {
+      return runtimeVisibleRefFailure(ref.table_id === 'host' ? 403 : 403, 'model_not_visible');
+    }
+    if (ref.table_id === 'host') {
+      models[String(ref.model_id)] = clientModel;
+    } else {
+      if (!tables[ref.table_id]) tables[ref.table_id] = { table_id: ref.table_id, models: {} };
+      tables[ref.table_id].models[String(ref.model_id)] = clientModel;
+    }
+  }
+  const snapshot = {
+    models,
+    v1nConfig: sanitizeClientSnapshotV1nConfig(runtime.v1nConfig),
+  };
+  if (Object.keys(tables).length > 0) snapshot.tables = tables;
+  return { ok: true, snapshot };
+}
+
+function buildScopedBootstrapClientSnapshotForRuntime(entry, profileOptions = {}) {
+  const profile = profileOptions && typeof profileOptions.profile === 'string'
+    ? profileOptions.profile
+    : 'bootstrap';
+  if (profile !== 'bootstrap') {
+    return runtimeVisibleRefFailure(400, 'unsupported_snapshot_profile');
+  }
+  const runtimeState = entry && entry.state ? entry.state : null;
+  const runtime = runtimeState && runtimeState.runtime ? runtimeState.runtime : null;
+  if (!runtime || typeof runtime.getModel !== 'function') {
+    return runtimeVisibleRefFailure(503, 'runtime_unavailable');
+  }
+  const principal = entry && entry.principal ? entry.principal : null;
+  const models = {};
+  const tables = {};
+  for (const modelId of [...bootstrapAllowedModelIds()].sort((a, b) => a - b)) {
+    const model = runtime.getModel(modelId);
+    if (!model) continue;
+    const clientModel = buildClientRuntimeModelForPrincipal(model, principal);
+    const cloned = cloneClientSnapshotModel(clientModel, modelId);
+    if (cloned) models[String(modelId)] = cloned;
+  }
+  const visibleModelRefs = normalizeVisibleModelRefsFromOptions(profileOptions);
+  for (const ref of visibleModelRefs) {
+    if (ref.table_id !== 'host' && !principalCanAccessRuntimeTable(runtime, principal, ref.table_id)) {
+      return runtimeVisibleRefFailure(403, 'model_not_visible');
+    }
+    if (ref.table_id === 'host') {
+      const requiredCapability = requiredCapabilityForClientModel(String(ref.model_id));
+      if (requiredCapability === 'never') return runtimeVisibleRefFailure(403, 'model_not_allowed');
+      if (requiredCapability && !principalHasCapability(principal, requiredCapability)) {
+        return runtimeVisibleRefFailure(403, 'permission_denied', { requiredCapability });
+      }
+    }
+    const model = runtime.getModel(ref);
+    if (!model) return runtimeVisibleRefFailure(404, 'model_not_found');
+    const clientModel = buildClientRuntimeModelForPrincipal(model, principal);
+    if (!clientModel) return runtimeVisibleRefFailure(403, 'model_not_visible');
+    if (ref.table_id === 'host') {
+      models[String(ref.model_id)] = clientModel;
+    } else {
+      if (!tables[ref.table_id]) tables[ref.table_id] = { table_id: ref.table_id, models: {} };
+      tables[ref.table_id].models[String(ref.model_id)] = clientModel;
+    }
+  }
+  const snapshot = {
+    models,
+    v1nConfig: sanitizeClientSnapshotV1nConfig(runtime.v1nConfig),
+  };
+  if (Object.keys(tables).length > 0) snapshot.tables = tables;
+  return { ok: true, snapshot };
+}
+
 function readSnapshotRootLabels(snapshot, modelId) {
   return snapshot?.models?.[String(modelId)]?.cells?.['0,0,0']?.labels || {};
 }
@@ -5603,7 +6224,7 @@ function buildClientSnapshotProfile(snapshot, options = {}) {
     return { ...(snapshot || {}), v1nConfig: sanitizeClientSnapshotV1nConfig(snapshot?.v1nConfig) };
   }
   const visibleModelRefs = normalizeVisibleModelRefsFromOptions(options);
-  const allowed = bootstrapAllowedModelIds(snapshot);
+  const allowed = profile === 'bootstrap' ? bootstrapAllowedModelIds(snapshot) : new Set();
   const models = {};
   const tables = {};
   for (const modelId of [...allowed].sort((a, b) => a - b)) {
@@ -6035,18 +6656,34 @@ function resolveDefaultAppId(runtime, apps) {
   return firstPositive ? firstPositive.model_id : (apps.length > 0 ? apps[0].model_id : 0);
 }
 
+function workspaceSelectionRefKey(value) {
+  const ref = normalizeWorkspaceAppRef(value);
+  return ref ? desktopAppRefKey(ref) : '';
+}
+
+function resolveDefaultAppRef(runtime, apps) {
+  const defaultId = resolveDefaultAppId(runtime, apps);
+  const hostRef = { table_id: 'host', model_id: defaultId };
+  const hostKey = workspaceSelectionRefKey(hostRef);
+  const matched = apps.find((app) => workspaceSelectionRefKey(app) === hostKey);
+  return normalizeWorkspaceAppRef(matched) || hostRef;
+}
+
+function resolveWorkspaceSelectionRef(apps, selectedValue, defaultSelectedRef) {
+  const selectedRef = normalizeWorkspaceAppRef(selectedValue);
+  const selectedKey = workspaceSelectionRefKey(selectedRef);
+  if (selectedKey && apps.some((app) => workspaceSelectionRefKey(app) === selectedKey)) {
+    return selectedRef;
+  }
+  return normalizeWorkspaceAppRef(defaultSelectedRef) || { table_id: 'host', model_id: 0 };
+}
+
 function resolveWorkspaceSelection(apps, selectedValue, defaultSelected) {
-  let selected = null;
-  if (Number.isInteger(selectedValue)) {
-    selected = selectedValue;
-  } else {
-    const parsed = Number.parseInt(String(readAuthString(selectedValue)), 10);
-    if (Number.isInteger(parsed)) selected = parsed;
-  }
-  if (apps.some((app) => app && app.model_id === selected)) {
-    return selected;
-  }
-  return defaultSelected;
+  return resolveWorkspaceSelectionRef(
+    apps,
+    selectedValue,
+    normalizeWorkspaceAppRef(defaultSelected) || { table_id: 'host', model_id: Number.isInteger(defaultSelected) ? defaultSelected : 0 },
+  ).model_id;
 }
 
 function normalizeDesktopWorkspaceModelRef(value) {
@@ -6224,14 +6861,14 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
   };
   const principalKey = readRuntimePrincipalKey(runtime);
   const responseTopic = buildEndpointTopic(runtime, replyTarget);
-  const nestedPayload = [
+  const businessPayload = [
     mtPayloadRecord('__mt_payload_kind', 'str', 'slide_app_bundle_request.v1'),
     mtPayloadRecord('__mt_request_id', 'str', requestId),
     mtPayloadRecord('asset_id', 'str', row.id),
     mtPayloadRecord('requested_version', 'str', 'current'),
   ];
   const records = [
-    mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mtPayloadRecord('__mt_payload_kind', 'str', 'pin_payload.v2'),
     mtPayloadRecord('__mt_request_id', 'str', requestId),
     mtPayloadRecord('op_id', 'str', requestId),
     mtPayloadRecord('message_role', 'str', 'request'),
@@ -6252,8 +6889,9 @@ function buildWorkspaceAssetBundleRequestPacket(runtime, row, opId, providerEndp
     mtPayloadRecord('reply_target_model_id', 'int', replyTarget.model_id),
     mtPayloadRecord('reply_target_pin', 'str', replyTarget.pin),
     ...(principalKey ? [mtPayloadRecord('reply_target_principal_key', 'str', principalKey)] : []),
-    mtPayloadRecord('payload', 'json', nestedPayload),
+    mtPayloadRecord('payload_model_id', 'int', 1),
     mtPayloadRecord('timestamp', 'int', now),
+    ...payloadModelRecords(businessPayload, 1),
   ];
   return {
     opId: requestId,
@@ -6481,6 +7119,9 @@ const SLIDE_IMPORTER_CLICK_ROUTE = Object.freeze([
 
 const SLIDE_IMPORTER_ROOT_MOUNT = Object.freeze({ p: 2, r: 0, c: 13 });
 const SLIDE_IMPORTER_SYSTEM_MOUNT = Object.freeze({ p: 1, r: 0, c: 3 });
+const SLIDE_IMPORTER_TRUTH_MOUNT = Object.freeze({ p: 0, r: 2, c: 0 });
+const SLIDE_CREATOR_ROOT_MOUNT = Object.freeze({ p: 2, r: 0, c: 15 });
+const SLIDE_CREATOR_TRUTH_MOUNT = Object.freeze({ p: 0, r: 2, c: 0 });
 
 const SLIDE_IMPORTER_CLICK_INGRESS_ROUTE = Object.freeze([
   { from: [0, 0, 0, 'slide_import_click'], to: [[SLIDE_IMPORTER_ROOT_MOUNT.p, SLIDE_IMPORTER_ROOT_MOUNT.r, SLIDE_IMPORTER_ROOT_MOUNT.c, 'mt_bus_receive_in']] },
@@ -6496,6 +7137,10 @@ const SLIDE_IMPORTER_MEDIA_URI_CHILD_ROUTE = Object.freeze([
 
 const SLIDE_IMPORTER_REQUEST_ROUTE = Object.freeze([
   { from: [SLIDE_IMPORTER_ROOT_MOUNT.p, SLIDE_IMPORTER_ROOT_MOUNT.r, SLIDE_IMPORTER_ROOT_MOUNT.c, 'slide_import_request'], to: [[SLIDE_IMPORTER_SYSTEM_MOUNT.p, SLIDE_IMPORTER_SYSTEM_MOUNT.r, SLIDE_IMPORTER_SYSTEM_MOUNT.c, 'slide_app_import_request']] },
+]);
+
+const SLIDE_CREATOR_REQUEST_ROUTE = Object.freeze([
+  { from: [SLIDE_CREATOR_ROOT_MOUNT.p, SLIDE_CREATOR_ROOT_MOUNT.r, SLIDE_CREATOR_ROOT_MOUNT.c, 'slide_create_request'], to: [[SLIDE_IMPORTER_SYSTEM_MOUNT.p, SLIDE_IMPORTER_SYSTEM_MOUNT.r, SLIDE_IMPORTER_SYSTEM_MOUNT.c, 'slide_app_create_request']] },
 ]);
 
 const SLIDE_IMPORTER_CLICK_HANDLER_CODE = "/* rubric: P1 */ const payload = label && label.v;\nconst fail = (code, detail) => V1N.addLabel('slide_import_click_error', 'json', { code, detail, ts: Date.now() });\nif (!Array.isArray(payload)) {\n  fail('invalid_payload', 'temporary_modeltable_required');\n  return;\n}\nconst readPayload = (key, fallback = null) => {\n  const record = payload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key);\n  return record && Object.prototype.hasOwnProperty.call(record, 'v') ? record.v : fallback;\n};\nif (readPayload('__mt_payload_kind', '') !== 'ui_event.v1') {\n  fail('invalid_payload_kind', 'ui_event.v1_required');\n  return;\n}\nconst target = readPayload('target', null);\nif (!target || target.model_id !== 1031 || target.p !== 0 || target.r !== 0 || target.c !== 0) {\n  fail('invalid_target', 'slide_importer_truth_cell_required');\n  return;\n}\nconst requestPayload = [\n  { id: 0, p: 0, r: 0, c: 0, k: '__mt_payload_kind', t: 'str', v: 'slide_app_import_request.v1' },\n  { id: 0, p: 0, r: 0, c: 0, k: 'target', t: 'json', v: target }\n];\nV1N.writeLabel(0, 0, 0, { k: 'slide_import_request', t: 'pin.out', v: requestPayload });";
@@ -6554,8 +7199,8 @@ function repairSlideImporterClickContract(runtime) {
   if (model0) {
     changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_ROOT_MOUNT.p, SLIDE_IMPORTER_ROOT_MOUNT.r, SLIDE_IMPORTER_ROOT_MOUNT.c, {
       k: 'model_type',
-      t: 'model.submt',
-      v: 1030,
+      t: 'model.submtconnection',
+      v: { model_id: 1030, mount_kind: 'slide_importer_root' },
     }) || changed;
     changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_ROOT_MOUNT.p, SLIDE_IMPORTER_ROOT_MOUNT.r, SLIDE_IMPORTER_ROOT_MOUNT.c, {
       k: 'mt_bus_receive_in',
@@ -6574,8 +7219,8 @@ function repairSlideImporterClickContract(runtime) {
     }) || changed;
     changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_SYSTEM_MOUNT.p, SLIDE_IMPORTER_SYSTEM_MOUNT.r, SLIDE_IMPORTER_SYSTEM_MOUNT.c, {
       k: 'model_type',
-      t: 'model.submt',
-      v: -10,
+      t: 'model.submtconnection',
+      v: { model_id: -10, mount_kind: 'slide_system_intents' },
     }) || changed;
     changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_SYSTEM_MOUNT.p, SLIDE_IMPORTER_SYSTEM_MOUNT.r, SLIDE_IMPORTER_SYSTEM_MOUNT.c, {
       k: 'slide_app_import_request',
@@ -6593,10 +7238,20 @@ function repairSlideImporterClickContract(runtime) {
     t: 'pin.in',
     v: null,
   }) || changed;
+  changed = ensureRuntimeLabel(runtime, 1030, SLIDE_IMPORTER_TRUTH_MOUNT.p, SLIDE_IMPORTER_TRUTH_MOUNT.r, SLIDE_IMPORTER_TRUTH_MOUNT.c, {
+    k: 'model_type',
+    t: 'model.submtconnection',
+    v: { model_id: 1031, mount_kind: 'slide_importer_truth' },
+  }) || changed;
   changed = ensureRuntimeLabel(runtime, 1030, 0, 2, 0, {
     k: 'mt_bus_receive_in',
     t: 'pin.in',
     v: null,
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 1031, 0, 0, 0, {
+    k: 'model_type',
+    t: 'model.submt',
+    v: 'UI.SlideZipImporterTruth',
   }) || changed;
   changed = ensureRuntimeLabel(runtime, 1030, 0, 0, 0, {
     k: 'slide_import_media_uri_update_route',
@@ -6652,6 +7307,49 @@ function repairSlideImporterClickContract(runtime) {
   return changed;
 }
 
+function repairSlideCreatorClickContract(runtime) {
+  let changed = false;
+  const model0 = runtime.getModel(0);
+  if (model0) {
+    changed = ensureRuntimeLabel(runtime, 0, SLIDE_CREATOR_ROOT_MOUNT.p, SLIDE_CREATOR_ROOT_MOUNT.r, SLIDE_CREATOR_ROOT_MOUNT.c, {
+      k: 'model_type',
+      t: 'model.submtconnection',
+      v: { model_id: 1034, mount_kind: 'slide_creator_root' },
+    }) || changed;
+    changed = ensureRuntimeLabel(runtime, 0, SLIDE_CREATOR_ROOT_MOUNT.p, SLIDE_CREATOR_ROOT_MOUNT.r, SLIDE_CREATOR_ROOT_MOUNT.c, {
+      k: 'slide_create_request',
+      t: 'pin.out',
+      v: null,
+    }) || changed;
+    changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_SYSTEM_MOUNT.p, SLIDE_IMPORTER_SYSTEM_MOUNT.r, SLIDE_IMPORTER_SYSTEM_MOUNT.c, {
+      k: 'model_type',
+      t: 'model.submtconnection',
+      v: { model_id: -10, mount_kind: 'slide_system_intents' },
+    }) || changed;
+    changed = ensureRuntimeLabel(runtime, 0, SLIDE_IMPORTER_SYSTEM_MOUNT.p, SLIDE_IMPORTER_SYSTEM_MOUNT.r, SLIDE_IMPORTER_SYSTEM_MOUNT.c, {
+      k: 'slide_app_create_request',
+      t: 'pin.in',
+      v: null,
+    }) || changed;
+  }
+  changed = ensureRuntimeLabel(runtime, 1034, SLIDE_CREATOR_TRUTH_MOUNT.p, SLIDE_CREATOR_TRUTH_MOUNT.r, SLIDE_CREATOR_TRUTH_MOUNT.c, {
+    k: 'model_type',
+    t: 'model.submtconnection',
+    v: { model_id: 1035, mount_kind: 'slide_creator_truth' },
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 1035, 0, 0, 0, {
+    k: 'model_type',
+    t: 'model.submt',
+    v: 'UI.SlideFilltableCreatorTruth',
+  }) || changed;
+  changed = ensureRuntimeLabel(runtime, 0, 0, 0, 0, {
+    k: 'slide_create_request_route',
+    t: 'pin.connect.cell',
+    v: SLIDE_CREATOR_REQUEST_ROUTE,
+  }) || changed;
+  return changed;
+}
+
 function isTemporaryPayloadRecordArray(value) {
   return Array.isArray(value) && value.length > 0 && value.every(isTemporaryModelTableRecord);
 }
@@ -6697,7 +7395,8 @@ function isMalformedPinPayloadKind(kind) {
   if (!kind) return false;
   if (kind.t !== 'str' || typeof kind.v !== 'string') return true;
   const normalized = kind.v.trim();
-  return normalized.startsWith('pin_payload.') && (kind.v !== normalized || normalized !== 'pin_payload.v1');
+  return normalized.startsWith('pin_payload.')
+    && (kind.v !== normalized || (normalized !== 'pin_payload.v1' && normalized !== 'pin_payload.v2'));
 }
 
 function isValidBusPayloadArray(value) {
@@ -6711,6 +7410,9 @@ function isValidBusPayloadArray(value) {
   if (kind && (kind.t !== 'str' || typeof kind.v !== 'string')) return false;
   if (isMalformedPinPayloadKind(kind)) return false;
   if (kind && kind.t === 'str' && kind.v === 'pin_payload.v1') {
+    return false;
+  }
+  if (kind && kind.t === 'str' && kind.v === 'pin_payload.v2') {
     const parsed = parsePinPayloadRecordEnvelope({ version: 'v1', type: 'pin_payload', payload: value });
     return parsed.ok === true;
   }
@@ -7911,8 +8613,8 @@ class ProgramModelEngine {
 
   handleWorkspaceAssetBundleResponse(parsedEnvelope, packet, topic = '') {
     if (!parsedEnvelope || !parsedEnvelope.ok) return { matched: false, handled: false };
-    const nestedKind = readTemporaryPayloadString(parsedEnvelope.nestedPayload, '__mt_payload_kind');
-    if (nestedKind !== 'slide_app_bundle_response.v1') {
+    const payloadKind = readPayloadModelString(parsedEnvelope.payloadRecords, '__mt_payload_kind');
+    if (payloadKind !== 'slide_app_bundle_response.v1') {
       return { matched: false, handled: false };
     }
     const uiServerWorkerId = resolveUiServerWorkerId();
@@ -7950,8 +8652,8 @@ class ProgramModelEngine {
     const payloadTopic = readTemporaryPayloadString(parsedEnvelope.records, 'topic');
     const responseTopic = readTemporaryPayloadString(parsedEnvelope.records, 'response_topic');
     const routeKind = readTemporaryPayloadString(parsedEnvelope.records, 'route_kind');
-    const assetId = readTemporaryPayloadString(parsedEnvelope.nestedPayload, 'asset_id');
-    const bundlePayload = readTemporaryPayloadJson(parsedEnvelope.nestedPayload, 'bundle_payload');
+    const assetId = readPayloadModelString(parsedEnvelope.payloadRecords, 'asset_id');
+    const bundlePayload = readSlideAppBundleRecordsFromPayload(parsedEnvelope.records, parsedEnvelope.payloadRecords);
     const expectedEndpoint = pending.provider_endpoint && typeof pending.provider_endpoint === 'object'
       ? pending.provider_endpoint
       : null;
@@ -8061,7 +8763,7 @@ class ProgramModelEngine {
     if (parsedEnvelope.replyTarget.worker_id !== uiServerWorkerId || parsedEnvelope.replyTarget.pin !== 'result') return false;
     const bundleResponse = this.handleWorkspaceAssetBundleResponse(parsedEnvelope, payload, topic);
     if (bundleResponse.matched) return bundleResponse.handled;
-    const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.nestedPayload, parsedEnvelope.opId);
+    const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.payloadRecords, parsedEnvelope.opId);
     if (!materialization) return false;
     emitTrace(this.runtime, {
       hop: 'mqtt\u2192server',
@@ -8326,7 +9028,7 @@ class ProgramModelEngine {
         ? validateMgmtBusConsoleAck({
           version: 'v1',
           type: 'mgmt_bus_console_ack',
-          payload: parsedEnvelope.nestedPayload,
+          payload: parsedEnvelope.payloadRecords.map((record) => ({ ...record, id: 0 })),
         })
         : { ok: false };
       if (ackValidation.ok) {
@@ -8360,7 +9062,7 @@ class ProgramModelEngine {
       if (bundleResponse.matched) {
         return;
       }
-      const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.nestedPayload, opId);
+      const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.payloadRecords, opId);
       if (!materialization) {
         return;
       }
@@ -8743,17 +9445,15 @@ class ProgramModelEngine {
             };
           }
         },
-        wsSelectApp: (modelId) => {
-          let selected = null;
-          if (Number.isInteger(modelId)) {
-            selected = modelId;
-          } else if (typeof modelId === 'string' && /^-?\d+$/.test(modelId.trim())) {
-            selected = Number(modelId.trim());
+        wsSelectApp: (modelRef) => {
+          const selectedRef = normalizeWorkspaceAppRef(modelRef);
+          if (!selectedRef) {
+            return { ok: false, code: 'invalid_target', detail: 'ws_app_selected_ref required' };
           }
-          if (!Number.isInteger(selected)) {
-            return { ok: false, code: 'invalid_target', detail: 'ws_app_selected must be int' };
+          if (!this.runtime.getModel(selectedRef)) {
+            return { ok: false, code: 'invalid_target', detail: 'workspace_app_model_not_found' };
           }
-          return { ok: true, data: { selected } };
+          return { ok: true, data: { selected: selectedRef.model_id, selected_ref: selectedRef } };
         },
         wsAddApp: (name) => {
           const appName = String(name ?? '').trim();
@@ -8783,49 +9483,25 @@ class ProgramModelEngine {
             };
           }
         },
-        wsDeleteApp: (modelId) => {
-          let targetId = null;
-          if (Number.isInteger(modelId)) {
-            targetId = modelId;
-          } else if (typeof modelId === 'string' && /^-?\d+$/.test(modelId.trim())) {
-            targetId = Number(modelId.trim());
-          }
-          if (!Number.isInteger(targetId)) {
-            return { ok: false, code: 'invalid_target', detail: 'invalid_model_id' };
-          }
-          if (targetId < 100) {
-            return { ok: false, code: 'protected_model', detail: 'protected_model' };
-          }
-          const targetModel = this.runtime.getModel(targetId);
-          if (!targetModel) {
-            return { ok: false, code: 'invalid_target', detail: 'model_not_found' };
-          }
-          const deletable = targetModel.getCell(0, 0, 0).labels.get('deletable');
-          if (!deletable || deletable.v !== true) {
-            return { ok: false, code: 'protected_model', detail: 'protected_model' };
+        wsDeleteApp: (target) => {
+          const normalized = normalizeWorkspaceAppDeleteRef(target);
+          if (!normalized) {
+            return { ok: false, code: 'invalid_target', detail: 'invalid_model_ref' };
           }
           try {
-            const removed = removeImportedBundleFromRuntime(this.runtime, targetId);
+            const removed = deleteWorkspaceAppRefFromRuntime(this.runtime, normalized, { programEngine });
             if (!removed.ok) {
-              return { ok: false, code: 'invalid_target', detail: removed.code };
+              return { ok: false, code: removed.code || 'invalid_target', detail: removed.detail || 'ws_app_delete_failed' };
             }
-            if (programEngine && Array.isArray(removed.systemLabels)) {
-              const sys = firstSystemModel(this.runtime);
-              for (const key of removed.systemLabels) {
-                programEngine.functions.delete(key);
-                if (sys && sys.functions instanceof Map) {
-                  sys.functions.delete(key);
-                }
-              }
-            }
-            const runtimePersister = this.runtime && this.runtime.persistence ? this.runtime.persistence : null;
-            if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
-              const stmt = runtimePersister.db.prepare("delete from mt_data where table_id = 'host' and mt_id = ?");
-              for (const modelIdToDelete of removed.modelIds) {
-                stmt.run(modelIdToDelete);
-              }
-            }
-            return { ok: true, data: { model_id: targetId, removed_model_ids: removed.modelIds } };
+            return {
+              ok: true,
+              data: {
+                table_id: normalized.table_id,
+                model_id: normalized.model_id,
+                removed_model_ids: removed.removed_model_ids || [],
+                removed_model_refs: removed.removed_model_refs || [],
+              },
+            };
           } catch (err) {
             return {
               ok: false,
@@ -9634,6 +10310,7 @@ function createServerState(options) {
   const mgmtBusConsoleJoinedRoomsImpl = options && typeof options.mgmtBusConsoleJoinedRoomsImpl === 'function'
     ? options.mgmtBusConsoleJoinedRoomsImpl
     : null;
+  const seedSlidInAppsOnBoot = !options || options.seedSlidInApps !== false;
   const runtime = new ModelTableRuntime();
   runtime.addLabel(runtime.getModel(0), 0, 0, 0, {
     k: 'sys_worker_id',
@@ -9831,6 +10508,7 @@ function createServerState(options) {
 
   // Workspace (sliding UI) state.
   ensureStateLabel(runtime, 'ws_app_selected', 'int', 0);
+  ensureStateLabel(runtime, 'ws_app_selected_ref', 'json', { table_id: 'host', model_id: 0 });
   ensureStateLabel(runtime, 'ws_app_next_id', 'int', 1001);
   ensureStateLabel(runtime, FLOW_SHELL_TAB_LABEL, 'str', FLOW_SHELL_DEFAULT_TAB);
   for (const label of deriveSlidingFlowShellProjectionLabels(null, null)) {
@@ -9862,7 +10540,7 @@ function createServerState(options) {
   const deriveWorkspaceRegistry = () => {
     return deriveWorkspaceRegistryFromSnapshot({
       snapshot: runtime.snapshot(),
-      getParentInfo: (modelId) => runtime.parentChildMap.get(modelId),
+      getParentInfo: (modelId) => runtime.parentChildMap.get(`host|${modelId}`),
     });
   };
 
@@ -10105,16 +10783,20 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'ws_apps_registry', 'json', apps);
     sanitizeDesktopWorkspaceAppState(runtime, apps);
 
-    const defaultSelected = resolveDefaultAppId(runtime, apps);
-    const foregroundWorkspaceModelId = readDesktopForegroundWorkspaceModelId(buildClientSnapshot(runtime));
-    const validSelected = resolveWorkspaceSelection(
+    const defaultSelected = resolveDefaultAppRef(runtime, apps);
+    const foregroundWorkspaceApp = readDesktopForegroundApp(buildClientSnapshot(runtime));
+    const foregroundWorkspaceRef = foregroundWorkspaceApp && foregroundWorkspaceApp.page === 'workspace'
+      ? normalizeWorkspaceAppRef(foregroundWorkspaceApp)
+      : null;
+    const validSelected = resolveWorkspaceSelectionRef(
       apps,
-      Number.isInteger(foregroundWorkspaceModelId)
-        ? foregroundWorkspaceModelId
-        : runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'),
+      foregroundWorkspaceRef
+        || runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected_ref')
+        || runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'),
       defaultSelected,
     );
-    overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected));
+    overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected.model_id));
+    overwriteStateLabel(runtime, 'ws_app_selected_ref', 'json', validSelected);
 
     overwriteStateLabel(runtime, 'ws_app_next_id', 'int', resolveNextWorkspaceModelId(runtime));
   };
@@ -10126,14 +10808,16 @@ function createServerState(options) {
     if (uiPage !== 'workspace') return;
     const appsRaw = runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_apps_registry');
     const apps = Array.isArray(appsRaw) ? appsRaw : deriveWorkspaceRegistry();
-    const defaultSelected = resolveDefaultAppId(runtime, apps);
-    const validSelected = resolveWorkspaceSelection(
+    const defaultSelected = resolveDefaultAppRef(runtime, apps);
+    const validSelected = resolveWorkspaceSelectionRef(
       apps,
-      runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'),
+      runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected_ref')
+        || runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected'),
       defaultSelected,
     );
-    overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected));
-    overwriteStateLabel(runtime, 'selected_model_id', 'str', String(validSelected));
+    overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validSelected.model_id));
+    overwriteStateLabel(runtime, 'ws_app_selected_ref', 'json', validSelected);
+    overwriteStateLabel(runtime, 'selected_model_id', 'str', String(validSelected.model_id));
   };
 
   const reconcileHomeSelectionState = (force = false) => {
@@ -10203,6 +10887,7 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'static_status', 'str', '');
     overwriteStateLabel(runtime, 'ws_apps_registry', 'json', []);
     overwriteStateLabel(runtime, 'ws_app_selected', 'int', 0);
+    overwriteStateLabel(runtime, 'ws_app_selected_ref', 'json', { table_id: 'host', model_id: 0 });
     overwriteStateLabel(runtime, 'ws_app_next_id', 'int', resolveNextWorkspaceModelId(runtime));
     overwriteStateLabel(runtime, 'ws_new_app_name', 'str', '');
     overwriteStateLabel(runtime, 'ws_delete_app_id', 'int', 0);
@@ -10244,11 +10929,14 @@ function createServerState(options) {
     const stateModel = runtime.getModel(EDITOR_STATE_MODEL_ID);
     if (!stateModel) return;
     const apps = deriveWorkspaceRegistry();
-    const selected = runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected');
-    const fallbackModelId = resolveDefaultAppId(runtime, apps);
-    const selectedId = Number.isInteger(selected) ? selected : Number.parseInt(String(readAuthString(selected)), 10);
-    if (!apps.some((app) => app.model_id === Number(selectedId))) {
-      overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(fallbackModelId));
+    const selected = runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected_ref')
+      || runtime.getLabelValue(stateModel, 0, 0, 0, 'ws_app_selected');
+    const fallbackRef = resolveDefaultAppRef(runtime, apps);
+    const selectedRef = normalizeWorkspaceAppRef(selected);
+    const validRef = resolveWorkspaceSelectionRef(apps, selected, fallbackRef);
+    if (!selectedRef || workspaceSelectionRefKey(selectedRef) !== workspaceSelectionRefKey(validRef)) {
+      overwriteStateLabel(runtime, 'ws_app_selected', 'int', Number(validRef.model_id));
+      overwriteStateLabel(runtime, 'ws_app_selected_ref', 'json', validRef);
     }
     overwriteStateLabel(runtime, 'ws_app_next_id', 'int', resolveNextWorkspaceModelId(runtime));
   };
@@ -10263,6 +10951,7 @@ function createServerState(options) {
     overwriteStateLabel(runtime, 'static_html_b64', 'str', '');
     overwriteStateLabel(runtime, 'ws_apps_registry', 'json', []);
     overwriteStateLabel(runtime, 'ws_app_selected', 'int', 0);
+    overwriteStateLabel(runtime, 'ws_app_selected_ref', 'json', { table_id: 'host', model_id: 0 });
     overwriteStateLabel(runtime, 'ws_app_next_id', 'int', resolveNextWorkspaceModelId(runtime));
     overwriteStateLabel(runtime, 'ws_status', 'str', '');
     try {
@@ -10441,6 +11130,19 @@ function createServerState(options) {
       overwriteStateLabel(runtime, 'static_status', 'str', 'static list failed');
     }
   };
+
+  const ensureSeededSlidInAppSubtables = (options = {}) => {
+    const result = withRuntimePersistenceDisabled(runtime, () => materializeSeededSlidInAppSubtables(runtime));
+    if (result.length > 0 && options.refresh !== false) {
+      withRuntimePersistenceDisabled(runtime, () => {
+        refreshWorkspaceStateCatalog();
+        reconcileWorkspaceSelectionState();
+        syncDerivedPageState({ scope: 'full' });
+      });
+    }
+    return result;
+  };
+
   sanitizeStartupCatalogState();
   resetStaticCatalogStateFromFilesystem();
   clearAndValidateWorkspaceSelection();
@@ -10452,6 +11154,9 @@ function createServerState(options) {
   refreshStartupCatalogState();
   runtime.setRuntimeMode('edit');
   if (persister && typeof persister.setEnabled === 'function') persister.setEnabled(true);
+  if (seedSlidInAppsOnBoot) {
+    ensureSeededSlidInAppSubtables();
+  }
 
   const clearAndRefreshAfterRuntimeBoot = async () => {
     withRuntimePersistenceDisabled(runtime, () => {
@@ -10610,17 +11315,15 @@ function createServerState(options) {
         return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
       }
     },
-    wsSelectApp: (modelId) => {
-      let selected = null;
-      if (Number.isInteger(modelId)) {
-        selected = modelId;
-      } else if (typeof modelId === 'string' && /^-?\d+$/.test(modelId.trim())) {
-        selected = Number(modelId.trim());
+    wsSelectApp: (modelRef) => {
+      const selectedRef = normalizeWorkspaceAppRef(modelRef);
+      if (!selectedRef) {
+        return { ok: false, code: 'invalid_target', detail: 'ws_app_selected_ref required' };
       }
-      if (!Number.isInteger(selected)) {
-        return { ok: false, code: 'invalid_target', detail: 'ws_app_selected must be int' };
+      if (!runtime.getModel(selectedRef)) {
+        return { ok: false, code: 'invalid_target', detail: 'workspace_app_model_not_found' };
       }
-      return { ok: true, data: { selected } };
+      return { ok: true, data: { selected: selectedRef.model_id, selected_ref: selectedRef } };
     },
     wsAddApp: (name) => {
       const appName = String(name ?? '').trim();
@@ -10646,49 +11349,25 @@ function createServerState(options) {
         return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
       }
     },
-    wsDeleteApp: (modelId) => {
-      let targetId = null;
-      if (Number.isInteger(modelId)) {
-        targetId = modelId;
-      } else if (typeof modelId === 'string' && /^-?\d+$/.test(modelId.trim())) {
-        targetId = Number(modelId.trim());
-      }
-      if (!Number.isInteger(targetId)) {
-        return { ok: false, code: 'invalid_target', detail: 'invalid_model_id' };
-      }
-      if (targetId < 100) {
-        return { ok: false, code: 'protected_model', detail: 'protected_model' };
-      }
-      const targetModel = runtime.getModel(targetId);
-      if (!targetModel) {
-        return { ok: false, code: 'invalid_target', detail: 'model_not_found' };
-      }
-      const deletable = targetModel.getCell(0, 0, 0).labels.get('deletable');
-      if (!deletable || deletable.v !== true) {
-        return { ok: false, code: 'protected_model', detail: 'protected_model' };
+    wsDeleteApp: (target) => {
+      const normalized = normalizeWorkspaceAppDeleteRef(target);
+      if (!normalized) {
+        return { ok: false, code: 'invalid_target', detail: 'invalid_model_ref' };
       }
       try {
-        const removed = removeImportedBundleFromRuntime(runtime, targetId);
+        const removed = deleteWorkspaceAppRefFromRuntime(runtime, normalized, { programEngine });
         if (!removed.ok) {
-          return { ok: false, code: 'invalid_target', detail: removed.code };
+          return { ok: false, code: removed.code || 'invalid_target', detail: removed.detail || 'ws_app_delete_failed' };
         }
-        if (programEngine && Array.isArray(removed.systemLabels)) {
-          const sys = firstSystemModel(runtime);
-          for (const key of removed.systemLabels) {
-            programEngine.functions.delete(key);
-            if (sys && sys.functions instanceof Map) {
-              sys.functions.delete(key);
-            }
-          }
-        }
-        const runtimePersister = runtime && runtime.persistence ? runtime.persistence : null;
-        if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
-          const stmt = runtimePersister.db.prepare("delete from mt_data where table_id = 'host' and mt_id = ?");
-          for (const modelIdToDelete of removed.modelIds) {
-            stmt.run(modelIdToDelete);
-          }
-        }
-        return { ok: true, data: { model_id: targetId, removed_model_ids: removed.modelIds } };
+        return {
+          ok: true,
+          data: {
+            table_id: normalized.table_id,
+            model_id: normalized.model_id,
+            removed_model_ids: removed.removed_model_ids || [],
+            removed_model_refs: removed.removed_model_refs || [],
+          },
+        };
       } catch (err) {
         return { ok: false, code: 'exception', detail: String(err && err.message ? err.message : err) };
       }
@@ -10871,6 +11550,7 @@ function createServerState(options) {
   function updateDerived(scopeOrOptions = 'business') {
     const scope = normalizeDerivedRefreshScope(scopeOrOptions);
     repairSlideImporterClickContract(runtime);
+    repairSlideCreatorClickContract(runtime);
     recoverModel100StaleInflight();
     if (scope === 'full' || scope === 'app_index') {
       refreshWorkspaceStateCatalog();
@@ -10906,7 +11586,7 @@ function createServerState(options) {
     recoverModel100StaleInflight();
     sanitizeDesktopWorkspaceAppStateFromCurrentCatalog();
     syncMatrixDebugDerivedState();
-    return buildClientSnapshot(runtime);
+    return buildClientSnapshotForPrincipal(runtime.snapshot(), buildRuntimePrincipalForSnapshot(runtime));
   }
 
   function setLastBusEventOpId(next) {
@@ -11154,11 +11834,30 @@ function createServerState(options) {
       if (typeName === 'bool') {
         return { ok: true, t: 'bool', value: readStateValue('dt_edit_v_bool') === true };
       }
-      if (typeName === 'model.submt' || typeName === 'submt') {
+      if (typeName === 'model.submt') {
+        const raw = String(readStateValue('dt_edit_v_text') || '').trim();
+        if (!raw) return { ok: false, code: 'submt_type_name_required' };
+        return { ok: true, t: 'model.submt', value: raw };
+      }
+      if (typeName === 'model.submtconnection') {
         const raw = String(readStateValue('dt_edit_v_text') || '').trim();
         const parsed = Number.parseInt(raw, 10);
-        if (!Number.isInteger(parsed)) return { ok: false, code: 'submt_child_model_required' };
-        return { ok: true, t: 'model.submt', value: parsed };
+        if (!Number.isInteger(parsed) || parsed === 0) return { ok: false, code: 'submtconnection_child_model_required' };
+        return { ok: true, t: 'model.submtconnection', value: parsed };
+      }
+      if (typeName === 'model.subtable') {
+        const raw = String(readStateValue('dt_edit_v_text') || '').trim();
+        if (!raw) return { ok: false, code: 'subtable_type_name_required' };
+        return { ok: true, t: 'model.subtable', value: raw };
+      }
+      if (typeName === 'model.subtableconnection') {
+        const raw = String(readStateValue('dt_edit_v_text') || '').trim();
+        if (!raw) return { ok: false, code: 'subtableconnection_descriptor_required' };
+        try {
+          return { ok: true, t: 'model.subtableconnection', value: JSON.parse(raw) };
+        } catch (_) {
+          return { ok: false, code: 'parse_failed' };
+        }
       }
       if (
         typeName === 'json'
@@ -11198,10 +11897,27 @@ function createServerState(options) {
       if (typeName === 'bool') {
         return { ok: true, t: 'bool', value: rawBool === true };
       }
-      if (typeName === 'model.submt' || typeName === 'submt') {
+      if (typeName === 'model.submt') {
+        if (!String(rawText || '').trim()) return { ok: false, code: 'submt_type_name_required' };
+        return { ok: true, t: 'model.submt', value: rawText.trim() };
+      }
+      if (typeName === 'model.submtconnection') {
         const parsed = Number.parseInt(String(rawText || '').trim(), 10);
-        if (!Number.isInteger(parsed)) return { ok: false, code: 'submt_child_model_required' };
-        return { ok: true, t: 'model.submt', value: parsed };
+        if (!Number.isInteger(parsed) || parsed === 0) return { ok: false, code: 'submtconnection_child_model_required' };
+        return { ok: true, t: 'model.submtconnection', value: parsed };
+      }
+      if (typeName === 'model.subtable') {
+        if (!String(rawText || '').trim()) return { ok: false, code: 'subtable_type_name_required' };
+        return { ok: true, t: 'model.subtable', value: rawText.trim() };
+      }
+      if (typeName === 'model.subtableconnection') {
+        const trimmed = String(rawText || '').trim();
+        if (!trimmed) return { ok: false, code: 'subtableconnection_descriptor_required' };
+        try {
+          return { ok: true, t: 'model.subtableconnection', value: JSON.parse(trimmed) };
+        } catch (_) {
+          return { ok: false, code: 'parse_failed' };
+        }
       }
       if (
         typeName === 'json'
@@ -11546,6 +12262,9 @@ function createServerState(options) {
 
     const executeGenericOwnerAction = async () => {
       const target = payload && payload.target && typeof payload.target === 'object' ? payload.target : {};
+      const targetTableId = target.table_id === undefined || target.table_id === null
+        ? 'host'
+        : (typeof target.table_id === 'string' && isSafePinRouteSegment(target.table_id) ? target.table_id : '');
       const targetModelId = Number.isInteger(target.model_id) ? target.model_id : null;
       const p = Number.isInteger(target.p) ? target.p : 0;
       const r = Number.isInteger(target.r) ? target.r : 0;
@@ -11553,6 +12272,56 @@ function createServerState(options) {
       const key = typeof target.k === 'string' ? target.k : '';
       if (!runtime.isRunLoopActive()) {
         return finishError('runtime_not_running', `model_id=${targetModelId ?? 'unknown'}`);
+      }
+      if (!targetTableId) {
+        return finishError('invalid_target', 'invalid_table_id');
+      }
+      if (targetTableId !== 'host') {
+        if (!(Number.isInteger(targetModelId) && targetModelId >= 0 && key)) {
+          return finishError('invalid_target', 'app_table_non_negative_target_required');
+        }
+        const targetModel = runtime.getModel({ table_id: targetTableId, model_id: targetModelId });
+        if (!targetModel) {
+          return finishError('invalid_target', `${targetTableId}:${targetModelId}`);
+        }
+        const recordBase = {
+          table_id: targetTableId,
+          model_id: targetModelId,
+          p,
+          r,
+          c,
+          k: key,
+        };
+        if (action === 'ui_owner_label_update') {
+          if (!payload.value || typeof payload.value.t !== 'string' || !Object.prototype.hasOwnProperty.call(payload.value, 'v')) {
+            return finishError('invalid_target', 'missing_value');
+          }
+          const routed = await programEngine.routePinPayloadViaOwnerMaterialization({
+            op_id: opId || `ui_owner_set_${Date.now()}`,
+            records: [{
+              ...recordBase,
+              op: 'add_label',
+              t: payload.value.t,
+              v: payload.value.v,
+            }],
+          });
+          return routed && routed.ok
+            ? finishOk({ routed_by: 'owner_materialization', table_id: targetTableId, model_id: targetModelId })
+            : finishError(routed && routed.code ? routed.code : 'owner_materialization_failed', routed && routed.detail ? routed.detail : `${targetTableId}:${targetModelId}`);
+        }
+        if (action === 'ui_owner_label_remove') {
+          const routed = await programEngine.routePinPayloadViaOwnerMaterialization({
+            op_id: opId || `ui_owner_rm_${Date.now()}`,
+            records: [{
+              ...recordBase,
+              op: 'rm_label',
+            }],
+          });
+          return routed && routed.ok
+            ? finishOk({ routed_by: 'owner_materialization', table_id: targetTableId, model_id: targetModelId })
+            : finishError(routed && routed.code ? routed.code : 'owner_materialization_failed', routed && routed.detail ? routed.detail : `${targetTableId}:${targetModelId}`);
+        }
+        return finishError('unknown_action', action);
       }
       if (!(Number.isInteger(targetModelId) && targetModelId > 0 && key)) {
         return finishError('invalid_target', 'positive_target_required');
@@ -11677,6 +12446,7 @@ function createServerState(options) {
         }
         overwriteStateLabel(runtime, DESKTOP_FOREGROUND_APP_LABEL, 'json', normalized);
         overwriteStateLabel(runtime, 'ws_app_selected', 'int', normalized.model_id);
+        overwriteStateLabel(runtime, 'ws_app_selected_ref', 'json', normalizeWorkspaceAppRef(normalized));
         overwriteStateLabel(runtime, 'selected_model_id', 'str', String(normalized.model_id));
         overwriteRuntimeLabel(runtime, 1051, 0, 0, 0, 'asset_install_dialog_open', 'bool', false);
         updateDerived();
@@ -11716,46 +12486,7 @@ function createServerState(options) {
     };
 
     const deleteWorkspaceAppTable = (tableId) => {
-      if (typeof tableId !== 'string' || !tableId.trim() || tableId === 'host') {
-        return { ok: false, code: 'invalid_target', detail: 'invalid_table_id' };
-      }
-      const normalizedTableId = tableId.trim();
-      const tableModels = runtime.modelTables instanceof Map ? runtime.modelTables.get(normalizedTableId) : null;
-      if (!tableModels) return { ok: false, code: 'invalid_target', detail: 'table_not_found' };
-      const removedModelRefs = Array.from(tableModels.keys()).map((modelId) => ({ table_id: normalizedTableId, model_id: modelId }));
-      const routePrefix = `${normalizedTableId}|`;
-      if (runtime.cellConnectGraph instanceof Map) {
-        for (const key of Array.from(runtime.cellConnectGraph.keys())) {
-          if (String(key).startsWith(routePrefix)) runtime.cellConnectGraph.delete(key);
-        }
-      }
-      if (runtime.cellConnectionRoutes instanceof Map) {
-        for (const key of Array.from(runtime.cellConnectionRoutes.keys())) {
-          if (String(key).startsWith(routePrefix)) runtime.cellConnectionRoutes.delete(key);
-        }
-      }
-      runtime.modelTables.delete(normalizedTableId);
-      if (runtime.subtableMounts instanceof Map) runtime.subtableMounts.delete(normalizedTableId);
-      const model0 = runtime.getModel(0);
-      if (model0) {
-        for (const cell of model0.cells.values()) {
-          const mountLabel = Array.from(cell.labels.values()).find((label) => (
-            label && label.t === 'model.subtable' && label.v && label.v.table_id === normalizedTableId
-          ));
-          if (!mountLabel) continue;
-          for (const key of Array.from(cell.labels.keys())) {
-            runtime.rmLabel(model0, cell.p, cell.r, cell.c, key);
-          }
-          if (runtime.subtableMountsByHostCell instanceof Map) {
-            runtime.subtableMountsByHostCell.delete(runtime._subtableHostCellKey(model0, cell.p, cell.r, cell.c));
-          }
-        }
-      }
-      const runtimePersister = runtime && runtime.persistence ? runtime.persistence : null;
-      if (runtimePersister && runtimePersister.db && typeof runtimePersister.db.prepare === 'function') {
-        runtimePersister.db.prepare('delete from mt_data where table_id = ?').run(normalizedTableId);
-      }
-      return { ok: true, removed_model_refs: removedModelRefs };
+      return deleteWorkspaceAppTableFromRuntime(runtime, tableId, programEngine);
     };
 
     const deleteWorkspaceAppByRef = (target) => {
@@ -12480,6 +13211,7 @@ function createServerState(options) {
     submitEnvelope,
     applyModelTablePatch,
     activateRuntimeMode,
+    ensureSeededSlidInAppSubtables,
     updateDerived,
     refreshMgmtBusConsoleChannels,
     getRuntimeMode: () => runtime.getRuntimeMode(),
@@ -12684,7 +13416,7 @@ function startServer(options) {
         // Test-only busy wait to prove auth routes are not queued behind runtime creation.
       }
     }
-    const userState = createServerState({ dbPath: principalDbPath(principalKey) });
+    const userState = createServerState({ dbPath: principalDbPath(principalKey), seedSlidInApps: false });
     const normalizedPrincipalKey = typeof principalKey === 'string' ? principalKey.trim() : '';
     if (normalizedPrincipalKey) {
       userState.runtime.principalRuntimeKey = normalizedPrincipalKey;
@@ -12696,6 +13428,9 @@ function startServer(options) {
         t: 'str',
         v: normalizedPrincipalKey,
       });
+    }
+    if (typeof userState.ensureSeededSlidInAppSubtables === 'function') {
+      userState.ensureSeededSlidInAppSubtables();
     }
     userState.programEngine.disableControlBusInbound = true;
     attachPrincipalAwareProgramEngine(userState, principalKey, { wrapControlBusInbound: false });
@@ -12821,6 +13556,35 @@ function startServer(options) {
     return { ok: false, status, body: { ok: false, error, ...extra } };
   }
 
+  function readRuntimeRootLabelValue(runtime, modelId, labelKey) {
+    const model = runtime && typeof runtime.getModel === 'function' ? runtime.getModel(modelId) : null;
+    if (!model || typeof runtime.getLabelValue !== 'function') return undefined;
+    return runtime.getLabelValue(model, 0, 0, 0, labelKey);
+  }
+
+  function runtimeHostModelIsVisible(runtime, modelId) {
+    if (!runtime || typeof runtime.getModel !== 'function' || !Number.isInteger(modelId)) return false;
+    const model = runtime.getModel(modelId);
+    if (!model) return false;
+    if (readRuntimeRootLabelValue(runtime, modelId, 'ws_deleted') === true) return false;
+    if (BUILTIN_WORKSPACE_APP_MODEL_IDS.includes(modelId)) return true;
+
+    if (modelId <= 0) return false;
+    const allowedWorkspaceEntry = WORKSPACE_ENTRY_MODEL_IDS.includes(modelId);
+    const deletable = readRuntimeRootLabelValue(runtime, modelId, 'deletable') === true;
+    const slideCapable = readRuntimeRootLabelValue(runtime, modelId, 'slide_capable') === true;
+    const installedSlideApp = deletable && slideCapable;
+    if (!allowedWorkspaceEntry && !installedSlideApp) return false;
+    const hasAppName = typeof readRuntimeRootLabelValue(runtime, modelId, 'app_name') === 'string'
+      && readRuntimeRootLabelValue(runtime, modelId, 'app_name').trim();
+    const hasSourceWorker = typeof readRuntimeRootLabelValue(runtime, modelId, 'source_worker') === 'string'
+      && readRuntimeRootLabelValue(runtime, modelId, 'source_worker').trim();
+    const parentInfo = runtime.parentChildMap && typeof runtime.parentChildMap.get === 'function'
+      ? runtime.parentChildMap.get(`host|${modelId}`)
+      : null;
+    return Boolean(hasAppName || hasSourceWorker || (parentInfo && parentInfo.parentModelId === 0));
+  }
+
   function validateVisibleModelId(rawValue, runtimeEntry) {
     const text = String(rawValue || '').trim();
     if (!/^-?\d+$/u.test(text)) {
@@ -12839,10 +13603,11 @@ function startServer(options) {
       return snapshotProfileError(403, 'permission_denied', { requiredCapability });
     }
     const runtimeState = runtimeEntry && runtimeEntry.state ? runtimeEntry.state : state;
-    if (!runtimeState.runtime.getModel(modelId)) {
+    const runtime = runtimeState && runtimeState.runtime ? runtimeState.runtime : null;
+    if (!runtime || !runtime.getModel(modelId)) {
       return snapshotProfileError(404, 'model_not_found');
     }
-    if (!visibleModelIdsForClient(runtimeEntry).has(modelId)) {
+    if (!runtimeHostModelIsVisible(runtime, modelId)) {
       return snapshotProfileError(403, 'model_not_visible');
     }
     return { ok: true, modelId, modelRef: { table_id: 'host', model_id: modelId } };
@@ -12876,7 +13641,7 @@ function startServer(options) {
     const registry = runtime
       ? deriveWorkspaceRegistryFromSnapshot({
         snapshot: runtime.snapshot(),
-        getParentInfo: (modelId) => runtime.parentChildMap.get(modelId),
+        getParentInfo: (modelId) => runtime.parentChildMap.get(`host|${modelId}`),
       })
       : [];
     for (const entry of registry) {
@@ -12942,8 +13707,8 @@ function startServer(options) {
     if (!runtime || !runtime.getModel(ref)) {
       return snapshotProfileError(404, 'model_not_found');
     }
-    const visibleRefs = visibleModelRefsForClient(runtimeEntry);
-    if (!visibleRefs.has(visibleModelRefKey(ref))) {
+    const principal = runtimeEntry && runtimeEntry.principal ? runtimeEntry.principal : null;
+    if (ref.model_id < 0 || !principalCanAccessRuntimeTable(runtime, principal, ref.table_id)) {
       return snapshotProfileError(403, 'model_not_visible');
     }
     return { ok: true, modelId: ref.model_id, modelRef: ref };
@@ -12991,6 +13756,24 @@ function startServer(options) {
   }
 
   function getProfiledClientSnapForRuntime(entry, profileOptions = {}) {
+    if (profileOptions && profileOptions.profile === 'visible') {
+      const direct = buildScopedVisibleClientSnapshotForRuntime(entry, profileOptions);
+      if (!direct.ok) {
+        const err = new Error(direct.error || 'visible_snapshot_build_failed');
+        err.snapshotProfileError = direct;
+        throw err;
+      }
+      return direct.snapshot;
+    }
+    if (!profileOptions || profileOptions.profile === 'bootstrap' || !profileOptions.profile) {
+      const direct = buildScopedBootstrapClientSnapshotForRuntime(entry, { ...profileOptions, profile: 'bootstrap' });
+      if (!direct.ok) {
+        const err = new Error(direct.error || 'bootstrap_snapshot_build_failed');
+        err.snapshotProfileError = direct;
+        throw err;
+      }
+      return direct.snapshot;
+    }
     const fullSnap = getClientSnapForRuntime(entry);
     return buildClientSnapshotProfile(fullSnap, profileOptions);
   }
@@ -13075,6 +13858,19 @@ function startServer(options) {
       return `${url.pathname}${url.search || ''}`;
     }
 
+    function isPageReturnTo(value) {
+      if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return false;
+      if (value === '/bus_event' || value === '/ui_event') return false;
+      if (value.startsWith('/api/')) return false;
+      if (value.startsWith('/auth/')) return false;
+      if (value === '/snapshot' || value === '/stream') return false;
+      return true;
+    }
+
+    function normalizePageReturnTo(value) {
+      return isPageReturnTo(value) ? value : '/';
+    }
+
     function writeLoginRequired() {
       writeJson(res, 401, { ok: false, error: 'login_required', returnTo: returnTo() }, cors);
     }
@@ -13112,6 +13908,42 @@ function startServer(options) {
     }
 
     // ── Auth endpoints ───────────────────────────────────────────────────
+    if (req.method === 'GET' && url.pathname === '/auth/dev/fake-login/options') {
+      if (!isDevFakeLoginEnabled()) {
+        writeJson(res, 404, { ok: false, error: 'dev_fake_login_disabled' }, cors);
+        return;
+      }
+      writeJson(res, 200, {
+        ok: true,
+        enabled: true,
+        users: listDevFakeLoginUsers(),
+      }, cors);
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/auth/dev/fake-login') {
+      if (!isDevFakeLoginEnabled()) {
+        writeJson(res, 404, { ok: false, error: 'dev_fake_login_disabled' }, cors);
+        return;
+      }
+      try {
+        const userKey = url.searchParams.get('user') || '';
+        const loggedIn = loginWithDevFakeUser(userKey);
+        res.writeHead(302, {
+          ...cors,
+          location: normalizePageReturnTo(url.searchParams.get('returnTo') || '/'),
+          'cache-control': 'no-cache',
+          'set-cookie': makeSetCookieHeader(loggedIn.token, undefined, req),
+        });
+        res.end();
+      } catch (err) {
+        const error = err && err.message ? err.message : 'dev_fake_login_failed';
+        const status = error === 'unknown_dev_fake_user' ? 400 : 404;
+        writeJson(res, status, { ok: false, error }, cors);
+      }
+      return;
+    }
+
     if (req.method === 'GET' && url.pathname === '/auth/sso/start') {
       try {
         const started = await startOidcLogin({ req, returnTo: url.searchParams.get('returnTo') || '/' });
@@ -13905,6 +14737,9 @@ export {
   buildClientSnapshotProfile,
   buildClientSnapshotProfileStats,
   buildClientSnapshotProfileWithStats,
+  buildScopedVisibleClientSnapshotForRuntime,
+  buildMgmtBusConsoleMatrixPacket,
+  buildWorkspaceAssetBundleRequestPacket,
   buildSlideAppExportPayload,
   buildSlideAppExportZip,
   createPrincipalRuntimeRegistry,
@@ -13913,7 +14748,10 @@ export {
   handleSlideAppExportRequest,
   handleMediaUploadRequest,
   handleMatrixMediaProxyRequest,
+  isValidBusPayloadArray,
+  materializeImportedHostEgressAdapter,
   parsePinPayloadRecordEnvelope,
+  parsePrincipalRuntimePinPayload,
   startServer,
 };
 

@@ -79,7 +79,7 @@ function test_prefix_cell_connect_endpoints_are_rejected() {
 function test_numeric_cell_connect_endpoint_is_rejected() {
   const rt = new ModelTableRuntime();
   const parent = rt.getModel(0);
-  rt.addLabel(parent, 1, 0, 0, { k: 'model_type', t: 'model.submt', v: 9360 });
+  rt.addLabel(parent, 1, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: 9360 });
   rt.addLabel(parent, 1, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
   const result = rt.addLabel(parent, 1, 0, 0, {
     k: 'numeric_bridge',
@@ -174,7 +174,7 @@ function test_pin_login_logout_replace_pin_log_family() {
 async function test_submodel_boundary_bridge_replaces_numeric_prefix() {
   const rt = new ModelTableRuntime();
   const parent = rt.getModel(0);
-  rt.addLabel(parent, 2, 0, 0, { k: 'model_type', t: 'model.submt', v: 9363 });
+  rt.addLabel(parent, 2, 0, 0, { k: 'model_type', t: 'model.submtconnection', v: 9363 });
   rt.addLabel(parent, 2, 0, 0, { k: 'submit', t: 'pin.in', v: null });
   rt.addLabel(parent, 2, 0, 0, { k: 'result', t: 'pin.out', v: null });
   rt.addLabel(parent, 0, 0, 0, {
@@ -189,6 +189,7 @@ async function test_submodel_boundary_bridge_replaces_numeric_prefix() {
   rt.addLabel(parent, 0, 0, 0, { k: 'ui_result', t: 'pin.out', v: null });
 
   const child = rt.getModel(9363);
+  rt.addLabel(child, 0, 0, 0, { k: 'model_type', t: 'model.submt', v: 'Flow.Child' });
   rt.addLabel(child, 0, 0, 0, { k: 'submit', t: 'pin.in', v: null });
   rt.addLabel(child, 0, 0, 0, { k: 'result', t: 'pin.out', v: null });
   rt.addLabel(child, 0, 0, 0, {

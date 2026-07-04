@@ -16,7 +16,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.WorkspaceModel"
     },
     {
@@ -122,7 +122,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.WorkspaceModel"
     },
     {
@@ -228,7 +228,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.ColorForm"
     },
     {
@@ -549,7 +549,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.LeaveRequest"
     },
     {
@@ -792,7 +792,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.RepairRequest"
     },
     {
@@ -1034,7 +1034,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.Tier2SchemaLeafExample"
     },
     {
@@ -1733,7 +1733,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.Tier2PageAssetExample"
     },
     {
@@ -1819,7 +1819,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.Tier2ParentMountedExample"
     },
     {
@@ -1869,7 +1869,7 @@
       "r": 2,
       "c": 0,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1006
     },
     {
@@ -1885,7 +1885,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.Tier2ChildMountedExample"
     },
     {
@@ -1941,7 +1941,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.ThreeSceneApp"
     },
     {
@@ -2061,7 +2061,7 @@
       "r": 2,
       "c": 0,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1008
     },
     {
@@ -2077,7 +2077,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.ThreeSceneChild"
     },
     {
@@ -2179,7 +2179,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.WorkspaceFilltableExampleApp"
     },
     {
@@ -2279,7 +2279,7 @@
       "r": 2,
       "c": 0,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1010
     },
     {
@@ -3016,7 +3016,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.WorkspaceFilltableExampleTruth"
     },
     {
@@ -3287,7 +3287,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.StaticWorkspaceApp"
     },
     {
@@ -3387,7 +3387,7 @@
       "r": 2,
       "c": 0,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1012
     },
     {
@@ -5188,7 +5188,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.StaticWorkspaceTruth"
     },
     {
@@ -5274,7 +5274,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.DocWorkspaceExampleApp"
     },
     {
@@ -5324,7 +5324,7 @@
       "r": 2,
       "c": 0,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1014
     },
     {
@@ -7380,7 +7380,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.DocWorkspaceExampleTruth"
     },
     {
@@ -7583,11 +7583,6 @@
           "source": "system"
         },
         {
-          "model_id": 100,
-          "name": "E2E 颜色生成器",
-          "source": "RemoteWorker R1"
-        },
-        {
           "model_id": 1007,
           "name": "Three Scene",
           "source": "workspace"
@@ -7652,7 +7647,20 @@
       "c": 0,
       "k": "ws_app_selected",
       "t": "int",
-      "v": 100
+      "v": 1007
+    },
+    {
+      "op": "add_label",
+      "model_id": -2,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ws_app_selected_ref",
+      "t": "json",
+      "v": {
+        "table_id": "host",
+        "model_id": 1007
+      }
     },
     {
       "op": "add_label",
@@ -10643,7 +10651,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.MatrixUserlinePhase1App"
     },
     {
@@ -10743,7 +10751,7 @@
       "r": 2,
       "c": 0,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1017
     },
     {
@@ -10753,7 +10761,7 @@
       "r": 2,
       "c": 1,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1018
     },
     {
@@ -10763,7 +10771,7 @@
       "r": 2,
       "c": 2,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1019
     },
     {
@@ -12259,7 +12267,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.MatrixSessionTruth"
     },
     {
@@ -12437,7 +12445,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.MatrixRoomDirectoryTruth"
     },
     {
@@ -12506,7 +12514,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.MatrixActiveConversationTruth"
     },
     {
@@ -13433,7 +13441,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.MatrixActiveRoomMembersTruth"
     },
     {
@@ -13550,7 +13558,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.MatrixChatUiState"
     },
     {
@@ -13610,7 +13618,7 @@
       "r": 2,
       "c": 3,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1020
     },
     {
@@ -13620,7 +13628,7 @@
       "r": 2,
       "c": 4,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1021
     },
     {
@@ -13722,7 +13730,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.SlideZipImporterApp"
     },
     {
@@ -13819,7 +13827,7 @@
       "r": 2,
       "c": 0,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1031
     },
     {
@@ -14567,7 +14575,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.SlideZipImporterTruth"
     },
     {
@@ -14753,7 +14761,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.SlideFilltableCreatorApp"
     },
     {
@@ -14890,7 +14898,7 @@
       "r": 2,
       "c": 0,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1035
     },
     {
@@ -15758,7 +15766,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.SlideFilltableCreatorTruth"
     },
     {
@@ -17095,7 +17103,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.MgmtBusConsole"
     },
     {
@@ -22512,7 +22520,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.ModelAuthoringGuide"
     },
     {
@@ -23162,7 +23170,7 @@
       "r": 0,
       "c": 3,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": -10
     },
     {
@@ -23212,7 +23220,7 @@
       "r": 0,
       "c": 13,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1030
     },
     {
@@ -23289,7 +23297,7 @@
       "r": 0,
       "c": 15,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1034
     },
     {
@@ -23309,7 +23317,7 @@
       "r": 0,
       "c": 8,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1009
     },
     {
@@ -23329,7 +23337,7 @@
       "r": 0,
       "c": 12,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 1016
     },
     {
@@ -23591,7 +23599,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.MinimalSubmitDualBusZip"
     },
     {
@@ -24990,7 +24998,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.MatrixSuite"
     },
     {
@@ -31128,7 +31136,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.SettingsApp"
     },
     {
@@ -31428,7 +31436,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.ModelTableCrudApp"
     },
     {
@@ -34873,6 +34881,18 @@
         {
           "label": "model.submt",
           "value": "model.submt"
+        },
+        {
+          "label": "model.submtconnection",
+          "value": "model.submtconnection"
+        },
+        {
+          "label": "model.subtable",
+          "value": "model.subtable"
+        },
+        {
+          "label": "model.subtableconnection",
+          "value": "model.subtableconnection"
         }
       ]
     },
@@ -36514,7 +36534,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.MatrixChat"
     },
     {
@@ -42693,7 +42713,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.TodoBoard"
     },
     {
