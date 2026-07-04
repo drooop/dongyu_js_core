@@ -1127,11 +1127,6 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     v1nConfig: {},
   };
   const visibleSnapshot = createVisibleModelSnapshot(4100, 'Lazy App');
-  const visibleSnapshot4100And4200 = createVisibleModelSnapshot(4100, 'Lazy App');
-  visibleSnapshot4100And4200.models['4200'] = createVisibleModelSnapshot(4200, 'Second Lazy App').models['4200'];
-  const visibleSnapshot4100To4300 = createVisibleModelSnapshot(4100, 'Lazy App');
-  visibleSnapshot4100To4300.models['4200'] = createVisibleModelSnapshot(4200, 'Second Lazy App From Newer Response').models['4200'];
-  visibleSnapshot4100To4300.models['4300'] = createVisibleModelSnapshot(4300, 'Third Lazy App').models['4300'];
   const visibleSnapshot4200 = createVisibleModelSnapshot(4200, 'Second Lazy App');
   const visibleSnapshot4300 = createVisibleModelSnapshot(4300, 'Third Lazy App');
   const visibleSnapshot4400 = createVisibleModelSnapshot(4400, 'Fourth Lazy App');
@@ -1155,39 +1150,22 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     if (matchesVisibleSnapshotRequest(url, [4100], true)) {
       return jsonResponse({ snapshot: visibleSnapshot, snapshot_seq: 2, patch_kind: 'visible_model' });
     }
-    if (matchesVisibleSnapshotRequest(url, [4100, 4200], true)) {
+    if (matchesVisibleSnapshotRequest(url, [4200], true)) {
       return new Promise((resolve) => {
         visibleResponders.set(4200, () => resolve(jsonResponse({
-          snapshot: visibleSnapshot4100And4200,
+          snapshot: visibleSnapshot4200,
           snapshot_seq: 4,
           patch_kind: 'visible_model',
         })));
       });
     }
-    if (matchesVisibleSnapshotRequest(url, [4100, 4200, 4300], true)) {
+    if (matchesVisibleSnapshotRequest(url, [4300], true)) {
       return new Promise((resolve) => {
         visibleResponders.set(4300, () => resolve(jsonResponse({
-          snapshot: visibleSnapshot4100To4300,
+          snapshot: visibleSnapshot4300,
           snapshot_seq: 5,
           patch_kind: 'visible_model',
         })));
-      });
-    }
-    if (matchesVisibleSnapshotRequest(url, [4100, 4200, 4300, 4400], true)) {
-      return jsonErrorResponse(403, { ok: false, error: 'model_not_visible' });
-    }
-    if (matchesVisibleSnapshotRequest(url, [4200], true)) {
-      return jsonResponse({
-        snapshot: visibleSnapshot4200,
-        snapshot_seq: 7,
-        patch_kind: 'visible_model',
-      });
-    }
-    if (matchesVisibleSnapshotRequest(url, [4300], true)) {
-      return jsonResponse({
-        snapshot: visibleSnapshot4300,
-        snapshot_seq: 7,
-        patch_kind: 'visible_model',
       });
     }
     if (matchesVisibleSnapshotRequest(url, [4400], true)) {
@@ -1271,10 +1249,7 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     visibleResponders.get(4300)();
     assert.equal(await visibleLoad4300, true, 'newer visible model request must resolve');
     assert.equal(store.hasSnapshotModel(4300), true, 'newer visible model response must hydrate its model');
-    await waitUntil(
-      () => store.projectionStore.getLabelValue({ model_id: 4200, p: 0, r: 0, c: 0, k: 'app_name' }) === 'Second Lazy App From Newer Response',
-      'newer visible response must be able to update an already requested model before older response arrives',
-    );
+    assert.equal(store.hasSnapshotModel(4200), false, 'newer target-only visible response must not hydrate the still-pending older model');
     visibleResponders.get(4200)();
     assert.equal(await visibleLoad4200, true, 'older visible model request must also resolve');
     assert.equal(store.hasSnapshotModel(4200), true, 'older visible model response must hydrate its model');
@@ -1285,8 +1260,8 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     );
     assert.equal(
       store.projectionStore.getLabelValue({ model_id: 4200, p: 0, r: 0, c: 0, k: 'app_name' }),
-      'Second Lazy App From Newer Response',
-      'late older visible model response must not overwrite a model already updated by a newer visible response',
+      'Second Lazy App',
+      'late older target-only visible model response must hydrate its own model without depending on newer combined responses',
     );
     assert.equal(typeof latestSnapshotPatchListener, 'function', 'remote_store must keep a snapshot_patch listener after visible stream reconnects');
     latestSnapshotPatchListener({
@@ -1319,31 +1294,16 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
       'latest remote_store stream must subscribe to every currently visible model id after out-of-order visible fetches',
     );
     assertVisibleSubscriptionState(store, [4100, 4200, 4300], 'visible subscription state must match every currently visible model id');
-    assert.equal(await store.ensureVisibleModelLoaded(4400), true, 'visible lazy load must recover when a stale visible id makes the combined request fail');
+    assert.equal(await store.ensureVisibleModelLoaded(4400), true, 'visible lazy load must request only the target model even when several visible ids are already subscribed');
     assert.equal(
       hasRequestedVisibleSnapshot(requestedUrls, [4100, 4200, 4300, 4400], true),
-      true,
-      'test fixture must first reproduce the combined visible request with stale ids',
+      false,
+      'remote_store must not issue a combined visible request with already visible ids during foreground lazy load',
     );
     assert.equal(
       hasRequestedVisibleSnapshot(requestedUrls, [4400], true),
       true,
-      'remote_store must retry target-only visible fetch after stale id model_not_visible',
-    );
-    assert.equal(
-      requestedUrls.filter((url) => matchesVisibleSnapshotRequest(url, [4100], true)).length >= 2,
-      true,
-      'remote_store must revalidate already hydrated visible model 4100 after stale id recovery',
-    );
-    assert.equal(
-      hasRequestedVisibleSnapshot(requestedUrls, [4200], true),
-      true,
-      'remote_store must revalidate already hydrated visible model 4200 after stale id recovery',
-    );
-    assert.equal(
-      hasRequestedVisibleSnapshot(requestedUrls, [4300], true),
-      true,
-      'remote_store must revalidate already hydrated visible model 4300 after stale id recovery',
+      'remote_store must use target-only visible fetch for the fourth App',
     );
     assert.equal(store.hasSnapshotModel(4100), true, 'stale-id recovery must keep valid existing visible model 4100');
     assert.equal(store.hasSnapshotModel(4200), true, 'stale-id recovery must keep valid existing visible model 4200');

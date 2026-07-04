@@ -164,6 +164,104 @@ phase: execution
 - Result: PASS
 - Commit:
 
+### Step 3
+
+- Goal:
+  - Reduce foreground App-open visible snapshot request size by requesting only the target App/model for the lazy-load fetch.
+  - Preserve the full visible App subscription after load so SSE still covers all visible App refs.
+- TDD command:
+  - `node scripts/tests/test_0438_app_open_frontend_latency_contract.mjs`
+- Key output:
+  - RED before implementation:
+    - `[FAIL] test_foreground_lazy_load_requests_target_only_but_keeps_visible_subscription_refs: second App open must not refetch an already visible stale/warm App table`
+    - `5 passed, 1 failed out of 6`
+  - GREEN after implementation:
+    - `[PASS] test_foreground_lazy_load_requests_target_only_but_keeps_visible_subscription_refs`
+    - `6 passed, 0 failed out of 6`
+- Implementation evidence:
+  - `ensureVisibleModelLoaded()` now fetches the visible snapshot with `modelIds: [targetRef]`.
+  - `rememberVisibleModelRef(targetRef)` and `connectEventSource()` still keep the full visible subscription after load.
+  - Updated the legacy 0418 frontend visible lazy-load contract to the same target-only request semantics while retaining out-of-order response and full visible stream subscription coverage.
+  - The deterministic test verifies:
+    - The second App-open snapshot request contains the target App ref.
+    - The request does not contain the previously visible App ref.
+    - The expected SSE stream URL still includes both visible App refs.
+- Regression command:
+  - `node scripts/tests/test_0438_app_open_frontend_latency_contract.mjs && node scripts/tests/test_0425_frontend_model_ref_projection_contract.mjs && node scripts/tests/test_0425_visible_model_refs_contract.mjs && node scripts/tests/test_0425_principal_desktop_state_contract.mjs && node scripts/tests/test_0425_slide_app_subtable_install_contract.mjs && node scripts/tests/test_0426_snapshot_patch_recovery_contract.mjs && npm -C packages/ui-model-demo-frontend run build`
+- Regression key output:
+  - `test_0438_app_open_frontend_latency_contract.mjs`: `6 passed, 0 failed out of 6`
+  - `test_0425_frontend_model_ref_projection_contract.mjs`: `12 passed, 0 failed out of 12`
+  - `test_0425_visible_model_refs_contract.mjs`: `7 passed, 0 failed out of 7`
+  - `test_0425_principal_desktop_state_contract.mjs`: `6 passed`
+  - `test_0425_slide_app_subtable_install_contract.mjs`: `5 passed, 0 failed out of 5`
+  - `test_0426_snapshot_patch_recovery_contract.mjs`: `4 passed, 0 failed out of 4`
+  - Frontend build: `✓ built in 2.90s`
+- Extended regression command after sub-agent review finding:
+  - `node scripts/tests/test_0438_app_open_frontend_latency_contract.mjs && node scripts/tests/test_0418_visible_snapshot_projection_latency_contract.mjs && node scripts/tests/test_0423_snapshot_granularity_contract.mjs && node scripts/tests/test_0425_frontend_model_ref_projection_contract.mjs && node scripts/tests/test_0425_visible_model_refs_contract.mjs && node scripts/tests/test_0425_principal_desktop_state_contract.mjs && node scripts/tests/test_0425_slide_app_subtable_install_contract.mjs && node scripts/tests/test_0426_snapshot_patch_recovery_contract.mjs && node scripts/tests/test_0435_visible_snapshot_app_slimming_contract.mjs && node scripts/tests/test_0436_runtime_snapshot_build_latency_contract.mjs && node scripts/tests/test_0437_bootstrap_sse_first_packet_latency_contract.mjs && npm -C packages/ui-model-demo-frontend run build`
+- Extended regression key output:
+  - `test_0438_app_open_frontend_latency_contract.mjs`: `6 passed, 0 failed out of 6`
+  - `test_0418_visible_snapshot_projection_latency_contract.mjs`: `PASS 8/8`
+  - `test_0423_snapshot_granularity_contract.mjs`: `13 passed`
+  - `test_0425_frontend_model_ref_projection_contract.mjs`: `12 passed, 0 failed out of 12`
+  - `test_0425_visible_model_refs_contract.mjs`: `7 passed, 0 failed out of 7`
+  - `test_0425_principal_desktop_state_contract.mjs`: `6 passed`
+  - `test_0425_slide_app_subtable_install_contract.mjs`: `5 passed, 0 failed out of 5`
+  - `test_0426_snapshot_patch_recovery_contract.mjs`: `4 passed, 0 failed out of 4`
+  - `test_0435_visible_snapshot_app_slimming_contract.mjs`: `2 passed, 0 failed`
+  - `test_0436_runtime_snapshot_build_latency_contract.mjs`: `6 passed, 0 failed`
+  - `test_0437_bootstrap_sse_first_packet_latency_contract.mjs`: `4 passed, 0 failed`
+  - Frontend build: `✓ built in 2.92s`
+- Local deploy command:
+  - `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+- Local deploy key output:
+  - `ui-server-7768bc48c9-klw8z`: `1/1 Running`
+  - `mbr-worker-6fcb84fcb9-n26q4`: `1/1 Running`
+  - `remote-worker-6566f6cbf7-zzqdq`: `1/1 Running`
+  - `workspace-manager-854f949554-h5dcz`: `1/1 Running`
+  - `mosquitto-8458ff74dd-pwp95`: `1/1 Running`
+  - `synapse-6f67c89557-x26dn`: `1/1 Running`
+- Browser evidence:
+  - Session: Playwright CLI `0438-app-open-post-change` and `0438-app-open-post-change-rerun`
+  - URL: `http://localhost:30900/auth/dev/fake-login?user=drop&returnTo=%2F`
+  - Post-change App-open metrics saved to `output/playwright/0438-app-open-frontend-latency/post-change-metrics.json`.
+  - Post-change screenshot saved to `output/playwright/0438-app-open-frontend-latency/post-change-after-todo.png`.
+  - Rerun metrics saved to `output/playwright/0438-app-open-frontend-latency/post-change-rerun-metrics.json`.
+  - Direct snapshot comparison saved to `output/playwright/0438-app-open-frontend-latency/post-change-direct-snapshot-compare.json`.
+  - Color functional result saved to `output/playwright/0438-app-open-frontend-latency/post-change-color-functional-check.json`.
+  - Color functional screenshot saved to `output/playwright/0438-app-open-frontend-latency/post-change-e2e-color-after-generate.png`.
+- Browser post-change metrics:
+  - `E2E 颜色生成器` cold visible fetch:
+    - request URL: `/snapshot?profile=visible&initial_projection=1&visible_model_ref={"table_id":"app:drop:e2e:2-0-20:1","model_id":0}`
+    - `open_duration_ms`: `51.3`
+    - `visible_model_duration_ms`: `58.6`
+    - `snapshot_fetch_duration_ms`: `36.2`
+    - `snapshot_parse_ms`: `0.3`
+    - `snapshot_byte_length`: `15285`
+    - `snapshot_apply_ms`: `12.2`
+  - `To Do Board` cold visible fetch:
+    - request URL: `/snapshot?profile=visible&initial_projection=1&model_id=1086`
+    - `click_to_content_ms`: `784.6`
+    - `visible_model_duration_ms`: `793.8`
+    - `snapshot_fetch_duration_ms`: `737`
+    - `snapshot_parse_ms`: `0.8`
+    - `snapshot_byte_length`: `24469`
+    - `snapshot_apply_ms`: `41.2`
+    - note: this single App-open run was slower than the preceding Step 2 browser run, but the request was correctly target-only and payload was smaller.
+  - Direct snapshot comparison in the same authenticated browser context:
+    - target-only `/snapshot?profile=visible&initial_projection=1&model_id=1086`: average `12.3ms`, `24469` bytes, runs `[17.5, 11.8, 10.1, 9.6]`.
+    - old combined `/snapshot?profile=visible&initial_projection=1&visible_model_ref={"table_id":"app:drop:e2e:2-0-20:1","model_id":0}&model_id=1086`: average `32.7ms`, `39401` bytes, runs `[21.5, 29.1, 14.9, 65.3]`.
+    - payload reduction: `39401 -> 24469` bytes, about `38%` smaller for this scenario.
+  - `E2E 颜色生成器` post-change functional check:
+    - before: `#84ffa1`
+    - after: `#28bb82`
+    - changed: `true`
+    - status text contained `processed`: `true`
+- Browser cleanup:
+  - Playwright session `0438-app-open-post-change-rerun` closed.
+  - `playwright_cli.sh list`: `(no browsers)`.
+- Result: PASS
+- Commit:
+
 ## Docs Updated
 
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` reviewed
@@ -244,3 +342,26 @@ Review Gate Record
 - Decision: Approved
 - Scope: Step 2 final timing baseline instrumentation after overlapping-open fix.
 - Notes: Sub-agent approved the latest diff with no findings, open questions, or verification gaps.
+
+Review Gate Record
+- Iteration ID: 0438-app-open-frontend-latency
+- Review Date: 2026-07-05
+- Review Type: AI-assisted / sub-agent
+- Review Index: 7
+- Decision: Change Requested
+- Scope: Step 3 target-only foreground visible snapshot optimization.
+- Notes:
+  - `test_0418_visible_snapshot_projection_latency_contract.mjs` still encoded the older combined visible request expectation and failed under the new target-only contract.
+- Fixes:
+  - Updated the 0418 frontend lazy-load contract to target-only requests.
+  - Preserved out-of-order visible response coverage and full visible model SSE subscription assertions.
+  - Reran 0438, 0418, 0423, 0425, 0426, 0435, 0436, 0437, and frontend build.
+
+Review Gate Record
+- Iteration ID: 0438-app-open-frontend-latency
+- Review Date: 2026-07-05
+- Review Type: AI-assisted / sub-agent
+- Review Index: 8
+- Decision: Approved
+- Scope: Step 3 target-only foreground visible snapshot optimization after 0418 contract update.
+- Notes: Sub-agent approved the latest Step 3 diff with no findings, open questions, or verification gaps.

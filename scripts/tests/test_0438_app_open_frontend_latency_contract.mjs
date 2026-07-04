@@ -325,12 +325,62 @@ async function test_overlapping_app_opens_keep_snapshot_scope_from_request_start
   }
 }
 
+async function test_foreground_lazy_load_requests_target_only_but_keeps_visible_subscription_refs() {
+  installDeterministicBrowserStubs();
+  const requestedUrls = [];
+  globalThis.fetch = async (url) => {
+    const textUrl = String(url);
+    requestedUrls.push(textUrl);
+    const snapshot = textUrl.includes('app%3Alatency%3Ab')
+      ? appSnapshotFor({ table_id: 'app:latency:b', model_id: 1 }, 'Latency App B')
+      : appSnapshotFor({ table_id: 'app:latency:a', model_id: 1 }, 'Latency App A');
+    return jsonResponse({ snapshot, snapshot_seq: requestedUrls.length + 10 });
+  };
+
+  try {
+    const store = createRemoteStore({ baseUrl: 'http://example.test', autoBootstrap: false });
+    store.clearFrontendTimingEvents();
+
+    assert.equal(await store.ensureVisibleModelLoaded({ table_id: 'app:latency:a', model_id: 1 }), true);
+    assert.equal(await store.ensureVisibleModelLoaded({ table_id: 'app:latency:b', model_id: 1 }), true);
+    assert.equal(requestedUrls.length, 2);
+
+    assert.equal(
+      requestedUrls[1].includes('app%3Alatency%3Ab'),
+      true,
+      'second App open must request the target App table',
+    );
+    assert.equal(
+      requestedUrls[1].includes('app%3Alatency%3Aa'),
+      false,
+      'second App open must not refetch an already visible stale/warm App table',
+    );
+
+    const state = store.getVisibleSubscriptionState();
+    assert.equal(
+      state.expectedStreamUrl.includes('app%3Alatency%3Aa'),
+      true,
+      'target-only snapshot fetch must not drop existing visible App from SSE subscription',
+    );
+    assert.equal(
+      state.expectedStreamUrl.includes('app%3Alatency%3Ab'),
+      true,
+      'target-only snapshot fetch must keep the newly opened App in SSE subscription',
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.EventSource = originalEventSource;
+    globalThis.performance = originalPerformance;
+  }
+}
+
 const tests = [
   test_visible_model_lazy_load_emits_frontend_timing_events,
   test_foreground_app_open_scope_marks_visible_load_events,
   test_visible_model_load_end_keeps_scope_after_content_visible_end,
   test_non_visible_snapshot_during_open_stays_unscoped,
   test_overlapping_app_opens_keep_snapshot_scope_from_request_start,
+  test_foreground_lazy_load_requests_target_only_but_keeps_visible_subscription_refs,
 ];
 
 let passed = 0;

@@ -1464,7 +1464,7 @@ export function createRemoteStore(options) {
     let visibleFailure = null;
     const ok = await fetchSnapshotAndApply(`visible model lazy load ${targetKey}`, {
       profile: 'visible',
-      modelIds: visibleModelRefList(),
+      modelIds: [targetRef],
       initialProjection: true,
       acceptInitializingSnapshot: true,
       mergeWithCurrentModels: true,
