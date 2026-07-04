@@ -85,7 +85,7 @@ flowchart TB
 
 安装器会生成 host-owned 安装态和索引态 labels，例如 `deletable`、`installed_at`、`import_root_temp_id`、`last_installed_table_id`、`last_installed_model_id` 以及父侧 `model.subtableconnection` 边界。App table 自己的 root 负责声明 `model.subtable`。这些不是 provider ZIP 内容。
 
-更具体地说，App table root model `0` 会记录 `imported_bundle_model_ids`、`host_ingress_generated_model0_labels`、`host_ingress_generated_mount`、`host_ingress_generated_root_labels`、`host_egress_generated_model0_labels`、`host_egress_generated_mount` 与 `ui_egress_submit1_binding`。其中 `host_ingress_generated_mount` / `host_egress_generated_mount` 是 legacy/current key 名，实际语义分别是 parent-side `model.subtableconnection` connection/index Cell 和出站桥接 connection/index Cell；`ui_egress_submit1_binding` 的类型是 `ui.egress.binding.v1`。排查时可看生成 key 前缀：`imported_host_submit_` 表示入口，`imported_submit1_` 表示出站 bus label，`bridge_imported_submit1_to_mt_bus_send_` 表示桥接函数。最终仍由 Model 0 `(0,0,0)` 的 `mt_bus_send_in` 转到 `pin.bus.cb.out`；若显式走 management，则转到 `pin.bus.mb.out`。
+更具体地说，App table root model `0` 会记录 `imported_bundle_model_ids`、`host_ingress_generated_model0_labels`、`host_ingress_generated_mount`、`host_ingress_generated_root_labels`、`host_egress_generated_model0_labels`、`host_egress_generated_mount` 与 `ui_egress_submit1_binding`。其中 `host_ingress_generated_mount` / `host_egress_generated_mount` 分别记录 parent-side `model.subtableconnection` connection/index Cell 和出站桥接 connection/index Cell；`ui_egress_submit1_binding` 的类型是 `ui.egress.binding.v1`。排查时可看生成 key 前缀：`imported_host_submit_` 表示入口，`imported_submit1_` 表示出站 bus label，`bridge_imported_submit1_to_mt_bus_send_` 表示桥接函数。最终仍由 Model 0 `(0,0,0)` 的 `mt_bus_send_in` 转到 `pin.bus.cb.out`；若显式走 management，则转到 `pin.bus.mb.out`。
 
 ## Endpoint Topic 与 Payload Records
 
@@ -139,16 +139,18 @@ submit1:out -> `(1,1,1).submit1_out` -> root `result`
 
 ## 导出
 
-导出文件仍是 Zip，只有 `app_payload.json`。host table 内置/旧形态 App 的导出接口是：
+导出文件仍是 Zip，只有 `app_payload.json`。正式导出接口必须显式带 `table_id`：
 
 ```text
-/api/slide-apps/<modelId>/export.zip
+/api/slide-apps/export.zip?table_id=<encoded-table-id>&model_id=<model-id>
 ```
 
-对 0425 App instance table，必须使用 table-qualified 导出接口：
+App instance table 通常使用：
 
 ```text
 /api/slide-apps/export.zip?table_id=<encoded-table-id>&model_id=0
 ```
+
+host table 内的 App 也必须使用 `table_id=host`。旧的 `/api/slide-apps/<modelId>/export.zip` 已废弃，当前实现会拒绝该路径。
 
 交互版文档见：[minimal_submit_app_provider_interactive.html](minimal_submit_app_provider_interactive.html)。

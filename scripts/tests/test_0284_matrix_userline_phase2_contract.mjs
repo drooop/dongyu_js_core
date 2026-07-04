@@ -71,7 +71,7 @@ function test_workspace_patch_defines_phase2_models_and_layout() {
       findRecord(workspaceRecords, (record) => (
         record?.model_id === MATRIX_WORKSPACE_APP_MODEL_ID
         && record?.k === 'model_type'
-        && record?.t === 'model.submt'
+        && record?.t === 'model.submtconnection'
         && record?.v === modelId
       )),
       `workspace_app_missing_child_submt_${modelId}`,

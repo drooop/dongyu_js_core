@@ -348,9 +348,9 @@ if (text) V1N.addLabel('submit1', 'pin.out', payload);
 
 每个 egress pin 都要列在 `dual_bus_model.egress_pins` 中。这样宿主才能把 App table root 的公开出口接入 host Model 0 的总线边界。
 
-## 4. UI Server 安装过程（0431 target / follow-up）
+## 4. UI Server 安装过程
 
-用户准备好 JSON patch 后，压缩成 ZIP，里面只有 `app_payload.json`。0431 target / follow-up 实现完成后，在 Workspace 的 `滑动 APP 导入` 上传时，UI Server 安装器应执行以下动作。当前 legacy host-table v1 实现仍以 `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md` 的 current sections 为准。
+用户准备好 JSON patch 后，压缩成 ZIP，里面只有 `app_payload.json`。在 Workspace 的 `滑动 APP 导入` 上传时，UI Server 安装器会执行以下动作。
 
 1. 解析 ZIP：只接受一个 `app_payload.json`，内容必须是 ModelTable records array。
 2. 校验 provider records：拒绝 `op`、正式 `model_id`、`pin.bus.*`、`ui.egress.binding.v1`、`pin.connect.model`、`route.reply_to in zip`、`reply_target_*`、secret/token。
@@ -362,21 +362,21 @@ if (text) V1N.addLabel('submit1', 'pin.out', payload);
 8. 后续打开 App 时，前端使用 table-qualified `visible_model_ref={table_id,model_id}` 拉取该 App table 的可见 labels。
 9. 运行时外发与回包必须使用 `origin_table_id` / `reply_target_table_id`；ZIP 不能预先声明这些宿主拥有的值。
 
-0431 target 安装器应在 App table root 和 host Model 0 上生成以下 labels；这些都不是 provider ZIP 应填写的内容：
+安装器会在 App table root 和 host Model 0 上生成以下 labels；这些都不是 provider ZIP 应填写的内容：
 
 | label | 位置 | 作用 |
 |---|---|---|
 | `deletable` / `installed_at` / `imported_bundle_model_ids` / `import_root_temp_id` | App table root model `0` | 标记这是可删除的本地安装实例，并记录安装来源。 |
 | `host_ingress_generated_model0_labels` | App table root model `0` | 记录 host Model 0 上生成的入口 labels，例如 `imported_host_submit_<table>_0`。 |
-| `host_ingress_generated_mount` | App table root model `0` | legacy key 名；记录这个 App table 由哪个 Model 0 parent-side `model.subtableconnection` connection/index Cell 索引。 |
+| `host_ingress_generated_mount` | App table root model `0` | 记录这个 App table 由哪个 Model 0 parent-side `model.subtableconnection` connection/index Cell 索引。 |
 | `host_ingress_generated_root_labels` | App table root model `0` | 记录 App root 上为入口中继生成的 root labels。 |
 | `host_egress_generated_model0_labels` | App table root model `0` | 记录 host Model 0 上生成的出站 labels，例如 `imported_submit1_<table>_0_bus` 与 `bridge_imported_submit1_to_mt_bus_send_<table>_0`。 |
-| `host_egress_generated_mount` | App table root model `0` | legacy key 名；记录出站桥接的 parent-side connection/index Cell 与 egress semantic。 |
+| `host_egress_generated_mount` | App table root model `0` | 记录出站桥接的 parent-side connection/index Cell 与 egress semantic。 |
 | `ui_egress_submit1_binding` | App table root model `0` | 记录 `submit1` 已被安装器绑定到 host bus egress，类型是 `ui.egress.binding.v1`。 |
 
 生成 key 的前缀可用于排查：入口通常以 `imported_host_submit_` 开头；出站 bus label 通常以 `imported_submit1_` 开头；桥接函数通常以 `bridge_imported_submit1_to_mt_bus_send_` 开头。最终写到 Model 0 `(0,0,0)` 的仍是 `mt_bus_send_in`，再由 Model 0 发出 `pin.bus.cb.out` 或 `pin.bus.mb.out`。
 
-0431 target 安装后的边界链路是：
+安装后的边界链路是：
 
 ```text
 App table root submit1 pin.out
@@ -492,7 +492,13 @@ MBR 收到 `message_role=response` 后仍按当前 `topic` record 转发；因�
 /api/slide-apps/export.zip?table_id=<encoded-table-id>&model_id=0
 ```
 
-旧的 `/api/slide-apps/<modelId>/export.zip` 只适用于 host table 内的内置/旧形态 App；对 0425 App instance table，不能省略 `table_id`。
+正式导出路径必须显式带 `table_id`。即使导出 host table 内的 App，也应使用：
+
+```text
+/api/slide-apps/export.zip?table_id=host&model_id=<model-id>
+```
+
+旧的 `/api/slide-apps/<modelId>/export.zip` 已废弃，当前实现会拒绝该路径。
 
 导出过滤规则会排除 `host_ingress_generated_*`、`host_egress_generated_*`、`bus_event*`、`owner_request`、`owner_route`、`__owner_last_*`、`deletable`、`installed_at`、`imported_bundle_model_ids`、`import_root_temp_id` 等安装态和运行态 labels。
 

@@ -115,22 +115,20 @@ Principal-scoped subtable namespace target：`docs/ssot/principal_scoped_subtabl
 - `model.submtconnection` 仍保持 single-parent 直接父级索引约束；多重 discoverability 不等于允许一个 child model 被多处显式索引为直接 child。
 - 执行时，Cell 不依赖“当前被哪些 scope 看见”来选择逻辑分支；真正决定执行路径的是已经建立好的 pin 链与目标坐标。
 
-### 1.4a Principal-Scoped Subtable Namespace（0424 target）
+### 1.4a Principal-Scoped Subtable Namespace
 
-0424 目标合同由 `docs/ssot/principal_scoped_subtable_namespace_v1.md` 接管。
+Principal-scoped namespace 的完整多用户权限目标由 `docs/ssot/principal_scoped_subtable_namespace_v1.md` 接管；本文件冻结运行时已经采用的 table-qualified 和 child-table 边界语义。
 
 0431 修正后：`model.submt` 声明一个模型是 child model；`model.submtconnection` 在父侧/主侧索引这个 child model。`model.subtable` 声明一张表是 child ModelTable；`model.subtableconnection` 在父侧/主侧索引这张 child ModelTable。`model.subtable` 不是 `model.submt` 的别名，connection 标签也不是 pin wiring 标签。
-
-目标实现后：
 
 - durable model identity 不再只是 `model_id`，而是 `ModelRef = { table_id, model_id }`。
 - `model_id < 0` 仍然解析到 host/system negative model domain。
 - `model_id >= 0` 在每个 `table_id` 内独立。
-- 每个 SSO principal 的 durable desktop state 必须在 principal-scoped user desktop table 内。
 - 每个安装后的 slide App instance 必须在自己的 App instance table 内。
 - 跨 table 的 PIN 路由只能通过父侧/主侧 `model.subtableconnection` Cell 和 child table root boundary pins；`pin.connect.cell` 仍只允许同 table 内连接，`pin.connect.model` 仍然禁止。
+- 每个 SSO principal 的 durable desktop state 应进入 principal-scoped user desktop table；这是多用户权限隔离目标，不得被 bare host positive `model_id` 口径扩展为长期合法语义。
 
-本节是目标语义声明。当前 implementation 中仍使用 bare positive `model_id` 的路径，是后续实现债务，不得被新文档扩展为长期合法语义。
+新代码、新文档和新测试不得把 bare positive `model_id` 当作跨 table / 跨 principal / App instance 的 durable identity。
 
 ### 1.5 UI Projection Contract (0210 Freeze)
 
@@ -616,7 +614,7 @@ bus pin 的 `v` 必须是 ModelTable-like temporary record array。标准外发�
 - origin metadata records：`origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin`
 - reply target metadata records：`reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin`
 
-0424 target 下，App instance traffic 的 origin / reply target metadata 必须增加 table 维度：`origin_table_id` / `reply_target_table_id`。仅靠 `origin_model_id` / `reply_target_model_id` 只能描述当前 v1 host-table implementation fact，不能作为 principal-scoped App instance 的长期合同。
+App instance traffic 的 origin / reply target metadata 必须包含 table 维度：`origin_table_id` / `reply_target_table_id`。仅靠 `origin_model_id` / `reply_target_model_id` 不足以定位 App instance，不得作为 principal-scoped App instance 合同。
 
 这些 metadata 必须作为 Temporary ModelTable record array 中的 records 存在，不能放在外层 JSON object 上。普通业务 JSON、旧 envelope、raw `resultPayload`、loose top-level `origin_*` / `reply_target_*` / `endpoint_*` 字段不能作为 fallback 发送。正式 bus / pin transport 不允许把 ModelTable records 放进 `payload.v`、`bundle_payload.v`、`json_patch.v` 或其他 `json` label 中；业务 records 必须作为同一数组中的 records 出现，并由 `payload_model_id` 指向。
 
@@ -782,7 +780,7 @@ Root `(0,0,0)` 可以声明：
 - `origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin`：由 UI Server 根据当前 host identity、App instance `ModelRef` 与触发 pin 生成
 - server-owned `reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin`：由 UI Server 根据当前 host identity、App instance `ModelRef` 与本地接收 pin 生成
 
-0424 target 下，上述本地安装身份必须升级为 table-qualified `ModelRef`。仅 bare `origin_model_id` / `reply_target_model_id` 不得用于新的 principal-scoped App instance 路径。
+App instance 路径下，上述本地安装身份必须使用 table-qualified `ModelRef`。仅 bare `origin_model_id` / `reply_target_model_id` 不得用于 principal-scoped App instance 路径。
 
 公开出口 pin 必须由 root `(0,0,0)` 的 `dual_bus_model` 明确列出：
 
@@ -807,8 +805,8 @@ Root `(0,0,0)` 可以声明：
 - `endpoint_pin` 表示远端 provider model root 的公开 Cell pin，不是 `{functionName}:in`。
 - MBR 不得要求为每个 imported app 写 per-app 静态 route；MBR / MQTT adapter 只能读取 payload `topic` record 作为 transport topic，不得从 endpoint metadata records 派生目标地址。
 
-0363 host-owned egress binding（host-table v1 current fact；0431 target App instance table 路径以 `model.subtableconnection`、child root `model.subtable` 与 table-qualified payload 为准）：
-- 历史 host-table 安装器在把 imported root 放入 host 正数模型空间后，为每个 imported root 公开 egress pin 生成 `ui.egress.binding.v1` 记录。
+host-owned egress binding（App instance table 路径）：
+- 当前安装器在创建 App instance table 后，为每个 imported root 公开 egress pin 生成 `ui.egress.binding.v1` 记录；host 侧索引由 `model.subtableconnection` 表达，child table root 由 `model.subtable` 表达。
 - 该记录至少包含 `from_pin`、`bus`、`host_model_id`、`host_cell`、`host_pin_type`、`host_pin_key`、`target`、`reply_pin`、`owned_by`。
 - `host_pin_type` 默认必须是 `pin.bus.cb.out`（同工作区控制总线 egress）；只有显式管理语义才允许使用 `pin.bus.mb.out`（DEM management egress）。
 - UI 可以投影这个 binding，显示某个公开出口实际接到哪个宿主总线 pin；但正式 authority 仍来自实际 `pin.connect.*` 路径和 worker root 系统总线出口，不能由 UI 直接发送替代。

@@ -613,7 +613,7 @@ class ModelTableRuntime {
     for (const [, lbl] of origin.labels) {
       const t = this._resolveLabelType(lbl.t);
       if (t === 'model.single') return 'single';
-      if (t === 'model.table' || t === 'model.matrix') return 'table';
+      if (t === 'model.table' || t === 'model.matrix' || t === 'model.submt') return 'table';
     }
     return 'table';
   }
@@ -625,7 +625,7 @@ class ModelTableRuntime {
     if (!cell || !cell.labels) return null;
     for (const [, lbl] of cell.labels) {
       const t = this._resolveLabelType(lbl.t);
-      if (t === 'model.single' || t === 'model.table' || t === 'model.matrix' || t === 'submt') {
+      if (t === 'model.single' || t === 'model.table' || t === 'model.matrix' || t === 'model.submt') {
         return t;
       }
     }
@@ -675,7 +675,7 @@ class ModelTableRuntime {
     const isRoot = p === 0 && r === 0 && c === 0;
 
     if (isRoot) {
-      if (rootDeclared === 'model.table') return 'table';
+      if (rootDeclared === 'model.table' || rootDeclared === 'model.submt') return 'table';
       if (rootDeclared === 'model.matrix') return 'matrix';
     }
 
@@ -683,7 +683,7 @@ class ModelTableRuntime {
 
     if (declaredAtCell === 'model.matrix') return 'matrix';
     if (rootDeclared === 'model.matrix') return 'matrix';
-    if (rootDeclared === 'model.table') return 'table';
+    if (rootDeclared === 'model.table' || rootDeclared === 'model.submt') return 'table';
     return null;
   }
 

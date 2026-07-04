@@ -16,7 +16,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "UI.MinimalSubmitDualBusProviderRemote"
     },
     {
@@ -204,7 +204,7 @@
       "r": 0,
       "c": 30,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 3000
     }
   ]

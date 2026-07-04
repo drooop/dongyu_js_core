@@ -41,14 +41,14 @@ function test_workspace_patch_defines_importer_models() {
     'slide_importer_truth_model_missing',
   );
   assert.ok(
-    findRecord(hierarchyRecords, (record) => record?.model_id === 0 && record?.t === 'model.submt' && record?.v === SLIDE_IMPORTER_APP_MODEL_ID),
+    findRecord(hierarchyRecords, (record) => record?.model_id === 0 && record?.t === 'model.submtconnection' && record?.v === SLIDE_IMPORTER_APP_MODEL_ID),
     'slide_importer_app_must_mount_under_model0',
   );
   assert.ok(
     findRecord(workspaceRecords, (record) => (
       record?.model_id === SLIDE_IMPORTER_APP_MODEL_ID
       && record?.k === 'model_type'
-      && record?.t === 'model.submt'
+      && record?.t === 'model.submtconnection'
       && record?.v === SLIDE_IMPORTER_TRUTH_MODEL_ID
     )),
     'slide_importer_truth_must_mount_under_importer_app',

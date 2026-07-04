@@ -2,13 +2,13 @@
 title: "Slide App Runtime Developer Guide"
 doc_type: user-guide
 status: active
-updated: 2026-06-10
+updated: 2026-07-02
 source: ai
 ---
 
 # Slide App Runtime Developer Guide
 
-这份手册说明滑动 APP 的完整开发和运行链路。未特别标注时，内容描述当前已落地行为；标注为 `0431 target` / `follow-up` 的内容是后续实现目标，不可当作当前安装器已经完成的事实。
+这份手册说明滑动 APP 的完整开发和运行链路。未特别标注为“历史背景”的内容描述当前目标实现；新安装的滑动 APP 会作为独立 App table 挂载，宿主侧用 `model.subtableconnection` 建立索引，App table 自己的 root 用 `model.subtable` 声明身份。
 
 0384 已把 Workspace Manager 的安装按钮从“UI Server 本地复制 source model”改成“从 provider 请求 bundle 后再安装”。provider-owned 安装现在是 current truth：Workspace Manager 只维护资产索引，实际滑动 APP bundle 必须由 provider worker 返回。
 
@@ -187,7 +187,7 @@ my-slide-app.zip
 | `t` | label type |
 | `v` | label value |
 
-0431 target / follow-up 的 App instance table 安装器应做这些事。当前 legacy host-table v1 实现仍以 `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md` 的 current sections 为准：
+当前 App instance table 安装器会做这些事：
 
 1. 从 media cache 读取 `mxc://...` 对应 zip。
 2. 校验 `app_payload.json`。
@@ -196,7 +196,7 @@ my-slide-app.zip
 5. 在 host Model 0 的 Workspace index 区写 `model.subtableconnection`，指向 APP table；APP table 自己的 Model 0 root 声明 `model.subtable`。
 6. 把桌面 registry、任务栈和打开状态记录为 table-qualified `ModelRef = { table_id, model_id }`。
 
-0431 target 下，安装完成不代表前端启动时就下载了整个 APP 模型体。0418 起，UI Server 的浏览器端默认先加载 `bootstrap` 投影：桌面、app registry、route state 和必要系统模型。0425/0431 target 下，用户从桌面打开某个滑动 APP 时，前端按 `visible_model_ref={table_id,model_id}` 请求 `visible` profile，把这个 APP instance table 内的模型体加载进浏览器投影缓存。
+安装完成不代表前端启动时就下载了整个 APP 模型体。UI Server 的浏览器端默认先加载 `bootstrap` 投影：桌面、app registry、route state 和必要系统模型。用户从桌面打开某个滑动 APP 时，前端按 `visible_model_ref={table_id,model_id}` 请求 `visible` profile，把这个 APP instance table 内的模型体加载进浏览器投影缓存。
 
 这条规则对开发者有三个影响：
 
@@ -269,7 +269,7 @@ provider 回包中的 bundle records 和用户上传 ZIP 里的 `app_payload.jso
 }
 ```
 
-0431 target / follow-up 下，安装后宿主应自动补：
+安装后宿主会自动补：
 
 | 位置 | 自动 label | 作用 |
 |---|---|---|
@@ -278,7 +278,7 @@ provider 回包中的 bundle records 和用户上传 ZIP 里的 `app_payload.jso
 | Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>` `pin.bus.cb.in` | 宿主入口 |
 | Model 0 root `(0,0,0)` | `imported_host_submit_<modelId>_route` `pin.connect.cell` | 从 Model 0 路由到 imported app parent-side connection Cell / imported root relay |
 
-如果 root 还声明了 `dual_bus_model` 并且有 root `submit` `pin.out`，0431 target 宿主还应补外发 adapter：
+如果 root 还声明了 `dual_bus_model` 并且有 root `submit` `pin.out`，宿主还会补外发 adapter：
 
 | 位置 | 自动 label | 作用 |
 |---|---|---|
@@ -288,7 +288,7 @@ provider 回包中的 bundle records 和用户上传 ZIP 里的 `app_payload.jso
 | Model 0 root `(0,0,0)` | `bridge_imported_submit_to_mt_bus_send_<modelId>` `func.js` | 构造 `bus_send.v1` 临时 ModelTable payload |
 | Model 0 root `(0,0,0)` | `imported_submit_<modelId>_bus` `pin.bus.cb.out` | 默认统一外发边界 |
 
-这些自动 label 是宿主责任。开发者不应在 zip 里写死安装后的正式 `modelId`。当前 legacy host-table v1 安装器生成的 label 名与放置位置可能不同，迁移到 0431 target 前不得把本段当作当前实现事实。
+这些自动 label 是宿主责任。开发者不应在 zip 里写死安装后的正式 `modelId` 或 `table_id`；包内正数 `model_id` 始终只在安装后的 App table 内生效。
 
 ## 6. 点击按钮后怎样到达后端目标 cell
 
@@ -297,7 +297,7 @@ provider 回包中的 bundle records 和用户上传 ZIP 里的 `app_payload.jso
 - 本地草稿：输入框正在打字、hover、focus、临时选中等，不算正式业务。
 - 正式提交：send、submit、execute、confirm 等，要进入后端业务链。
 
-正式提交链的当前公共前半段是 `bus_event_v2 -> Model 0 pin.bus.cb.in`；进入 App instance table 的 `model.subtableconnection` 边界属于 0431 target / follow-up：
+正式提交链的当前公共前半段是 `bus_event_v2 -> Model 0 pin.bus.cb.in`；进入 App instance table 时必须经过宿主侧 `model.subtableconnection` 边界：
 
 ```text
 Button click
@@ -361,7 +361,7 @@ return;
 
 ## 8. UI 模型怎样向自己的第 0 格发双总线消息
 
-0431 target / follow-up 下，如果 APP 需要外发双总线消息，同工作区默认链路是：
+如果 APP 需要外发双总线消息，同工作区默认链路是：
 
 ```text
 target func.js
@@ -377,8 +377,8 @@ target func.js
 关键点：
 
 - APP 自己只写自己的 root `pin.out`。
-- 在 0431 target 中，宿主安装器会知道这个 APP 由哪个 Model 0 parent-side `model.subtableconnection` connection/index Cell 索引。
-- 0431 target 的宿主 relay 把 app root `pin.out` 转成 Model 0 的 `mt_bus_send_in`。
+- 宿主安装器知道这个 APP 由哪个 Model 0 parent-side `model.subtableconnection` connection/index Cell 索引。
+- 宿主 relay 把 app root `pin.out` 转成 Model 0 的 `mt_bus_send_in`。
 - `mt_bus_send` 再默认写 `pin.bus.cb.out`。
 - MBR / MQTT 默认只消费 Model 0 `pin.bus.cb.out`。显式管理语义才使用 `pin.bus.mb.out`。
 

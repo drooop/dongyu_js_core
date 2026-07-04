@@ -16,7 +16,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.single",
+      "t": "model.submt",
       "v": "UI.WorkspaceCatalog"
     },
     {
@@ -546,6 +546,17 @@
               "v": {
                 "$ref": "row.model_id"
               }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "table_id",
+              "t": "str",
+              "v": {
+                "$ref": "row.table_id"
+              }
             }
           ]
         }
@@ -587,7 +598,7 @@
       "k": "handle_ws_select_click",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P4+P9+P10+P7+P8 */ var fail=function(code,detail){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:code,detail:detail});ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR '+String(code)+': '+String(detail));};\nvar records=Array.isArray(label&&label.v)?label.v:[];\nif(records.length===0){fail('temporary_modeltable_required','ws_select_app.v1');return;}\nvar readPayload=function(key){for(var i=0;i<records.length;i++){var rec=records[i];if(rec&&rec.id===0&&rec.p===0&&rec.r===0&&rec.c===0&&rec.k===key)return rec.v;}return null;};\nif(readPayload('__mt_payload_kind')!=='ws_select_app.v1'){fail('invalid_payload_kind','ws_select_app.v1');return;}\nvar raw=readPayload('model_id');var selected=Number.isInteger(raw)?raw:Number(raw);\nif(!Number.isInteger(selected)){fail('invalid_payload','model_id required');return;}\nvar result=ctx.hostApi&&ctx.hostApi.wsSelectApp?ctx.hostApi.wsSelectApp(selected):{ok:false,code:'host_api_missing',detail:'wsSelectApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_select_failed'});return;}\nvar selectedId=result.data&&result.data.selected;ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_app_selected', 'int', Number.isInteger(selectedId)?selectedId:0);ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_select: '+String(Number.isInteger(selectedId)?selectedId:0));",
+        "code": "/* rubric: P4+P9+P10+P7+P8 */ var fail=function(code,detail){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:code,detail:detail});ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR '+String(code)+': '+String(detail));};\nvar records=Array.isArray(label&&label.v)?label.v:[];\nif(records.length===0){fail('temporary_modeltable_required','ws_select_app.v1');return;}\nvar readPayload=function(key){for(var i=0;i<records.length;i++){var rec=records[i];if(rec&&rec.id===0&&rec.p===0&&rec.r===0&&rec.c===0&&rec.k===key)return rec.v;}return null;};\nif(readPayload('__mt_payload_kind')!=='ws_select_app.v1'){fail('invalid_payload_kind','ws_select_app.v1');return;}\nvar raw=readPayload('model_id');var selected=Number.isInteger(raw)?raw:Number(raw);\nif(!Number.isInteger(selected)){fail('invalid_payload','model_id required');return;}\nvar rawTable=readPayload('table_id');var tableId=typeof rawTable==='string'&&rawTable.trim()?rawTable.trim():'host';\nvar target={table_id:tableId,model_id:selected};\nvar result=ctx.hostApi&&ctx.hostApi.wsSelectApp?ctx.hostApi.wsSelectApp(target):{ok:false,code:'host_api_missing',detail:'wsSelectApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_select_failed'});return;}\nvar selectedId=result.data&&result.data.selected;if(!Number.isInteger(selectedId)){selectedId=target.model_id;}\nvar selectedRef=result.data&&result.data.selected_ref&&typeof result.data.selected_ref==='object'?result.data.selected_ref:target;\nvar selectedTable=typeof selectedRef.table_id==='string'&&selectedRef.table_id.trim()?selectedRef.table_id.trim():tableId;\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_app_selected', 'int', selectedId);ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_app_selected_ref', 'json', {table_id:selectedTable,model_id:selectedId});ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_select: '+String(selectedTable)+'/'+String(selectedId));",
         "modelName": "workspace_catalog"
       }
     },
@@ -914,6 +925,17 @@
               "v": {
                 "$ref": "row.model_id"
               }
+            },
+            {
+              "id": 0,
+              "p": 0,
+              "r": 0,
+              "c": 0,
+              "k": "table_id",
+              "t": "str",
+              "v": {
+                "$ref": "row.table_id"
+              }
             }
           ]
         }
@@ -955,7 +977,7 @@
       "k": "handle_ws_delete_click",
       "t": "func.js",
       "v": {
-        "code": "/* rubric: P4+P9+P10+P7+P8 */ var fail=function(code,detail){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:code,detail:detail});ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR '+String(code)+': '+String(detail));};\nvar records=Array.isArray(label&&label.v)?label.v:[];\nif(records.length===0){fail('temporary_modeltable_required','ws_delete_app.v1');return;}\nvar readPayload=function(key){for(var i=0;i<records.length;i++){var rec=records[i];if(rec&&rec.id===0&&rec.p===0&&rec.r===0&&rec.c===0&&rec.k===key)return rec.v;}return null;};\nif(readPayload('__mt_payload_kind')!=='ws_delete_app.v1'){fail('invalid_payload_kind','ws_delete_app.v1');return;}\nvar raw=readPayload('model_id');var targetId=Number.isInteger(raw)?raw:Number(raw);\nif(!Number.isInteger(targetId)){fail('invalid_payload','model_id required');return;}\nvar result=ctx.hostApi&&ctx.hostApi.wsDeleteApp?ctx.hostApi.wsDeleteApp(targetId):{ok:false,code:'host_api_missing',detail:'wsDeleteApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_app_delete_failed'});return;}\nvar refresh=ctx.hostApi&&ctx.hostApi.wsRefreshCatalog?ctx.hostApi.wsRefreshCatalog():{ok:false,code:'host_api_missing',detail:'wsRefreshCatalog'};\nif(!refresh||refresh.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:refresh&&refresh.code?refresh.code:'exception',detail:refresh&&refresh.detail?refresh.detail:'ws_refresh_failed'});return;}\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_delete: '+String(Number.isInteger(targetId)?targetId:0));",
+        "code": "/* rubric: P4+P9+P10+P7+P8 */ var fail=function(code,detail){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:code,detail:detail});ctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ERR '+String(code)+': '+String(detail));};\nvar records=Array.isArray(label&&label.v)?label.v:[];\nif(records.length===0){fail('temporary_modeltable_required','ws_delete_app.v1');return;}\nvar readPayload=function(key){for(var i=0;i<records.length;i++){var rec=records[i];if(rec&&rec.id===0&&rec.p===0&&rec.r===0&&rec.c===0&&rec.k===key)return rec.v;}return null;};\nif(readPayload('__mt_payload_kind')!=='ws_delete_app.v1'){fail('invalid_payload_kind','ws_delete_app.v1');return;}\nvar raw=readPayload('model_id');var targetId=Number.isInteger(raw)?raw:Number(raw);\nif(!Number.isInteger(targetId)){fail('invalid_payload','model_id required');return;}\nvar rawTable=readPayload('table_id');var tableId=typeof rawTable==='string'&&rawTable.trim()?rawTable.trim():'host';\nvar target={table_id:tableId,model_id:targetId};\nvar result=ctx.hostApi&&ctx.hostApi.wsDeleteApp?ctx.hostApi.wsDeleteApp(target):{ok:false,code:'host_api_missing',detail:'wsDeleteApp'};\nif(!result||result.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:result&&result.code?result.code:'exception',detail:result&&result.detail?result.detail:'ws_app_delete_failed'});return;}\nvar refresh=ctx.hostApi&&ctx.hostApi.wsRefreshCatalog?ctx.hostApi.wsRefreshCatalog():{ok:false,code:'host_api_missing',detail:'wsRefreshCatalog'};\nif(!refresh||refresh.ok!==true){ctx.hostApi.writeCrossModel(-1, 0, 0, 1, 'bus_event_error', 'json', {op_id:'',code:refresh&&refresh.code?refresh.code:'exception',detail:refresh&&refresh.detail?refresh.detail:'ws_refresh_failed'});return;}\nctx.hostApi.writeCrossModel(-2, 0, 0, 0, 'ws_status', 'str', 'ws_delete: '+String(Number.isInteger(targetId)?targetId:0));",
         "modelName": "workspace_catalog"
       }
     },

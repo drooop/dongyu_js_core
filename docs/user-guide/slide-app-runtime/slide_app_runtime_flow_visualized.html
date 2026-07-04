@@ -165,7 +165,7 @@
 <header>
   <div class="eyebrow">ModelTable-driven Slide App</div>
   <h1>滑动 APP 从填表到外发的实际链路</h1>
-  <p class="lead">这张可视化图区分 current truth 与 0431 target：UI 是投影，正式事件进入 Model 0，运行时数据用临时 ModelTable record array；涉及 App instance table / <code>model.subtableconnection</code> 的部分属于后续实现目标。</p>
+  <p class="lead">这张可视化图展示当前滑动 APP 链路：UI 是投影，正式事件进入 Model 0，运行时数据用临时 ModelTable record array；安装后的 APP 作为独立 App instance table 运行，并由 host 侧 <code>model.subtableconnection</code> 建立索引。</p>
 </header>
 
 <main class="grid">
@@ -199,20 +199,20 @@
         <div class="node blue"><strong>mxc://...</strong><small>得到可引用 URI</small></div>
         <div class="node green"><strong>importer truth</strong><small>记录 URI、状态和结果</small></div>
         <div class="node green"><strong>importer click pin</strong><small>触发导入程序</small></div>
-        <div class="node rust"><strong>materialize / index</strong><small>0431 target：分配 App table_id，并在 Model 0 写 model.subtableconnection</small></div>
+        <div class="node rust"><strong>materialize / index</strong><small>分配 App table_id，并在 Model 0 写 model.subtableconnection</small></div>
       </div>
     </article>
 
     <article id="auto-pins" class="panel">
       <h2>3. 自动建引脚：宿主只接公开边界</h2>
-      <p>APP 声明 <code>host_ingress_v1</code> 后，当前 legacy host-table v1 安装器会生成宿主 adapter；0431 target 会把该 adapter 收口到 parent-side <code>model.subtableconnection</code> connection/index Cell。</p>
+      <p>APP 声明 <code>host_ingress_v1</code> 后，安装器会生成宿主 adapter，并把跨表入口收口到 parent-side <code>model.subtableconnection</code> connection/index Cell。</p>
       <div class="flow">
         <div class="node blue"><strong>Model 0 root</strong><small><code>imported_host_submit_&lt;modelId&gt;</code> as <code>pin.bus.cb.in</code></small></div>
         <div class="node blue"><strong>Model 0 route</strong><small><code>pin.connect.cell</code> routes to connection/root boundary</small></div>
         <div class="node green"><strong>Imported root relay</strong><small><code>__host_ingress_submit</code> as <code>pin.in</code></small></div>
         <div class="node green"><strong>Imported boundary pin</strong><small>relay to declared <code>submit_request</code></small></div>
       </div>
-      <div class="callout">0431 target：如果 APP 还声明外发能力，安装器应在 parent-side <code>model.subtableconnection</code> connection/index Cell 和 Model 0 root 上补 host egress relay、bridge function 和默认 <code>pin.bus.cb.out</code>。当前实现仍按 legacy host-table v1 current sections 判定。</div>
+      <div class="callout">如果 APP 还声明外发能力，安装器会在 parent-side <code>model.subtableconnection</code> connection/index Cell 和 Model 0 root 上补 host egress relay、bridge function 和默认 <code>pin.bus.cb.out</code>。</div>
     </article>
 
     <article id="click" class="panel">

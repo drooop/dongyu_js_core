@@ -118,7 +118,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 4000
     },
     {
@@ -242,7 +242,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.table",
+      "t": "model.submt",
       "v": "Service.WorkspaceManager"
     },
     {

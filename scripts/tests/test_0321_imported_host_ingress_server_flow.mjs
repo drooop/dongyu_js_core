@@ -162,9 +162,16 @@ async function test_host_ingress_route_reaches_imported_boundary_and_cleans_up_o
     const registry = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
     const importedEntry = registry.find((entry) => entry && entry.name === 'Host Ingress Flow App');
     assert.ok(importedEntry, 'imported_app_must_appear_in_registry');
-    const importedId = importedEntry.model_id;
-    const ingressKey = `imported_host_submit_${importedId}`;
-    const routeKey = `${ingressKey}_route`;
+    assert.equal(typeof importedEntry.table_id, 'string', 'imported_app_must_publish_table_id');
+    const importedRef = { table_id: importedEntry.table_id, model_id: importedEntry.model_id };
+    const importedRoot = state.runtime.getModel(importedRef);
+    assert.ok(importedRoot, 'imported_app_root_model_must_exist');
+    const generatedLabels = importedRoot.getCell(0, 0, 0).labels.get('host_ingress_generated_model0_labels')?.v || [];
+    assert.equal(Array.isArray(generatedLabels), true, 'imported_app_must_record_generated_ingress_labels');
+    const ingressKey = generatedLabels.find((key) => typeof key === 'string' && key.startsWith('imported_host_submit_'));
+    const routeKey = generatedLabels.find((key) => typeof key === 'string' && key === `${ingressKey}_route`);
+    assert.equal(typeof ingressKey, 'string', 'model0_ingress_key_must_be_generated');
+    assert.equal(typeof routeKey, 'string', 'model0_route_key_must_be_generated');
     const model0 = state.runtime.getModel(0);
     assert.ok(model0.getCell(0, 0, 0).labels.get(ingressKey), 'model0_ingress_port_must_exist');
     assert.ok(model0.getCell(0, 0, 0).labels.get(routeKey), 'model0_route_label_must_exist');
@@ -178,10 +185,10 @@ async function test_host_ingress_route_reaches_imported_boundary_and_cleans_up_o
     assert.equal(hostIngressResult.result, 'ok', 'host_ingress_pin_write_must_be_accepted');
     await new Promise((resolveWait) => setTimeout(resolveWait, 150));
 
-    const importedLabels = state.clientSnap().models[String(importedId)]?.cells?.['0,0,0']?.labels || {};
+    const importedLabels = state.clientSnap().tables?.[importedRef.table_id]?.models?.[String(importedRef.model_id)]?.cells?.['0,0,0']?.labels || {};
     assert.equal(importedLabels.status_text?.v, 'host_route_ok', 'host_ingress_must_drive_imported_boundary_submit');
 
-    const deleteResult = state.runtime.hostApi.wsDeleteApp(importedId);
+    const deleteResult = state.runtime.hostApi.wsDeleteApp(importedRef);
     assert.equal(deleteResult.ok, true, 'delete_must_succeed');
     const model0AfterDelete = state.runtime.getModel(0);
     assert.ok(!model0AfterDelete.getCell(0, 0, 0).labels.get(ingressKey), 'delete_must_remove_model0_ingress_port');

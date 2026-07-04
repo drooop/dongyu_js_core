@@ -17,11 +17,11 @@ async function test_debug_table_shows_structural_labels() {
   runtime.addLabel(model0, 0, 9, 9, { k: 'debug_route', t: 'pin.connect.label', v: [{ from: 'in', to: ['out'] }] });
   setStateLabel(runtime, 'selected_model_id', 'str', '0');
   const rows = deriveHomeTableRows(state.clientSnap(), -2);
-  assert.ok(rows.some((row) => row && row.t === 'model.submt'), 'debug table must show model.submt labels');
+  assert.ok(rows.some((row) => row && row.t === 'model.submtconnection'), 'debug table must show model.submtconnection labels');
   assert.ok(rows.some((row) => row && row.t === 'pin.connect.label' && row.k === 'debug_route'), 'debug table must show structural pin/connect labels');
 }
 
-async function test_home_save_label_allows_model0_structural_type() {
+async function test_home_save_label_allows_model0_connection_structural_type() {
   const state = createServerState({ dbPath: null, assetRoot: null });
   const runtime = state.runtime;
   setStateLabel(runtime, 'selected_model_id', 'str', '0');
@@ -30,8 +30,8 @@ async function test_home_save_label_allows_model0_structural_type() {
   setStateLabel(runtime, 'dt_edit_r', 'str', '9');
   setStateLabel(runtime, 'dt_edit_c', 'str', '0');
   setStateLabel(runtime, 'dt_edit_k', 'str', 'debug_child_mount');
-  setStateLabel(runtime, 'dt_edit_t', 'str', 'model.submt');
-  setStateLabel(runtime, 'dt_edit_v_text', 'str', '1004');
+  setStateLabel(runtime, 'dt_edit_t', 'str', 'model.submtconnection');
+  setStateLabel(runtime, 'dt_edit_v_text', 'str', '19004');
 
   const result = await state.submitEnvelope({
     event_id: Date.now(),
@@ -40,10 +40,34 @@ async function test_home_save_label_allows_model0_structural_type() {
     ts: Date.now(),
     payload: { action: 'home_save_label', meta: { op_id: 'debug_save_model0_submt' } },
   });
-  assert.equal(result.result, 'ok', 'debug CRUD must allow saving structural labels on Model 0');
+  assert.equal(result.result, 'ok', 'debug CRUD must allow saving connection structural labels on Model 0');
   const label = runtime.getCell(runtime.getModel(0), 0, 9, 0).labels.get('debug_child_mount');
-  assert.equal(label?.t, 'model.submt');
-  assert.equal(label?.v, 1004);
+  assert.equal(label?.t, 'model.submtconnection');
+  assert.equal(label?.v, 19004);
+}
+
+async function test_home_save_label_rejects_parent_side_model_submt() {
+  const state = createServerState({ dbPath: null, assetRoot: null });
+  const runtime = state.runtime;
+  setStateLabel(runtime, 'selected_model_id', 'str', '0');
+  setStateLabel(runtime, 'dt_edit_model_id', 'str', '0');
+  setStateLabel(runtime, 'dt_edit_p', 'str', '0');
+  setStateLabel(runtime, 'dt_edit_r', 'str', '9');
+  setStateLabel(runtime, 'dt_edit_c', 'str', '1');
+  setStateLabel(runtime, 'dt_edit_k', 'str', 'debug_wrong_child_mount');
+  setStateLabel(runtime, 'dt_edit_t', 'str', 'model.submt');
+  setStateLabel(runtime, 'dt_edit_v_text', 'str', '1004');
+
+  const result = await state.submitEnvelope({
+    event_id: Date.now(),
+    type: 'home_save_label',
+    source: 'test',
+    ts: Date.now(),
+    payload: { action: 'home_save_label', meta: { op_id: 'debug_save_parent_side_model_submt' } },
+  });
+  assert.equal(result.result, 'error', 'debug CRUD must reject parent-side model.submt on Model 0');
+  const label = runtime.getCell(runtime.getModel(0), 0, 9, 1).labels.get('debug_wrong_child_mount');
+  assert.equal(label, undefined);
 }
 
 async function test_home_delete_label_allows_negative_model() {
@@ -69,7 +93,8 @@ async function test_home_delete_label_allows_negative_model() {
 
 const tests = [
   test_debug_table_shows_structural_labels,
-  test_home_save_label_allows_model0_structural_type,
+  test_home_save_label_allows_model0_connection_structural_type,
+  test_home_save_label_rejects_parent_side_model_submt,
   test_home_delete_label_allows_negative_model,
 ];
 

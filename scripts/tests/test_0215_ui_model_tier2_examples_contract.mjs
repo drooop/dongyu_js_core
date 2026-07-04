@@ -203,7 +203,7 @@ function test_canonical_examples_exist_on_authoritative_surfaces() {
     assert.ok(
       findRecord(hierarchyPatch.records, (record) => (
         record?.model_id === 0
-        && record?.t === 'model.submt'
+        && record?.t === 'model.submtconnection'
         && record?.v === modelId
       )),
       `runtime_hierarchy_must_mount_model_${modelId}`,
@@ -212,7 +212,7 @@ function test_canonical_examples_exist_on_authoritative_surfaces() {
   assert.equal(
     Boolean(findRecord(hierarchyPatch.records, (record) => (
       record?.model_id === 0
-      && record?.t === 'model.submt'
+      && record?.t === 'model.submtconnection'
       && record?.v === UI_EXAMPLE_CHILD_MODEL_ID
     ))),
     false,
@@ -223,7 +223,7 @@ function test_canonical_examples_exist_on_authoritative_surfaces() {
     findRecord(positiveRecords, (record) => (
       record?.model_id === UI_EXAMPLE_PARENT_MODEL_ID
       && record?.k === 'model_type'
-      && record?.t === 'model.submt'
+      && record?.t === 'model.submtconnection'
       && record?.v === UI_EXAMPLE_CHILD_MODEL_ID
     )),
     'parent_example_must_explicitly_mount_child_via_model_submt',

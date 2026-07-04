@@ -27,7 +27,6 @@ export const GALLERY_CATALOG_MODEL_ID = -103;
 export const WORKSPACE_ENTRY_MODEL_IDS = Object.freeze([
   -103,
   -23,
-  100,
   1007,
   1011,
   1030,
@@ -48,6 +47,7 @@ export const BUILTIN_WORKSPACE_APP_MODEL_IDS = Object.freeze([
   1011,
   1030,
   1036,
+  1051,
   1080,
   1081,
   1082,

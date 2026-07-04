@@ -478,7 +478,117 @@ export function getOidcConfig({ env = process.env, req = null } = {}) {
   };
 }
 
-async function fetchOidcMetadata(config, fetchFn = fetch) {
+function normalizeProxyUrl(value, { strict = false } = {}) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  let parsed = null;
+  try {
+    parsed = new URL(raw);
+  } catch (_) {
+    if (strict) throw new Error('oidc_proxy_url_invalid');
+    return '';
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    if (strict) throw new Error('oidc_proxy_protocol_unsupported');
+    return '';
+  }
+  return parsed.toString();
+}
+
+export function resolveOidcFetchProxyUrl(env = process.env, _targetUrl = '') {
+  for (const key of ['DY_OIDC_PROXY_URL', 'DY_OUTBOUND_PROXY_URL']) {
+    const value = normalizeProxyUrl(env[key], { strict: Boolean(env[key]) });
+    if (value) return value;
+  }
+  return '';
+}
+
+export function resolveOidcFetchTimeoutMs(env = process.env) {
+  const raw = String(env.DY_OIDC_FETCH_TIMEOUT_MS || env.DY_OUTBOUND_FETCH_TIMEOUT_MS || '').trim();
+  if (!raw) return 10000;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) throw new Error('oidc_fetch_timeout_invalid');
+  return Math.max(100, Math.min(60000, Math.floor(parsed)));
+}
+
+function createTimeoutSignal(timeoutMs) {
+  if (globalThis.AbortSignal && typeof globalThis.AbortSignal.timeout === 'function') {
+    return globalThis.AbortSignal.timeout(timeoutMs);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error('oidc_network_timeout')), timeoutMs);
+  if (typeof timer.unref === 'function') timer.unref();
+  return controller.signal;
+}
+
+export function buildOidcFetchInit(init = {}, env = process.env, targetUrl = '') {
+  const out = { ...(init || {}) };
+  const proxy = resolveOidcFetchProxyUrl(env, targetUrl);
+  if (!out.proxy) out.proxy = proxy || '';
+  if (!out.signal) out.signal = createTimeoutSignal(resolveOidcFetchTimeoutMs(env));
+  return out;
+}
+
+function isOidcTimeoutError(error, init = {}) {
+  if (init.signal && init.signal.aborted) return true;
+  return error && (
+    error.name === 'TimeoutError'
+    || error.name === 'AbortError'
+    || /timeout/i.test(String(error.message || ''))
+  );
+}
+
+export async function oidcFetch(input, init = {}, { env = process.env, fetchFn = fetch } = {}) {
+  const fetchInit = buildOidcFetchInit(init, env, input);
+  try {
+    return await fetchFn(input, fetchInit);
+  } catch (error) {
+    if (isOidcTimeoutError(error, fetchInit)) {
+      const timeoutError = new Error('oidc_network_timeout');
+      timeoutError.cause = error;
+      throw timeoutError;
+    }
+    const detail = describeOidcNetworkError(error);
+    const networkError = new Error(`oidc_network_error:${detail.kind}`);
+    networkError.oidcNetworkError = detail;
+    networkError.cause = error;
+    throw networkError;
+  }
+}
+
+export function describeOidcNetworkError(error) {
+  const cause = error && error.cause ? error.cause : null;
+  const raw = String(
+    (cause && (cause.code || cause.message))
+    || (error && (error.code || error.message))
+    || 'unknown',
+  );
+  const lower = raw.toLowerCase();
+  let kind = 'unknown';
+  if (
+    lower.includes('unexpected eof')
+    || (lower.includes('socket') && lower.includes('closed'))
+    || (lower.includes('connection') && lower.includes('closed'))
+    || (lower.includes('closed') && lower.includes('secure connection'))
+  ) {
+    kind = 'socket_closed';
+  } else if (lower.includes('cert') || lower.includes('x509') || lower.includes('tls')) {
+    kind = 'tls_certificate';
+  } else if (lower.includes('proxy')) {
+    kind = 'proxy';
+  } else if (lower.includes('dns') || lower.includes('enotfound') || lower.includes('eai_again')) {
+    kind = 'dns';
+  } else if (lower.includes('timeout') || lower.includes('timed out') || lower.includes('und_err_connect_timeout')) {
+    kind = 'timeout';
+  } else if (lower.includes('econnrefused')) {
+    kind = 'connection_refused';
+  } else if (lower.includes('econnreset') || lower.includes('reset')) {
+    kind = 'connection_reset';
+  }
+  return { kind, message: raw.slice(0, 240) };
+}
+
+async function fetchOidcMetadata(config, fetchFn = oidcFetch) {
   const cached = oidcMetadataCache.get(config.issuer);
   if (cached) return cached;
   const resp = await fetchFn(`${config.issuer}/.well-known/openid-configuration`);
@@ -519,7 +629,7 @@ function markOidcStateFinalized(error) {
   return err;
 }
 
-export async function startOidcLogin({ req, returnTo, fetchFn = fetch } = {}) {
+export async function startOidcLogin({ req, returnTo, fetchFn = oidcFetch } = {}) {
   cleanupOidcPendingStates();
   const config = getOidcConfig({ req });
   const metadata = await fetchOidcMetadata(config, fetchFn);
@@ -565,7 +675,7 @@ function findJwk(jwks, header) {
   return keys.find((key) => key.alg === header.alg) || keys[0] || null;
 }
 
-async function verifyJwtWithJwks(jwt, { metadata, clientId, issuer, nonce, fetchFn = fetch }) {
+async function verifyJwtWithJwks(jwt, { metadata, clientId, issuer, nonce, fetchFn = oidcFetch }) {
   const parts = String(jwt || '').split('.');
   if (parts.length !== 3) throw new Error('invalid_id_token');
   const [encodedHeader, encodedPayload, encodedSignature] = parts;
@@ -636,6 +746,77 @@ export function deriveCapabilitiesFromRoles(roles) {
   return [...caps].sort();
 }
 
+function isTruthyEnv(value) {
+  return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+}
+
+const DEV_FAKE_LOGIN_USERS = Object.freeze({
+  drop: Object.freeze({
+    key: 'drop',
+    subject: 'drop',
+    username: 'drop',
+    email: 'drop.fake@dongyu.local',
+    displayName: 'Fake Drop',
+    roles: ['dongyu.dev_fake', 'dongyu.workspace', 'dongyu.slide', 'dongyu.management'],
+    capabilities: ['app:read', 'app:write', 'workspace:read', 'workspace:write', 'slide_app:use', 'management_bus:use'],
+  }),
+  swk: Object.freeze({
+    key: 'swk',
+    subject: 'swk',
+    username: 'swk',
+    email: 'swk.fake@dongyu.local',
+    displayName: 'Fake SWK',
+    roles: ['dongyu.dev_fake', 'dongyu.viewer', 'dongyu.slide'],
+    capabilities: ['app:read', 'workspace:read', 'slide_app:use'],
+  }),
+  'drop-test': Object.freeze({
+    key: 'drop-test',
+    subject: 'drop-test',
+    username: 'drop-test',
+    email: 'drop-test.fake@dongyu.local',
+    displayName: 'Fake Drop Test',
+    roles: ['dongyu.dev_fake', 'dongyu.workspace', 'dongyu.slide'],
+    capabilities: ['app:read', 'workspace:read', 'workspace:write', 'slide_app:use'],
+  }),
+});
+
+export function isDevFakeLoginEnabled(env = process.env) {
+  return isTruthyEnv(env.DY_DEV_FAKE_LOGIN);
+}
+
+export function listDevFakeLoginUsers(env = process.env) {
+  if (!isDevFakeLoginEnabled(env)) return [];
+  return Object.values(DEV_FAKE_LOGIN_USERS).map((user) => ({
+    key: user.key,
+    username: user.username,
+    displayName: user.displayName,
+    email: user.email,
+  }));
+}
+
+export function loginWithDevFakeUser(userKey, env = process.env) {
+  if (!isDevFakeLoginEnabled(env)) throw new Error('dev_fake_login_disabled');
+  const key = String(userKey || '').trim();
+  const user = DEV_FAKE_LOGIN_USERS[key];
+  if (!user) throw new Error('unknown_dev_fake_user');
+  const session = {
+    provider: 'dev-fake',
+    subject: user.subject,
+    userId: `dev-fake:${user.subject}`,
+    email: user.email,
+    username: user.username,
+    displayName: user.displayName,
+    homeserverUrl: '',
+    matrixUserId: '',
+    matrixDeviceId: '',
+    roles: [...user.roles],
+    capabilities: [...user.capabilities],
+    accessToken: '',
+  };
+  const token = createSessionRecord(session);
+  return { token, session: toPublicSession(sessions.get(token)) };
+}
+
 function normalizeOidcPrincipal(claims) {
   const roles = extractRoles(claims);
   const email = typeof claims.email === 'string' ? claims.email : '';
@@ -673,7 +854,7 @@ function createSessionRecord(session) {
   return token;
 }
 
-export async function completeOidcLogin({ req, code, state, fetchFn = fetch } = {}) {
+export async function completeOidcLogin({ req, code, state, fetchFn = oidcFetch } = {}) {
   cleanupOidcPendingStates();
   if (!code || !state) throw new Error('missing_oidc_callback_fields');
   const cookies = parseCookies(req.headers.cookie);
@@ -789,7 +970,7 @@ export async function completeOidcLogin({ req, code, state, fetchFn = fetch } = 
   }
 }
 
-async function buildOidcLogoutUrl({ req, session, fetchFn = fetch } = {}) {
+async function buildOidcLogoutUrl({ req, session, fetchFn = oidcFetch } = {}) {
   if (!session || session.provider !== 'zitadel') return '';
   let config = null;
   let metadata = null;

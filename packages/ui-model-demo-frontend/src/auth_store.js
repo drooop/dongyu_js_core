@@ -20,6 +20,8 @@ export function createAuthStore({ baseUrl }) {
     capabilities: [],
     matrixConnected: false,
     homeservers: [],
+    devFakeLoginEnabled: false,
+    devFakeLoginUsers: [],
     loginError: '',
     authIssue: null,
   });
@@ -96,6 +98,32 @@ export function createAuthStore({ baseUrl }) {
     return target;
   }
 
+  function loginWithDevFakeUser(userKey, options = {}) {
+    const returnTo = normalizeReturnTo(options.returnTo);
+    const target = `${normalizedBaseUrl}/auth/dev/fake-login?user=${encodeURIComponent(userKey || '')}&returnTo=${encodeURIComponent(returnTo)}`;
+    if (typeof window !== 'undefined' && window.location) {
+      window.location.assign(target);
+    }
+    return target;
+  }
+
+  async function fetchDevFakeLoginOptions() {
+    try {
+      const resp = await fetch(`${normalizedBaseUrl}/auth/dev/fake-login/options`, { credentials: 'same-origin' });
+      if (!resp.ok) {
+        state.devFakeLoginEnabled = false;
+        state.devFakeLoginUsers = [];
+        return;
+      }
+      const data = await resp.json();
+      state.devFakeLoginEnabled = data.enabled === true;
+      state.devFakeLoginUsers = Array.isArray(data.users) ? data.users : [];
+    } catch (_) {
+      state.devFakeLoginEnabled = false;
+      state.devFakeLoginUsers = [];
+    }
+  }
+
   async function checkSession() {
     state.loading = true;
     try {
@@ -122,6 +150,7 @@ export function createAuthStore({ baseUrl }) {
     } catch (_) {
       clearPrincipal();
     } finally {
+      await fetchDevFakeLoginOptions();
       state.sessionChecked = true;
       state.loading = false;
     }
@@ -274,6 +303,8 @@ export function createAuthStore({ baseUrl }) {
     checkSession,
     fetchHomeservers,
     loginWithSso,
+    loginWithDevFakeUser,
+    fetchDevFakeLoginOptions,
     connectMatrix,
     disconnectMatrix,
     fetchMatrixStatus,

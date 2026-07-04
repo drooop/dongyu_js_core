@@ -332,7 +332,10 @@ source: ai
 | 0429-feishu-model-label-operational-ssot | 2026-07-01 | 规划将 0428 飞书模型标签与消息 API 目标下沉到 operational SSOT、validator/runtime hard-cut、fill-table refit 与本地浏览器验证阶段 | 3 | dropx/dev_0429-feishu-model-label-operational-ssot | Planned | ./docs/iterations/0429-feishu-model-label-operational-ssot/ |
 | 0430-feishu-operational-ssot-impl | 2026-07-01 | 实施 0429 蓝图：operational SSOT、validator/runtime hard-cut、fill-table refit、滑动 App 示例文档和本地浏览器 E2E 验证 | 8 | dropx/dev_0430-feishu-operational-ssot-impl | Completed | ./docs/iterations/0430-feishu-operational-ssot-impl/ |
 | 0431-subtable-connection-ssot | 2026-07-01 | 修正子模型表/子模型 connection 标签 SSOT：子侧声明与父侧索引分离，冻结后续实现计划 | 3 | dropx/dev_0431-subtable-connection-ssot | Completed | ./docs/iterations/0431-subtable-connection-ssot/ |
-| 0432-subtable-connection-impl | 2026-07-02 | 实施 0431 四类模型关系标签：子侧声明、父侧索引、运行时注册、滑动 App 安装与系统填表重填 | 8 | dropx/dev_0432-subtable-connection-impl | Planned | ./docs/iterations/0432-subtable-connection-impl/ |
+| 0432-subtable-connection-impl | 2026-07-02 | 实施 0431 四类模型关系标签：子侧声明、父侧索引、运行时注册、滑动 App 安装与系统填表重填 | 8 | dropx/dev_0432-subtable-connection-impl | Completed | ./docs/iterations/0432-subtable-connection-impl/ |
+| 0433-dev-fake-login | 2026-07-03 | 增加默认关闭的本地临时 fake login 入口，用于远端 OIDC 不可达时继续验证非 Matrix UI 与分用户隔离 | 4 | dropx/dev_0433-dev-fake-login | Completed | ./docs/iterations/0433-dev-fake-login/ |
+| 0434-slide-app-subtable-first-migration | 2026-07-03 | 将第一个 Slid in from DE 滑动 App（E2E 颜色生成器）迁移为 App 子表实例，验证逐个迁移路径 | 3 | dropx/dev_0434-slide-app-subtable-first-migration | Planned | ./docs/iterations/0434-slide-app-subtable-first-migration/ |
+| 0435-visible-snapshot-app-slimming | 2026-07-03 | 收紧 `profile=visible` 的 App/model 粒度：显式可见 App 请求只返回目标 App/model，不重复宿主 bootstrap，并记录本地延时指标 | 4 | dropx/dev_0435-visible-snapshot-app-slimming | Completed | ./docs/iterations/0435-visible-snapshot-app-slimming/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

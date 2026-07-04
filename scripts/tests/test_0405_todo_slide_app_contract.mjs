@@ -130,7 +130,7 @@ function test_workspace_entry_mount_and_route_contract() {
   assert.ok(Array.isArray(registry) && registry.some((entry) => entry.model_id === MODEL_ID && entry.name === 'To Do Board'), 'Workspace registry must expose To Do Board');
 
   const mount = hierarchy.find((record) => record.model_id === 0 && record.p === 9 && record.r === 0 && record.c === MODEL_ID && record.k === 'model_type');
-  assert.equal(mount?.t, 'model.submt', 'To Do Board must be mounted through a Model 0 hosting cell');
+  assert.equal(mount?.t, 'model.submtconnection', 'To Do Board must be mounted through a Model 0 hosting cell');
   assert.equal(mount?.v, MODEL_ID, 'hosting cell must mount model 1086');
 
   const mountPin = workspace.find((record) => record.model_id === 0 && record.p === 9 && record.r === 0 && record.c === MODEL_ID && record.k === REQ_PIN);

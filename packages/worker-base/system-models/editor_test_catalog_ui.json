@@ -16,7 +16,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.single",
+      "t": "model.submt",
       "v": "UI.EditorTestCatalog"
     },
     {

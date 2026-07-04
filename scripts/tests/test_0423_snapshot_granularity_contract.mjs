@@ -311,12 +311,12 @@ async function test_visible_initial_projection_does_not_block_on_runtime_initial
     await waitListening(appServer);
     try {
       const startedAt = Date.now();
-      const resp = await fetch(`${serverBaseUrl(appServer)}/snapshot?profile=visible&model_id=100&initial_projection=1`);
+      const resp = await fetch(`${serverBaseUrl(appServer)}/snapshot?profile=visible&model_id=1007&initial_projection=1`);
       const elapsedMs = Date.now() - startedAt;
       const body = await resp.json();
       assert.equal(resp.status, 202, 'cold visible initial projection must return initializing status');
       assert.equal(body.code || body.status, 'workspace_initializing', 'cold visible initial projection must report workspace_initializing');
-      assert.equal(Boolean(body.snapshot && body.snapshot.models && body.snapshot.models['100']), true, 'cold visible initial projection must include requested visible model body');
+      assert.equal(Boolean(body.snapshot && body.snapshot.models && body.snapshot.models['1007']), true, 'cold visible initial projection must include requested visible model body');
       assert.ok(
         elapsedMs < 500,
         `cold visible initial projection must not block on principal runtime initialization; elapsed=${elapsedMs}ms`,
@@ -407,12 +407,12 @@ async function test_workspace_catalog_refresh_clears_stale_desktop_foreground_ap
     model_id: 1087,
   };
   const validApp = {
-    id: 'workspace:100',
+    id: 'workspace:1007',
     kind: 'workspace',
     page: 'workspace',
     path: '/workspace',
     title: 'E2E 颜色生成器',
-    model_id: 100,
+    model_id: 1007,
   };
 
   assert.equal(Boolean(state.runtime.getModel(1087)), false, 'test setup must use a missing workspace model');
@@ -430,7 +430,7 @@ async function test_workspace_catalog_refresh_clears_stale_desktop_foreground_ap
   );
   assert.deepEqual(
     labels[DESKTOP_TASK_STACK_LABEL]?.v.map((task) => task.model_id),
-    [100],
+    [1007],
     'workspace catalog refresh must remove stale workspace tasks while preserving valid tasks',
   );
 }
@@ -450,12 +450,12 @@ async function test_client_snap_clears_stale_desktop_foreground_without_catalog_
     model_id: 1087,
   };
   const validApp = {
-    id: 'workspace:100',
+    id: 'workspace:1007',
     kind: 'workspace',
     page: 'workspace',
     path: '/workspace',
     title: 'E2E 颜色生成器',
-    model_id: 100,
+    model_id: 1007,
   };
 
   assert.equal(Boolean(state.runtime.getModel(1087)), false, 'test setup must use a missing workspace model');
@@ -472,7 +472,7 @@ async function test_client_snap_clears_stale_desktop_foreground_without_catalog_
   );
   assert.deepEqual(
     labels[DESKTOP_TASK_STACK_LABEL]?.v.map((task) => task.model_id),
-    [100],
+    [1007],
     'clientSnap must remove stale desktop tasks before bootstrap/visible snapshot publication',
   );
 }
@@ -492,12 +492,12 @@ async function test_submit_rejects_stale_desktop_foreground_app_event() {
     model_id: 1087,
   };
   const validApp = {
-    id: 'workspace:100',
+    id: 'workspace:1007',
     kind: 'workspace',
     page: 'workspace',
     path: '/workspace',
     title: 'E2E 颜色生成器',
-    model_id: 100,
+    model_id: 1007,
   };
 
   state.runtime.addLabel(stateModel, 0, 0, 0, { k: DESKTOP_FOREGROUND_APP_LABEL, t: 'json', v: validApp });
@@ -513,12 +513,12 @@ async function test_submit_rejects_stale_desktop_foreground_app_event() {
   assert.equal(result.code, 'invalid_desktop_app', 'server must return a specific desktop app validation error');
   assert.equal(
     labels[DESKTOP_FOREGROUND_APP_LABEL]?.v?.model_id,
-    100,
+    1007,
     'rejecting a stale foreground update must preserve the last valid foreground app',
   );
   assert.deepEqual(
     labels[DESKTOP_TASK_STACK_LABEL]?.v.map((task) => task.model_id),
-    [100],
+    [1007],
     'rejecting a stale foreground update must also remove stale task-stack entries',
   );
 }

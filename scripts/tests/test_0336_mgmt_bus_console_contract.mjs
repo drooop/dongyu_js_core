@@ -119,7 +119,7 @@ function test_model1036_declares_workspace_cellwise_console_contract() {
   assert.ok(
     findRecord(mountRecords, (record) => (
       record?.model_id === 0
-      && record?.t === 'model.submt'
+      && record?.t === 'model.submtconnection'
       && record?.v === modelId
     )),
     `Model ${modelId} must be mounted into Workspace hierarchy`,

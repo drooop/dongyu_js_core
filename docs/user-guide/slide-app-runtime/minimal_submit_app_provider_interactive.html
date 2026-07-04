@@ -183,8 +183,8 @@
           <thead><tr><th>安装器生成 label</th><th>位置</th><th>作用</th></tr></thead>
           <tbody>
             <tr><td><code>deletable</code>, <code>installed_at</code>, <code>imported_bundle_model_ids</code>, <code>import_root_temp_id</code></td><td>App table root model <code>0</code></td><td>标记可删除实例并记录安装来源。</td></tr>
-            <tr><td><code>host_ingress_generated_model0_labels</code>, <code>host_ingress_generated_mount</code>, <code>host_ingress_generated_root_labels</code></td><td>App table root model <code>0</code></td><td>记录入口桥接 labels；<code>host_ingress_generated_mount</code> 是 legacy/current key 名，实际语义是 parent-side <code>model.subtableconnection</code> connection/index Cell；生成 key 常以 <code>imported_host_submit_</code> 开头。</td></tr>
-            <tr><td><code>host_egress_generated_model0_labels</code>, <code>host_egress_generated_mount</code></td><td>App table root model <code>0</code></td><td>记录出站桥接 labels；<code>host_egress_generated_mount</code> 是 legacy/current key 名，实际语义是 parent-side connection/index Cell 与 egress semantic；生成 key 常以 <code>imported_submit1_</code> 和 <code>bridge_imported_submit1_to_mt_bus_send_</code> 开头。</td></tr>
+            <tr><td><code>host_ingress_generated_model0_labels</code>, <code>host_ingress_generated_mount</code>, <code>host_ingress_generated_root_labels</code></td><td>App table root model <code>0</code></td><td>记录入口桥接 labels；<code>host_ingress_generated_mount</code> 指向 parent-side <code>model.subtableconnection</code> connection/index Cell；生成 key 常以 <code>imported_host_submit_</code> 开头。</td></tr>
+            <tr><td><code>host_egress_generated_model0_labels</code>, <code>host_egress_generated_mount</code></td><td>App table root model <code>0</code></td><td>记录出站桥接 labels；<code>host_egress_generated_mount</code> 指向 parent-side connection/index Cell 与 egress semantic；生成 key 常以 <code>imported_submit1_</code> 和 <code>bridge_imported_submit1_to_mt_bus_send_</code> 开头。</td></tr>
             <tr><td><code>ui_egress_submit1_binding</code></td><td>App table root model <code>0</code></td><td>类型为 <code>ui.egress.binding.v1</code>，说明 <code>submit1</code> 已接入 host bus egress。</td></tr>
           </tbody>
         </table>
@@ -246,7 +246,7 @@
     <section id="export" class="section">
       <div class="card full">
         <h2>Zip 导出</h2>
-	        <p>0425 App instance table 的导出接口：<code>/api/slide-apps/export.zip?table_id=&lt;encoded-table-id&gt;&amp;model_id=0</code>。旧的 <code>/api/slide-apps/&lt;modelId&gt;/export.zip</code> 只适用于 host table 内的内置或旧形态 App。导出的 Zip 只包含 provider-authored <code>app_payload.json</code>，不包含安装态 labels，也不会带出 <code>bus_event*</code>、<code>owner_request</code>、<code>owner_route</code>、<code>__owner_last_*</code> 这类运行态 labels。</p>
+	        <p>正式导出接口统一使用 <code>/api/slide-apps/export.zip?table_id=&lt;encoded-table-id&gt;&amp;model_id=&lt;model-id&gt;</code>。App instance table 通常使用 <code>/api/slide-apps/export.zip?table_id=&lt;encoded-table-id&gt;&amp;model_id=0</code>；host table 内的 App 也必须显式使用 <code>table_id=host</code>。旧的 <code>/api/slide-apps/&lt;modelId&gt;/export.zip</code> 已废弃，当前实现会拒绝该路径。导出的 Zip 只包含 provider-authored <code>app_payload.json</code>，不包含安装态 labels，也不会带出 <code>bus_event*</code>、<code>owner_request</code>、<code>owner_route</code>、<code>__owner_last_*</code> 这类运行态 labels。</p>
         <div class="warning">
 	          <strong>禁止残留：</strong>不要在 ZIP 中提供 <code>route.reply_to</code>、<code>source_model_id</code>、旧 <code>worker/R1/model/3000/pin/submit1</code> topic、<code>pin.connect.model</code> 或 raw resultPayload；运行时目标必须使用 table-qualified <code>origin_*</code> / <code>reply_target_*</code> records。
         </div>

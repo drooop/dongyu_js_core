@@ -73,16 +73,25 @@ function workspacePinPayload(kind, labels = []) {
   ];
 }
 
-function wsSelectPayload(modelId) {
-  return workspacePinPayload('ws_select_app.v1', [
-    { k: 'model_id', t: 'int', v: modelId },
-  ]);
+function wsSelectPayload(modelRef) {
+  const ref = typeof modelRef === 'number' ? { table_id: 'host', model_id: modelRef } : modelRef;
+  const labels = [
+    { k: 'model_id', t: 'int', v: ref.model_id },
+  ];
+  if (typeof ref.table_id === 'string' && ref.table_id) {
+    labels.push({ k: 'table_id', t: 'str', v: ref.table_id });
+  }
+  return workspacePinPayload('ws_select_app.v1', labels);
 }
 
-function wsDeletePayload(modelId) {
-  return workspacePinPayload('ws_delete_app.v1', [
-    { k: 'model_id', t: 'int', v: modelId },
-  ]);
+function wsDeletePayload(modelRef) {
+  const labels = [
+    { k: 'model_id', t: 'int', v: modelRef.model_id },
+  ];
+  if (typeof modelRef.table_id === 'string' && modelRef.table_id) {
+    labels.push({ k: 'table_id', t: 'str', v: modelRef.table_id });
+  }
+  return workspacePinPayload('ws_delete_app.v1', labels);
 }
 
 function slideImportClickBusEvent() {
@@ -112,8 +121,8 @@ function buildImportZipBuffer() {
     { id: 0, p: 0, r: 0, c: 0, k: 'to_user', t: 'str', v: '@drop:localhost' },
     { id: 0, p: 0, r: 0, c: 0, k: 'ui_authoring_version', t: 'str', v: 'cellwise.ui.v1' },
     { id: 0, p: 0, r: 0, c: 0, k: 'ui_root_node_id', t: 'str', v: 'zip_root' },
-    { id: 1, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.SlideZipImportedTruth' },
-    { id: 0, p: 0, r: 2, c: 0, k: 'model_type', t: 'model.submt', v: 1 },
+    { id: 1, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.submt', v: 'UI.SlideZipImportedTruth' },
+    { id: 0, p: 0, r: 2, c: 0, k: 'model_type', t: 'model.submtconnection', v: { model_id: 1, mount_kind: 'truth' } },
     { id: 0, p: 2, r: 0, c: 0, k: 'ui_node_id', t: 'str', v: 'zip_root' },
     { id: 0, p: 2, r: 0, c: 0, k: 'ui_component', t: 'str', v: 'Container' },
     { id: 0, p: 2, r: 1, c: 0, k: 'ui_node_id', t: 'str', v: 'zip_title' },
@@ -153,11 +162,15 @@ async function withServerState(fn) {
 async function test_builtin_and_imported_apps_share_workspace_contract() {
   return withServerState(async (state) => {
     const beforeRegistry = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
-    const model100Entry = beforeRegistry.find((entry) => entry && entry.model_id === 100);
-    assert.ok(model100Entry, 'model100_must_exist_in_registry');
-    assert.equal(model100Entry.slide_capable, true, 'model100_must_be_slide_capable');
-    assert.equal(typeof model100Entry.slide_surface_type, 'string', 'model100_must_expose_slide_surface_type');
-    assert.equal(model100Entry.delete_disabled, true, 'built_in_slide_apps_must_not_be_deletable');
+    const hostModel100Entry = beforeRegistry.find((entry) => entry && entry.table_id === 'host' && entry.model_id === 100);
+    assert.equal(hostModel100Entry, undefined, 'model100_must_not_remain_host_workspace_entry');
+    const colorEntry = beforeRegistry.find((entry) => entry && entry.name === 'E2E 颜色生成器');
+    assert.ok(colorEntry, 'color_generator_must_exist_in_registry');
+    assert.notEqual(colorEntry.table_id, 'host', 'color_generator_must_be_subtable_workspace_entry');
+    assert.equal(colorEntry.model_id, 0, 'color_generator_subtable_root_must_use_model0');
+    assert.equal(colorEntry.slide_capable, true, 'color_generator_must_be_slide_capable');
+    assert.equal(typeof colorEntry.slide_surface_type, 'string', 'color_generator_must_expose_slide_surface_type');
+    assert.equal(colorEntry.delete_disabled, false, 'color_generator_subtable_entry_must_be_deletable');
 
     state.cacheUploadedMediaForTest('mxc://localhost/test-slide-import', {
       buffer: buildImportZipBuffer(),
@@ -176,6 +189,8 @@ async function test_builtin_and_imported_apps_share_workspace_contract() {
     const afterImportRegistry = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
     const importedEntry = afterImportRegistry.find((entry) => entry && entry.name === 'Imported Zip App');
     assert.ok(importedEntry, 'imported_zip_app_must_appear_in_registry');
+    assert.equal(typeof importedEntry.table_id, 'string', 'imported_zip_app_must_publish_table_id');
+    assert.equal(importedEntry.model_id, 0, 'imported_zip_app_must_keep_package_root_model_id');
     assert.equal(importedEntry.slide_capable, true, 'imported_zip_app_must_be_slide_capable');
     assert.equal(importedEntry.slide_surface_type, 'workspace.page', 'imported_zip_app_must_publish_surface_type');
     assert.equal(importedEntry.delete_disabled, false, 'imported_zip_app_must_be_deletable');
@@ -185,38 +200,41 @@ async function test_builtin_and_imported_apps_share_workspace_contract() {
     const selectImported = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 0 },
       'click',
-      wsSelectPayload(importedEntry.model_id),
+      wsSelectPayload(importedEntry),
     ));
     assert.equal(selectImported.result, 'ok', 'ws_app_select_imported_pin_must_succeed');
     await wait();
-    assert.equal(
-      state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_app_selected?.v,
-      importedEntry.model_id,
+    assert.deepEqual(
+      state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_app_selected_ref?.v,
+      { table_id: importedEntry.table_id, model_id: importedEntry.model_id },
       'workspace_selection_must_accept_imported_app',
     );
 
-    const selectBuiltin = await state.submitEnvelope(pinEnvelope(
+    const selectColorSubtable = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 0 },
       'click',
-      wsSelectPayload(100),
+      wsSelectPayload(colorEntry),
     ));
-    assert.equal(selectBuiltin.result, 'ok', 'ws_app_select_builtin_pin_must_succeed');
+    assert.equal(selectColorSubtable.result, 'ok', 'ws_app_select_color_subtable_pin_must_succeed');
     await wait();
-    assert.equal(
-      state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_app_selected?.v,
-      100,
-      'workspace_selection_must_accept_builtin_slide_app',
+    assert.deepEqual(
+      state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_app_selected_ref?.v,
+      { table_id: colorEntry.table_id, model_id: colorEntry.model_id },
+      'workspace_selection_must_accept_color_subtable_slide_app',
     );
 
     const deleteImported = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 1 },
       'click',
-      wsDeletePayload(importedEntry.model_id),
+      wsDeletePayload({ table_id: importedEntry.table_id, model_id: importedEntry.model_id }),
     ));
     assert.equal(deleteImported.result, 'ok', 'delete_imported_slide_app_pin_must_succeed');
     await wait();
     const afterDeleteRegistry = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
-    assert.ok(!afterDeleteRegistry.some((entry) => entry && entry.model_id === importedEntry.model_id), 'deleted_imported_app_must_leave_registry');
+    assert.ok(
+      !afterDeleteRegistry.some((entry) => entry && entry.table_id === importedEntry.table_id && entry.model_id === importedEntry.model_id),
+      'deleted_imported_app_must_leave_registry',
+    );
 
     return { key: 'builtin_and_imported_apps_share_workspace_contract', status: 'PASS' };
   });

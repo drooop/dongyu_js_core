@@ -17,7 +17,10 @@ const STRUCTURAL_LABEL_TYPES = new Set([
   'model.single',
   'model.matrix',
   'model.table',
-  'submt',
+  'model.subtable',
+  'model.subtableconnection',
+  'model.submt',
+  'model.submtconnection',
 ]);
 const DEFAULT_PROTECTED_LABEL_KEYS = [
   'ui_event',
@@ -126,19 +129,70 @@ function normalizeTypedValue(typeName, rawValue) {
       return { ok: false, code: 'invalid_pin_value' };
     }
   }
-  if (typeName === 'model.single' || typeName === 'model.matrix' || typeName === 'model.table') {
+  if (
+    typeName === 'model.single'
+    || typeName === 'model.matrix'
+    || typeName === 'model.table'
+    || typeName === 'model.subtable'
+    || typeName === 'model.submt'
+  ) {
     if (typeof rawValue !== 'string' || !rawValue.trim()) {
       return { ok: false, code: 'invalid_model_form_value' };
     }
     return { ok: true, value: rawValue.trim() };
   }
-  if (typeName === 'submt') {
-    try {
-      JSON.stringify(rawValue);
-      return { ok: true, value: rawValue };
-    } catch (_) {
-      return { ok: false, code: 'invalid_submt_value' };
+  if (typeName === 'model.submtconnection') {
+    if (Number.isSafeInteger(rawValue) && rawValue !== 0) return { ok: true, value: rawValue };
+    if (!rawValue || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
+      return { ok: false, code: 'invalid_submtconnection_value' };
     }
+    const allowedKeys = new Set(['model_id', 'mount_kind']);
+    if (!Object.keys(rawValue).every((key) => allowedKeys.has(key))) {
+      return { ok: false, code: 'invalid_submtconnection_value' };
+    }
+    if (!Number.isSafeInteger(rawValue.model_id) || rawValue.model_id === 0) {
+      return { ok: false, code: 'invalid_submtconnection_value' };
+    }
+    if (rawValue.mount_kind !== undefined && rawValue.mount_kind !== null && (typeof rawValue.mount_kind !== 'string' || !rawValue.mount_kind.trim())) {
+      return { ok: false, code: 'invalid_submtconnection_value' };
+    }
+    return {
+      ok: true,
+      value: {
+        model_id: rawValue.model_id,
+        ...(typeof rawValue.mount_kind === 'string' ? { mount_kind: rawValue.mount_kind.trim() } : {}),
+      },
+    };
+  }
+  if (typeName === 'model.subtableconnection') {
+    if (!rawValue || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
+      return { ok: false, code: 'invalid_subtableconnection_value' };
+    }
+    const allowedKeys = new Set(['table_id', 'root_model_id', 'mount_kind', 'owner_principal_id']);
+    if (!Object.keys(rawValue).every((key) => allowedKeys.has(key))) {
+      return { ok: false, code: 'invalid_subtableconnection_value' };
+    }
+    if (typeof rawValue.table_id !== 'string' || !rawValue.table_id.trim() || rawValue.table_id.trim() === 'host') {
+      return { ok: false, code: 'invalid_subtableconnection_value' };
+    }
+    if (!Number.isSafeInteger(rawValue.root_model_id) || rawValue.root_model_id < 0) {
+      return { ok: false, code: 'invalid_subtableconnection_value' };
+    }
+    if (typeof rawValue.mount_kind !== 'string' || !rawValue.mount_kind.trim()) {
+      return { ok: false, code: 'invalid_subtableconnection_value' };
+    }
+    if (rawValue.owner_principal_id !== undefined && rawValue.owner_principal_id !== null && typeof rawValue.owner_principal_id !== 'string') {
+      return { ok: false, code: 'invalid_subtableconnection_value' };
+    }
+    return {
+      ok: true,
+      value: {
+        table_id: rawValue.table_id.trim(),
+        root_model_id: rawValue.root_model_id,
+        mount_kind: rawValue.mount_kind.trim(),
+        ...(typeof rawValue.owner_principal_id === 'string' && rawValue.owner_principal_id.trim() ? { owner_principal_id: rawValue.owner_principal_id.trim() } : {}),
+      },
+    };
   }
   if (typeName === 'str') {
     return { ok: true, value: String(rawValue ?? '') };

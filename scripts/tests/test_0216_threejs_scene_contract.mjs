@@ -176,7 +176,7 @@ function test_three_scene_authoritative_patches_and_workspace_mount_are_frozen()
     findRecord(positiveRecords, (record) => (
       record?.model_id === modelIds.THREE_SCENE_APP_MODEL_ID
       && record?.k === 'model_type'
-      && record?.t === 'model.submt'
+      && record?.t === 'model.submtconnection'
       && record?.v === modelIds.THREE_SCENE_CHILD_MODEL_ID
     )),
     'three_scene_app_must_mount_child_via_model_submt',
@@ -184,7 +184,7 @@ function test_three_scene_authoritative_patches_and_workspace_mount_are_frozen()
   assert.ok(
     findRecord(hierarchyRecords, (record) => (
       record?.model_id === 0
-      && record?.t === 'model.submt'
+      && record?.t === 'model.submtconnection'
       && record?.v === modelIds.THREE_SCENE_APP_MODEL_ID
     )),
     'runtime_hierarchy_must_mount_three_scene_app',
@@ -192,7 +192,7 @@ function test_three_scene_authoritative_patches_and_workspace_mount_are_frozen()
   assert.equal(
     Boolean(findRecord(hierarchyRecords, (record) => (
       record?.model_id === 0
-      && record?.t === 'model.submt'
+      && record?.t === 'model.submtconnection'
       && record?.v === modelIds.THREE_SCENE_CHILD_MODEL_ID
     ))),
     false,

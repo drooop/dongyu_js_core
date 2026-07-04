@@ -46,8 +46,8 @@ assert.equal(submitLabelRecord?.v, 'Generate Color', 'submit_button ui_label mus
 const props = submitPropsRecord.v || {};
 assert.deepEqual(
   props.loading,
-  { $label: { model_id: 100, p: 0, r: 0, c: 0, k: 'submit_inflight' } },
-  'button loading must still reflect submit_inflight business state',
+  { $label: { p: 0, r: 0, c: 0, k: 'submit_inflight' } },
+  'button loading must resolve submit_inflight against the current model/table',
 );
 
 assert.ok(props.singleFlight && typeof props.singleFlight === 'object', 'submit button must define singleFlight');

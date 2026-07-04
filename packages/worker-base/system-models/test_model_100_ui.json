@@ -1631,7 +1631,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.submt",
+      "t": "model.submtconnection",
       "v": 100
     },
     {

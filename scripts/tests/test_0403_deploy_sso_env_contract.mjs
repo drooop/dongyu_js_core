@@ -14,11 +14,14 @@ function read(relPath) {
 
 const requiredSecretKeys = [
   'DY_AUTH',
+  'DY_DEV_FAKE_LOGIN',
   'DY_OIDC_ISSUER',
   'DY_OIDC_CLIENT_ID',
   'DY_OIDC_CLIENT_SECRET',
   'DY_OIDC_REDIRECT_URI',
   'DY_OIDC_SCOPE',
+  'DY_OIDC_PROXY_URL',
+  'DY_OIDC_FETCH_TIMEOUT_MS',
   'DY_OIDC_STATE_SECRET',
   'DY_SESSION_SECRET',
   'DY_AUTH_SECRET',

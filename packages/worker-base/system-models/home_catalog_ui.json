@@ -16,7 +16,7 @@
       "r": 0,
       "c": 0,
       "k": "model_type",
-      "t": "model.single",
+      "t": "model.submt",
       "v": "UI.HomeCatalog"
     },
     {
@@ -3381,6 +3381,18 @@
         {
           "label": "model.submt",
           "value": "model.submt"
+        },
+        {
+          "label": "model.submtconnection",
+          "value": "model.submtconnection"
+        },
+        {
+          "label": "model.subtable",
+          "value": "model.subtable"
+        },
+        {
+          "label": "model.subtableconnection",
+          "value": "model.subtableconnection"
         }
       ]
     },

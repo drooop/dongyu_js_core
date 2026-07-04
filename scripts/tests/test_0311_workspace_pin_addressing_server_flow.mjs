@@ -68,14 +68,20 @@ function wsAddPayload() {
 }
 
 function wsSelectPayload(modelId) {
+  const target = modelId && typeof modelId === 'object' ? modelId : { model_id: modelId };
+  const tableId = typeof target.table_id === 'string' && target.table_id.trim() ? target.table_id.trim() : null;
   return workspacePinPayload('ws_select_app.v1', [
-    { k: 'model_id', t: 'int', v: modelId },
+    { k: 'model_id', t: 'int', v: target.model_id },
+    ...(tableId ? [{ k: 'table_id', t: 'str', v: tableId }] : []),
   ]);
 }
 
-function wsDeletePayload(modelId) {
+function wsDeletePayload(target) {
+  const modelId = target && typeof target === 'object' ? target.model_id : target;
+  const tableId = target && typeof target === 'object' && typeof target.table_id === 'string' ? target.table_id : null;
   return workspacePinPayload('ws_delete_app.v1', [
     { k: 'model_id', t: 'int', v: modelId },
+    ...(tableId ? [{ k: 'table_id', t: 'str', v: tableId }] : []),
   ]);
 }
 
@@ -112,8 +118,8 @@ function buildImportZipBuffer() {
     { id: 0, p: 0, r: 0, c: 0, k: 'to_user', t: 'str', v: '@drop:localhost' },
     { id: 0, p: 0, r: 0, c: 0, k: 'ui_authoring_version', t: 'str', v: 'cellwise.ui.v1' },
     { id: 0, p: 0, r: 0, c: 0, k: 'ui_root_node_id', t: 'str', v: 'zip_root' },
-    { id: 1, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'UI.SlideZipImportedTruth' },
-    { id: 0, p: 0, r: 2, c: 0, k: 'model_type', t: 'model.submt', v: 1 },
+    { id: 1, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.submt', v: 'UI.SlideZipImportedTruth' },
+    { id: 0, p: 0, r: 2, c: 0, k: 'model_type', t: 'model.submtconnection', v: { model_id: 1, mount_kind: 'truth' } },
     { id: 1, p: 0, r: 0, c: 0, k: 'headline', t: 'str', v: '0311 imported headline' },
   ];
   const zip = new AdmZip();
@@ -194,11 +200,16 @@ async function test_workspace_pin_addressing_handles_add_import_create_select_de
     const registryAfterImport = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
     const importedEntry = registryAfterImport.find((entry) => entry && entry.name === '0311 Pin Imported App');
     assert.ok(importedEntry, 'slide_app_import_bus_event_must_materialize_imported_entry');
+    assert.deepEqual(
+      state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_app_selected_ref?.v,
+      { table_id: importedEntry.table_id, model_id: importedEntry.model_id },
+      'slide_app_import_bus_event_must_select_imported_app_with_table_qualified_ref',
+    );
 
     const selectResult = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 0 },
       'click',
-      wsSelectPayload(importedEntry.model_id),
+      wsSelectPayload({ table_id: importedEntry.table_id, model_id: importedEntry.model_id }),
     ));
     assert.equal(selectResult.result, 'ok', 'ws_select_pin_must_be_accepted');
     await wait();
@@ -207,17 +218,29 @@ async function test_workspace_pin_addressing_handles_add_import_create_select_de
       importedEntry.model_id,
       'ws_select_pin_must_update_selection',
     );
+    assert.deepEqual(
+      state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_app_selected_ref?.v,
+      { table_id: importedEntry.table_id, model_id: importedEntry.model_id },
+      'ws_select_pin_must_update_table_qualified_selection',
+    );
 
     const deleteResult = await state.submitEnvelope(pinEnvelope(
       { model_id: -25, p: 2, r: 7, c: 1 },
       'click',
-      wsDeletePayload(importedEntry.model_id),
+      wsDeletePayload({ table_id: importedEntry.table_id, model_id: importedEntry.model_id }),
     ));
     assert.equal(deleteResult.result, 'ok', 'ws_delete_pin_must_be_accepted');
     await wait();
 
     const registryAfterDelete = state.clientSnap().models['-2']?.cells?.['0,0,0']?.labels?.ws_apps_registry?.v || [];
-    assert.ok(!registryAfterDelete.some((entry) => entry && entry.model_id === importedEntry.model_id), 'ws_delete_pin_must_remove_imported_entry');
+    assert.ok(
+      !registryAfterDelete.some((entry) => (
+        entry
+        && entry.table_id === importedEntry.table_id
+        && entry.model_id === importedEntry.model_id
+      )),
+      'ws_delete_pin_must_remove_imported_entry',
+    );
 
     const events = runtime.eventLog.list();
     assert.ok(
