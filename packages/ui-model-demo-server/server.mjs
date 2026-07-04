@@ -6099,6 +6099,59 @@ function buildScopedVisibleClientSnapshotForRuntime(entry, profileOptions = {}) 
   return { ok: true, snapshot };
 }
 
+function buildScopedBootstrapClientSnapshotForRuntime(entry, profileOptions = {}) {
+  const profile = profileOptions && typeof profileOptions.profile === 'string'
+    ? profileOptions.profile
+    : 'bootstrap';
+  if (profile !== 'bootstrap') {
+    return runtimeVisibleRefFailure(400, 'unsupported_snapshot_profile');
+  }
+  const runtimeState = entry && entry.state ? entry.state : null;
+  const runtime = runtimeState && runtimeState.runtime ? runtimeState.runtime : null;
+  if (!runtime || typeof runtime.getModel !== 'function') {
+    return runtimeVisibleRefFailure(503, 'runtime_unavailable');
+  }
+  const principal = entry && entry.principal ? entry.principal : null;
+  const models = {};
+  const tables = {};
+  for (const modelId of [...bootstrapAllowedModelIds()].sort((a, b) => a - b)) {
+    const model = runtime.getModel(modelId);
+    if (!model) continue;
+    const clientModel = buildClientRuntimeModelForPrincipal(model, principal);
+    const cloned = cloneClientSnapshotModel(clientModel, modelId);
+    if (cloned) models[String(modelId)] = cloned;
+  }
+  const visibleModelRefs = normalizeVisibleModelRefsFromOptions(profileOptions);
+  for (const ref of visibleModelRefs) {
+    if (ref.table_id !== 'host' && !principalCanAccessRuntimeTable(runtime, principal, ref.table_id)) {
+      return runtimeVisibleRefFailure(403, 'model_not_visible');
+    }
+    if (ref.table_id === 'host') {
+      const requiredCapability = requiredCapabilityForClientModel(String(ref.model_id));
+      if (requiredCapability === 'never') return runtimeVisibleRefFailure(403, 'model_not_allowed');
+      if (requiredCapability && !principalHasCapability(principal, requiredCapability)) {
+        return runtimeVisibleRefFailure(403, 'permission_denied', { requiredCapability });
+      }
+    }
+    const model = runtime.getModel(ref);
+    if (!model) return runtimeVisibleRefFailure(404, 'model_not_found');
+    const clientModel = buildClientRuntimeModelForPrincipal(model, principal);
+    if (!clientModel) return runtimeVisibleRefFailure(403, 'model_not_visible');
+    if (ref.table_id === 'host') {
+      models[String(ref.model_id)] = clientModel;
+    } else {
+      if (!tables[ref.table_id]) tables[ref.table_id] = { table_id: ref.table_id, models: {} };
+      tables[ref.table_id].models[String(ref.model_id)] = clientModel;
+    }
+  }
+  const snapshot = {
+    models,
+    v1nConfig: sanitizeClientSnapshotV1nConfig(runtime.v1nConfig),
+  };
+  if (Object.keys(tables).length > 0) snapshot.tables = tables;
+  return { ok: true, snapshot };
+}
+
 function readSnapshotRootLabels(snapshot, modelId) {
   return snapshot?.models?.[String(modelId)]?.cells?.['0,0,0']?.labels || {};
 }
@@ -13707,6 +13760,15 @@ function startServer(options) {
       const direct = buildScopedVisibleClientSnapshotForRuntime(entry, profileOptions);
       if (!direct.ok) {
         const err = new Error(direct.error || 'visible_snapshot_build_failed');
+        err.snapshotProfileError = direct;
+        throw err;
+      }
+      return direct.snapshot;
+    }
+    if (!profileOptions || profileOptions.profile === 'bootstrap' || !profileOptions.profile) {
+      const direct = buildScopedBootstrapClientSnapshotForRuntime(entry, { ...profileOptions, profile: 'bootstrap' });
+      if (!direct.ok) {
+        const err = new Error(direct.error || 'bootstrap_snapshot_build_failed');
         err.snapshotProfileError = direct;
         throw err;
       }
