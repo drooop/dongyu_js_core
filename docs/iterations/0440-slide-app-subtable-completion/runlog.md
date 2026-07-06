@@ -68,9 +68,15 @@ Review Gate Record
 ### Step 1 — Inventory And RED Contract
 
 - Command:
+  - `node scripts/tests/test_0440_slide_app_subtable_completion_contract.mjs`
 - Key output:
-- Result: PENDING
-- Commit:
+  - `workspace_allowlist_must_not_expose_host_source_model_1007`
+  - `source_100_must_have_exactly_one_app_table_entry`
+  - `source_1007_must_have_exactly_one_app_table_entry`
+  - `developer_guide_must_document:\`source_worker\` / \`source_de\` / \`from_user\` / \`to_user\``
+  - `0 passed, 5 failed out of 5`
+- Result: PASS (expected RED failure proving 0440 scope is not complete on the current baseline)
+- Commit: pending
 
 ### Step 2 — Generalize Seeded App Table Migration
 
