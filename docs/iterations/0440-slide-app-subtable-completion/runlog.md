@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0440 Slide App Subtable Completion Runlog"
 doc_type: iteration-runlog
-status: planned
+status: completed
 updated: 2026-07-06
 source: ai
 iteration_id: 0440-slide-app-subtable-completion
 id: 0440-slide-app-subtable-completion
-phase: phase1
+phase: phase6
 ---
 
 # Iteration 0440-slide-app-subtable-completion Runlog
@@ -76,7 +76,7 @@ Review Gate Record
   - `developer_guide_must_document:\`source_worker\` / \`source_de\` / \`from_user\` / \`to_user\``
   - `0 passed, 5 failed out of 5`
 - Result: PASS (expected RED failure proving 0440 scope is not complete on the current baseline)
-- Commit: pending
+- Commit: `4538018`
 
 ### Step 2 — Generalize Seeded App Table Migration
 
@@ -89,7 +89,7 @@ Review Gate Record
   - `10 passed, 0 failed out of 10`
   - `PASS test_0412_todo_provider_app1_contract`
 - Result: PASS
-- Commit: pending
+- Commit: `082cb10`
 
 ### Step 3 — Snapshot Closure And Permission Isolation
 
@@ -106,7 +106,7 @@ Review Gate Record
   - `PASS 8/8`
   - `5 passed, 0 failed out of 5`
 - Result: PASS
-- Commit: pending
+- Commit: `082cb10`
 
 ### Step 4 — Frontend Projection And App Identity
 
@@ -127,7 +127,7 @@ Review Gate Record
   - `vite build ... built`
   - `editor_*: PASS`
 - Result: PASS
-- Commit: pending
+- Commit: `082cb10`
 
 ### Step 5 — Developer Documentation
 
@@ -140,25 +140,49 @@ Review Gate Record
   - `6 passed, 0 failed out of 6`
   - `5 passed, 0 failed out of 5`
 - Result: PASS
-- Commit: pending
+- Commit: `082cb10`
 
 ### Step 6 — Local Deploy And Browser Verification
 
 - Command:
+  - `SKIP_MATRIX_BOOTSTRAP=1 bash scripts/ops/deploy_local.sh`
+  - `kubectl get deploy,pods --all-namespaces`
+  - `curl -sS --max-time 10 'http://127.0.0.1:9107/snapshot?profile=bootstrap' | node -e '...'`
+  - Playwright browser verification at `http://127.0.0.1:9107/` with `DY_AUTH=0` local fake login
 - Key output:
-- Result: PENDING
-- Commit:
+  - Local deploy built and rolled out `remote-worker`, `workspace-manager`, `mbr-worker`, and `ui-server`; the deploy script's final old-pod termination check initially saw terminating pods, then `kubectl get deploy,pods --all-namespaces` showed all four core `dongyu` deployments at `1/1` and new pods `Running`.
+  - K8s `http://127.0.0.1:30900/auth/status` returns `login_required` for an unauthenticated request, so user-flow browser verification used the local fake-login server rather than treating an unauthenticated K8s page as a valid app check.
+  - Local fake-login bootstrap: `runtime=ready`, `registryCount=14`.
+  - Bootstrap registry contained 12 migrated App table roots plus two host built-ins:
+    - `滑动 APP 导入` source `1030`
+    - `E2E 颜色生成器` source `100`
+    - `Matrix Chat` source `1083`
+    - `Matrix Suite` source `1080`
+    - `Mgmt Bus Console` source `1036`
+    - `ModelTable` source `1082`
+    - `Settings` source `1081`
+    - `工作区管理器` source `1051`
+    - `Static` source `1011`
+    - `最小 Submit 双总线示例` source `1050`
+    - `Three Scene` source `1007`
+    - `To Do Board` source `1086`
+    - host built-ins: `Gallery`, `Docs`
+  - Playwright result: `missing=[]`, `expectedCount=12`, `appCardCount=14`.
+  - Playwright opened `Settings`, `Matrix Chat`, `工作区管理器`, `最小 Submit 双总线示例`, and `To Do Board`; every one showed `Workspace app · model 0`.
+- Result: PASS
+- Commit: pending completion docs commit
 
 ## Docs Updated
 
 - [x] `docs/iterations/0440-slide-app-subtable-completion/plan.md`
 - [x] `docs/iterations/0440-slide-app-subtable-completion/resolution.md`
+- [x] `docs/user-guide/modeltable_user_guide.md`
 - [x] `docs/user-guide/slide-app-runtime/slide_app_runtime_developer_guide.md`
-- [ ] `docs/ITERATIONS.md`
+- [x] `docs/ITERATIONS.md`
 
 ## Living Docs Review
 
 - [x] `docs/ssot/runtime_semantics_modeltable_driven.md` considered through existing `model.subtable` / `model.subtableconnection` contract; no Phase 1 SSOT edit needed.
 - [x] `docs/ssot/principal_scoped_subtable_namespace_v1.md` considered for table-qualified App instance isolation.
-- [ ] `docs/user-guide/modeltable_user_guide.md` review after implementation.
-- [ ] `docs/ssot/execution_governance_ultrawork_doit.md` review after implementation.
+- [x] `docs/user-guide/modeltable_user_guide.md` updated so it no longer describes migrated positive source host models as user-facing Workspace entries.
+- [x] `docs/ssot/execution_governance_ultrawork_doit.md` reviewed; completion is backed by PASS evidence in this runlog.

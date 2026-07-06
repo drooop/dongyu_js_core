@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0440 Slide App Subtable Completion Resolution"
 doc_type: iteration-resolution
-status: planned
+status: completed
 updated: 2026-07-06
 source: ai
 iteration_id: 0440-slide-app-subtable-completion
 id: 0440-slide-app-subtable-completion
-phase: phase1
+phase: phase6
 ---
 
 # Iteration 0440-slide-app-subtable-completion Resolution
@@ -147,4 +147,5 @@ Use one generalized migration path instead of per-App hand patches:
 
 ## Notes
 
-- Generated at: 2026-07-06
+- Completed at: 2026-07-06
+- Completion evidence: `docs/iterations/0440-slide-app-subtable-completion/runlog.md`
