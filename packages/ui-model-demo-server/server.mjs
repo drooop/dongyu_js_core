@@ -271,6 +271,9 @@ function deriveWorkspaceRegistryFromSnapshot({ snapshot, getParentInfo } = {}) {
     const toUser = rootLabels.to_user && typeof rootLabels.to_user.v === 'string'
       ? rootLabels.to_user.v
       : '';
+    const sourceHostModelId = rootLabels.slid_in_source_host_model_id && Number.isInteger(rootLabels.slid_in_source_host_model_id.v)
+      ? rootLabels.slid_in_source_host_model_id.v
+      : null;
     addOrReplace({
       table_id: normalizedTableId,
       model_id: modelId,
@@ -286,6 +289,7 @@ function deriveWorkspaceRegistryFromSnapshot({ snapshot, getParentInfo } = {}) {
       installed_at: installedAt,
       from_user: fromUser,
       to_user: toUser,
+      ...(Number.isInteger(sourceHostModelId) ? { source_host_model_id: sourceHostModelId } : {}),
       export_url: slideCapable ? slideAppExportUrlForRef(normalizedTableId, modelId) : '',
       export_label: slideCapable ? 'Zip' : '',
     });
@@ -3954,6 +3958,61 @@ const SEEDED_SLID_IN_APP_SUBTABLE_MIGRATIONS = Object.freeze([
     sourceLabel: 'E2E 颜色生成器',
   },
   {
+    sourceHostModelId: 1007,
+    sourceLabel: 'Three Scene',
+  },
+  {
+    sourceHostModelId: 1011,
+    sourceLabel: 'Static',
+  },
+  {
+    sourceHostModelId: 1030,
+    sourceLabel: '滑动 APP 导入',
+  },
+  {
+    sourceHostModelId: 1036,
+    sourceLabel: 'Mgmt Bus Console',
+    metadataDefaults: {
+      sourceDe: 'UI Server',
+    },
+  },
+  {
+    sourceHostModelId: 1050,
+    sourceLabel: '最小 Submit 双总线示例',
+  },
+  {
+    sourceHostModelId: 1051,
+    sourceLabel: '工作区管理器',
+  },
+  {
+    sourceHostModelId: 1080,
+    sourceLabel: 'Matrix Suite',
+    metadataDefaults: {
+      sourceDe: 'UI Server',
+    },
+  },
+  {
+    sourceHostModelId: 1081,
+    sourceLabel: 'Settings',
+    metadataDefaults: {
+      sourceDe: 'UI Server',
+    },
+  },
+  {
+    sourceHostModelId: 1082,
+    sourceLabel: 'ModelTable',
+    metadataDefaults: {
+      sourceDe: 'UI Server',
+    },
+  },
+  {
+    sourceHostModelId: 1083,
+    sourceLabel: 'Matrix Chat',
+    metadataDefaults: {
+      sourceDe: 'UI Server',
+    },
+  },
+  {
     sourceHostModelId: 1086,
     sourceLabel: 'To Do Board',
     metadataDefaults: {
@@ -3984,6 +4043,26 @@ function addRootPayloadRecordIfMissing(records, key, t, v) {
   return records.concat([{ id: 0, p: 0, r: 0, c: 0, k: key, t, v }]);
 }
 
+function upsertRootPayloadRecordIfBlank(records, key, t, v) {
+  if (!Array.isArray(records)) return records;
+  const index = records.findIndex((record) => record
+    && record.id === 0
+    && record.p === 0
+    && record.r === 0
+    && record.c === 0
+    && record.k === key);
+  if (index < 0) {
+    return records.concat([{ id: 0, p: 0, r: 0, c: 0, k: key, t, v }]);
+  }
+  const existing = records[index];
+  if (existing && existing.v !== null && existing.v !== undefined && String(existing.v).trim() !== '') {
+    return records;
+  }
+  return records.map((record, recordIndex) => (
+    recordIndex === index ? { ...record, t, v } : record
+  ));
+}
+
 function rewriteSeededLegacyBusInKey(value, legacyBusInKey, replacementBusInKey) {
   if (!legacyBusInKey || !replacementBusInKey) return value;
   if (Array.isArray(value)) {
@@ -4001,20 +4080,41 @@ function rewriteSeededLegacyBusInKey(value, legacyBusInKey, replacementBusInKey)
   return out;
 }
 
+function readHostRootString(runtime, modelId, key) {
+  if (!runtime || !Number.isInteger(modelId) || !key) return '';
+  const model = typeof runtime.getModel === 'function' ? runtime.getModel(modelId) : null;
+  if (!model || typeof runtime.getLabelValue !== 'function') return '';
+  const value = runtime.getLabelValue(model, 0, 0, 0, key);
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeSeededSourceDe(value) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text) return '';
+  if (text === 'ui-server') return 'UI Server';
+  return text;
+}
+
 function seededSlidInAppDefaultRootLabels(migration, runtime) {
   const defaults = migration.metadataDefaults && typeof migration.metadataDefaults === 'object'
     ? migration.metadataDefaults
     : {};
   const ownerPrincipalId = readRuntimePrincipalOwnerId(runtime);
+  const sourceHostModelId = Number.isInteger(migration?.sourceHostModelId) ? migration.sourceHostModelId : null;
   const fromUser = typeof defaults.fromUser === 'string' && defaults.fromUser.trim()
     ? defaults.fromUser.trim()
-    : '';
+    : (readHostRootString(runtime, sourceHostModelId, 'from_user') || 'ui-server');
   const toUser = defaults.toUser === 'owner_principal'
     ? ownerPrincipalId
-    : (typeof defaults.toUser === 'string' && defaults.toUser.trim() ? defaults.toUser.trim() : '');
+    : (typeof defaults.toUser === 'string' && defaults.toUser.trim()
+      ? defaults.toUser.trim()
+      : (readHostRootString(runtime, sourceHostModelId, 'to_user') || ownerPrincipalId));
   const sourceDe = typeof defaults.sourceDe === 'string' && defaults.sourceDe.trim()
     ? defaults.sourceDe.trim()
-    : '';
+    : normalizeSeededSourceDe(
+      readHostRootString(runtime, sourceHostModelId, 'source_de')
+        || readHostRootString(runtime, sourceHostModelId, 'source_worker'),
+    );
   return [
     fromUser ? { k: 'from_user', t: 'str', v: fromUser } : null,
     toUser ? { k: 'to_user', t: 'str', v: toUser } : null,
@@ -4026,7 +4126,7 @@ function normalizeSeededSlidInAppExportRecords(records, migration, runtime) {
   if (!Array.isArray(records) || !migration) return records;
   let out = records.map((record) => ({ ...record }));
   for (const label of seededSlidInAppDefaultRootLabels(migration, runtime)) {
-    out = addRootPayloadRecordIfMissing(out, label.k, label.t, label.v);
+    out = upsertRootPayloadRecordIfBlank(out, label.k, label.t, label.v);
   }
 
   const hostIngress = migration.hostIngress && typeof migration.hostIngress === 'object'
@@ -6194,9 +6294,25 @@ function buildScopedVisibleClientSnapshotForRuntime(entry, profileOptions = {}) 
   if (visibleModelRefs.length === 0) {
     return runtimeVisibleRefFailure(400, 'missing_model_id');
   }
+  const expandedVisibleModelRefs = [];
+  for (const ref of visibleModelRefs) {
+    if (ref.table_id !== 'host' && !principalCanAccessRuntimeTable(runtime, principal, ref.table_id)) {
+      return runtimeVisibleRefFailure(403, 'model_not_visible');
+    }
+    if (ref.table_id === 'host') {
+      const requiredCapability = requiredCapabilityForClientModel(String(ref.model_id));
+      if (requiredCapability === 'never') return runtimeVisibleRefFailure(403, 'model_not_allowed');
+      if (requiredCapability && !principalHasCapability(principal, requiredCapability)) {
+        return runtimeVisibleRefFailure(403, 'permission_denied', { requiredCapability });
+      }
+    }
+    if (!runtime.getModel(ref)) return runtimeVisibleRefFailure(404, 'model_not_found');
+    expandedVisibleModelRefs.push(...collectRuntimeVisibleModelRefClosure(runtime, ref));
+  }
+  const visibleRefsForSnapshot = expandRuntimeVisibleModelRefs(runtime, expandedVisibleModelRefs);
   const models = {};
   const tables = {};
-  for (const ref of visibleModelRefs) {
+  for (const ref of visibleRefsForSnapshot) {
     if (ref.table_id !== 'host' && !principalCanAccessRuntimeTable(runtime, principal, ref.table_id)) {
       return runtimeVisibleRefFailure(403, 'model_not_visible');
     }
@@ -6251,6 +6367,7 @@ function buildScopedBootstrapClientSnapshotForRuntime(entry, profileOptions = {}
     if (cloned) models[String(modelId)] = cloned;
   }
   const visibleModelRefs = normalizeVisibleModelRefsFromOptions(profileOptions);
+  const expandedVisibleModelRefs = [];
   for (const ref of visibleModelRefs) {
     if (ref.table_id !== 'host' && !principalCanAccessRuntimeTable(runtime, principal, ref.table_id)) {
       return runtimeVisibleRefFailure(403, 'model_not_visible');
@@ -6262,6 +6379,11 @@ function buildScopedBootstrapClientSnapshotForRuntime(entry, profileOptions = {}
         return runtimeVisibleRefFailure(403, 'permission_denied', { requiredCapability });
       }
     }
+    if (!runtime.getModel(ref)) return runtimeVisibleRefFailure(404, 'model_not_found');
+    expandedVisibleModelRefs.push(...collectRuntimeVisibleModelRefClosure(runtime, ref));
+  }
+  const visibleRefsForSnapshot = expandRuntimeVisibleModelRefs(runtime, expandedVisibleModelRefs);
+  for (const ref of visibleRefsForSnapshot) {
     const model = runtime.getModel(ref);
     if (!model) return runtimeVisibleRefFailure(404, 'model_not_found');
     const clientModel = buildClientRuntimeModelForPrincipal(model, principal);
@@ -6409,6 +6531,56 @@ function normalizeVisibleModelRefsFromOptions(options = {}) {
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(ref);
+  }
+  out.sort((a, b) => a.table_id.localeCompare(b.table_id) || a.model_id - b.model_id);
+  return out;
+}
+
+function modelSubmtConnectionTargetModelId(labelValue) {
+  if (Number.isInteger(labelValue)) return labelValue;
+  if (labelValue && typeof labelValue === 'object' && Number.isInteger(labelValue.model_id)) return labelValue.model_id;
+  return null;
+}
+
+function collectRuntimeVisibleModelRefClosure(runtime, ref) {
+  const normalized = normalizeVisibleModelRef(ref);
+  if (!runtime || !normalized) return [];
+  if (normalized.table_id === 'host') return [normalized];
+  const out = [];
+  const seen = new Set();
+  const visit = (modelId) => {
+    if (!Number.isInteger(modelId) || modelId < 0) return;
+    const key = `${normalized.table_id}|${modelId}`;
+    if (seen.has(key)) return;
+    const model = runtime.getModel({ table_id: normalized.table_id, model_id: modelId });
+    if (!model) return;
+    seen.add(key);
+    out.push({ table_id: normalized.table_id, model_id: modelId });
+    for (const cell of model.cells.values()) {
+      for (const label of cell.labels.values()) {
+        if (!label || label.t !== 'model.submtconnection') continue;
+        const childModelId = modelSubmtConnectionTargetModelId(label.v);
+        if (Number.isInteger(childModelId)) visit(childModelId);
+      }
+    }
+  };
+  visit(normalized.model_id);
+  return out;
+}
+
+function expandRuntimeVisibleModelRefs(runtime, visibleModelRefs) {
+  const out = [];
+  const seen = new Set();
+  for (const ref of visibleModelRefs) {
+    const closure = collectRuntimeVisibleModelRefClosure(runtime, ref);
+    for (const item of closure.length > 0 ? closure : [ref]) {
+      const normalized = normalizeVisibleModelRef(item);
+      if (!normalized) continue;
+      const key = `${normalized.table_id}|${normalized.model_id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(normalized);
+    }
   }
   out.sort((a, b) => a.table_id.localeCompare(b.table_id) || a.model_id - b.model_id);
   return out;

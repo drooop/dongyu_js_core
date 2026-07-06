@@ -252,14 +252,14 @@ function test_ready_http_host_visible_ref_uses_scoped_builder_not_full_snapshot(
       const address = server.address();
       const baseUrl = 'http://127.0.0.1:' + address.port;
       await readReadyBootstrap(baseUrl);
-      const ref = { table_id: 'host', model_id: 1080 };
+      const ref = { table_id: 'host', model_id: -103 };
       ModelTableRuntime.prototype.snapshot = function forbiddenSnapshot() {
         throw new Error('runtime_snapshot_forbidden_for_ready_host_visible_http_route');
       };
       const resp = await fetch(baseUrl + '/snapshot?profile=visible&visible_model_ref=' + encodeURIComponent(JSON.stringify(ref)));
       const body = await resp.json();
       assert.equal(resp.status, 200, JSON.stringify(body));
-      assert.equal(Boolean(body.snapshot?.models?.['1080']), true, 'host visible route must include requested host model');
+      assert.equal(Boolean(body.snapshot?.models?.['-103']), true, 'host visible route must include requested host model');
       assert.deepEqual(body.visible_model_refs, [ref], 'host visible HTTP route must preserve table-qualified ref metadata');
       console.log(JSON.stringify({ ok: true, ref }));
     } finally {

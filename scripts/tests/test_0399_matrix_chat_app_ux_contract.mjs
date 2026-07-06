@@ -7,7 +7,6 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { loadSystemPatch } from '../worker_engine_v0.mjs';
 import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend/src/ui_cellwise_projection.js';
-import { WORKSPACE_ENTRY_MODEL_IDS } from '../../packages/ui-model-demo-frontend/src/model_ids.js';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
@@ -140,8 +139,7 @@ function test_formal_chat_app_is_separate_builtin_model() {
   assert.equal(rootId?.v, 'matrix_chat_root', 'formal chat app must expose a stable cellwise root');
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
   assert.doesNotThrow(() => new AsyncFunction('ctx', 'label', 'V1N', handler?.v?.code || ''), 'Matrix Chat program model must compile before it can trigger host actions');
-  assert.ok(workspaceApps.some((item) => item?.model_id === CHAT_APP_MODEL_ID && item?.name === 'Matrix Chat'), 'Matrix Chat must be listed as a built-in workspace app');
-  assert.ok(WORKSPACE_ENTRY_MODEL_IDS.includes(CHAT_APP_MODEL_ID), 'Matrix Chat must be included in the shared workspace allowlist');
+  assert.equal(workspaceApps.some((item) => item?.model_id === CHAT_APP_MODEL_ID), false, 'Matrix Chat host source template must not remain in the static workspace registry');
   return { key: 'formal_chat_app_is_separate_builtin_model', status: 'PASS' };
 }
 

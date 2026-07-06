@@ -11,6 +11,7 @@ import { createDemoStore } from '../../packages/ui-model-demo-frontend/src/demo_
 import {
   EDITOR_STATE_MODEL_ID,
   SCENE_CONTEXT_MODEL_ID,
+  WORKSPACE_ENTRY_MODEL_IDS,
 } from '../../packages/ui-model-demo-frontend/src/model_ids.js';
 import {
   deriveSlidingFlowShellProjectionLabels,
@@ -97,10 +98,10 @@ function test_workspace_entry_and_mount_contract() {
   const modelIds = fs.readFileSync(modelIdsPath, 'utf8');
 
   assert.ok(modelIds.includes('MATRIX_SUITE_APP_MODEL_ID = 1080'), 'frontend model ids must reserve Matrix Suite 1080');
-  assert.ok(/WORKSPACE_ENTRY_MODEL_IDS[\s\S]*1080/u.test(modelIds), 'Workspace allowlist must include Matrix Suite');
+  assert.equal(WORKSPACE_ENTRY_MODEL_IDS.includes(MODEL_ID), false, 'Workspace allowlist must not expose Matrix Suite host source model after subtable migration');
 
   const registry = workspace.find((record) => record.model_id === -2 && record.k === 'ws_apps_registry')?.v;
-  assert.ok(Array.isArray(registry) && registry.some((entry) => entry.model_id === MODEL_ID && entry.name === 'Matrix Suite'), 'Workspace registry must expose Matrix Suite');
+  assert.ok(Array.isArray(registry) && !registry.some((entry) => entry.model_id === MODEL_ID), 'static Workspace registry must not expose Matrix Suite host source model');
 
   const mount = hierarchy.find((record) => record.model_id === 0 && record.p === 9 && record.r === 0 && record.c === MODEL_ID && record.k === 'model_type');
   assert.equal(mount?.t, 'model.submtconnection', 'Matrix Suite must be mounted through a Model 0 model.submtconnection hosting cell');

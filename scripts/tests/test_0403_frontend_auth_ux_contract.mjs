@@ -110,7 +110,7 @@ function test_matrix_chat_requires_explicit_matrix_connection_before_live_rooms(
   assertIncludes(files.modelIds, 'export const MATRIX_CHAT_APP_MODEL_ID = 1083;', 'model_ids_must_export_matrix_chat_app_model_id');
   assertIncludes(files.appShell, "import { MATRIX_CHAT_APP_MODEL_ID } from './model_ids.js';", 'app_shell_must_import_matrix_chat_model_id');
   assertIncludes(files.appShell, 'if (path.value !== ROUTE_HOME) return null;', 'matrix_prompt_must_not_leak_outside_foreground_home_route');
-  assertIncludes(files.appShell, 'Number(desktopForegroundApp.value?.model_id) === MATRIX_CHAT_APP_MODEL_ID', 'matrix_prompt_must_only_target_matrix_chat_foreground_app');
+  assertIncludes(files.appShell, 'Number(desktopForegroundApp.value?.source_host_model_id) === MATRIX_CHAT_APP_MODEL_ID', 'matrix_prompt_must_target_migrated_matrix_chat_foreground_app');
   assertIncludes(files.appShell, 'if (authStore.state.matrixConnected) return null;', 'matrix_prompt_must_only_show_before_matrix_connection');
   assertIncludes(files.appShell, 'Matrix 尚未连接', 'matrix_prompt_must_name_unconnected_state');
   assertIncludes(files.appShell, '当前列表是本地初始视图；连接 Matrix 后可刷新为你的远端会话。', 'matrix_prompt_must_explain_seeded_view_without_claiming_live_rooms');
