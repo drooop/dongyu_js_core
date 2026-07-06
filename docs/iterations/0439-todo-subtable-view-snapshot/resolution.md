@@ -1,7 +1,7 @@
 ---
 title: "Iteration 0439 To Do Subtable View Snapshot Resolution"
 doc_type: iteration-resolution
-status: planned
+status: completed
 updated: 2026-07-06
 source: ai
 iteration_id: 0439-todo-subtable-view-snapshot

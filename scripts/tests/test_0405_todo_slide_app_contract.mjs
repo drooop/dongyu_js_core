@@ -7,6 +7,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { loadSystemPatch } from '../worker_engine_v0.mjs';
 import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend/src/ui_cellwise_projection.js';
+import {
+  buildClientSnapshotForPrincipal,
+  createServerState,
+  deriveWorkspaceRegistryFromSnapshot,
+} from '../../packages/ui-model-demo-server/server.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
@@ -14,6 +19,7 @@ const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js
 const MODEL_ID = 1086;
 const BUS_KEY = 'todo_1086_bus_event';
 const REQ_PIN = 'todo_request';
+const TODO_APP_NAME = 'To Do Board';
 const workspacePath = 'packages/worker-base/system-models/workspace_positive_models.json';
 const hierarchyPath = 'packages/worker-base/system-models/runtime_hierarchy_mounts.json';
 const modelIdsPath = 'packages/ui-model-demo-frontend/src/model_ids.js';
@@ -36,9 +42,17 @@ function loadRuntime() {
   return rt;
 }
 
-function rootLabel(rt, key) {
-  const model = rt.getModel(MODEL_ID);
-  assert.ok(model, `missing model ${MODEL_ID}`);
+function principal(subject = 'local-dev') {
+  return {
+    subject,
+    userId: subject,
+    capabilities: ['app:read', 'app:write', 'workspace:read', 'workspace:write', 'slide_app:use'],
+  };
+}
+
+function rootLabel(rt, key, modelRef = MODEL_ID) {
+  const model = rt.getModel(modelRef);
+  assert.ok(model, `missing model ${JSON.stringify(modelRef)}`);
   return rt.getCell(model, 0, 0, 0).labels.get(key)?.v;
 }
 
@@ -50,10 +64,10 @@ function payload(action, extra = []) {
   ];
 }
 
-async function dispatch(state, action, extra = []) {
+async function dispatch(state, busKey, action, extra = []) {
   const result = await state.submitEnvelope({
     type: 'bus_event_v2',
-    bus_in_key: BUS_KEY,
+    bus_in_key: busKey,
     value: payload(action, extra),
     meta: { op_id: `it0405_${action}_${Date.now()}` },
   });
@@ -61,6 +75,13 @@ async function dispatch(state, action, extra = []) {
   assert.equal(result.routed_by, 'model0_busin', `${action} must enter through Model 0 mounted ingress`);
   await new Promise((resolve) => setTimeout(resolve, 160));
   return result;
+}
+
+function frozenArrayHasInteger(source, exportName, modelId) {
+  const pattern = new RegExp(`export const ${exportName} = Object\\.freeze\\(\\[([\\s\\S]*?)\\]\\);`, 'u');
+  const match = source.match(pattern);
+  assert.ok(match, `missing ${exportName}`);
+  return new RegExp(`(^|[^0-9])${modelId}([^0-9]|$)`, 'u').test(match[1]);
 }
 
 function findNode(node, id) {
@@ -117,17 +138,24 @@ function assertNoSameModelUiRefs(ast) {
   assert.deepEqual(hits, [], `same-model UI refs must omit model_id: ${hits.join(', ')}`);
 }
 
+function todoAppTableEntry(state, subject = 'local-dev') {
+  const snapshot = buildClientSnapshotForPrincipal(state.runtime.snapshot(), principal(subject));
+  const registry = deriveWorkspaceRegistryFromSnapshot({ snapshot });
+  return registry.find((entry) => entry.name === TODO_APP_NAME && entry.table_id !== 'host' && entry.model_id === 0) || null;
+}
+
 function test_workspace_entry_mount_and_route_contract() {
   const workspace = recordsOf(workspacePath);
   const hierarchy = recordsOf(hierarchyPath);
   const modelIds = fs.readFileSync(modelIdsPath, 'utf8');
 
   assert.ok(modelIds.includes('TODO_BOARD_APP_MODEL_ID = 1086'), 'frontend model ids must reserve To Do Board 1086');
-  assert.ok(/WORKSPACE_ENTRY_MODEL_IDS[\s\S]*1086/u.test(modelIds), 'Workspace allowlist must include To Do Board');
-  assert.ok(/BUILTIN_WORKSPACE_APP_MODEL_IDS[\s\S]*1086/u.test(modelIds), 'built-in app allowlist must include To Do Board');
+  assert.equal(frozenArrayHasInteger(modelIds, 'WORKSPACE_ENTRY_MODEL_IDS', MODEL_ID), false, 'Workspace allowlist must not expose host To Do 1086 after subtable migration');
+  assert.equal(frozenArrayHasInteger(modelIds, 'BUILTIN_WORKSPACE_APP_MODEL_IDS', MODEL_ID), false, 'built-in allowlist must not expose host To Do 1086 after subtable migration');
 
   const registry = workspace.find((record) => record.model_id === -2 && record.k === 'ws_apps_registry')?.v;
-  assert.ok(Array.isArray(registry) && registry.some((entry) => entry.model_id === MODEL_ID && entry.name === 'To Do Board'), 'Workspace registry must expose To Do Board');
+  assert.equal(Array.isArray(registry) && registry.some((entry) => entry.model_id === MODEL_ID && entry.name === TODO_APP_NAME), false, 'source patch must not keep host To Do Board registry seed after subtable migration');
+  assert.equal(workspace.find((record) => record.model_id === MODEL_ID && record.k === 'app_name')?.v, TODO_APP_NAME, 'source patch keeps host To Do Board model as migration template');
 
   const mount = hierarchy.find((record) => record.model_id === 0 && record.p === 9 && record.r === 0 && record.c === MODEL_ID && record.k === 'model_type');
   assert.equal(mount?.t, 'model.submtconnection', 'To Do Board must be mounted through a Model 0 hosting cell');
@@ -139,6 +167,14 @@ function test_workspace_entry_mount_and_route_contract() {
   const route = workspace.find((record) => record.model_id === 0 && record.k === 'todo_1086_ingress_route')?.v?.[0];
   assert.deepEqual(route?.from, [0, 0, 0, BUS_KEY], 'Model 0 route must start at the bus_event_v2 ingress key');
   assert.deepEqual(route?.to, [[9, 0, MODEL_ID, REQ_PIN]], 'Model 0 route must target the hosting cell before the app root');
+
+  const state = createServerState({ dbPath: null });
+  const appEntry = todoAppTableEntry(state);
+  assert.ok(appEntry, 'runtime Workspace registry must expose migrated To Do Board as an App table');
+  const userRegistry = deriveWorkspaceRegistryFromSnapshot({
+    snapshot: buildClientSnapshotForPrincipal(state.runtime.snapshot(), principal()),
+  });
+  assert.equal(userRegistry.some((entry) => entry.table_id === 'host' && entry.model_id === MODEL_ID), false, 'runtime Workspace registry must hide host To Do 1086 entry');
   return { key: 'workspace_entry_mount_and_route_contract', status: 'PASS' };
 }
 
@@ -235,6 +271,25 @@ function test_cellwise_ui_fragmentation_and_sync_policy() {
   return { key: 'cellwise_ui_fragmentation_and_sync_policy', status: 'PASS' };
 }
 
+function test_seeded_app_table_ui_uses_generated_ingress() {
+  const state = createServerState({ dbPath: null });
+  const appEntry = todoAppTableEntry(state);
+  assert.ok(appEntry, 'migrated To Do App table entry required');
+  const snapshot = buildClientSnapshotForPrincipal(state.runtime.snapshot(), principal());
+  const ast = buildAstFromCellwiseModel(snapshot, { table_id: appEntry.table_id, model_id: 0 });
+  assert.ok(ast, 'migrated To Do App table must build a cellwise UI AST');
+  const generatedKeys = new Set();
+  for (const id of ['todo_create_save', 'todo_edit_save', 'todo_board', 'todo_focus_list']) {
+    const busKey = findNode(ast, id)?.bind?.write?.bus_in_key;
+    assert.ok(busKey && busKey !== BUS_KEY, `${id} must use generated App-table ingress, not legacy host ingress`);
+    assert.match(busKey, /^imported_host_submit_/u, `${id} must use imported host ingress key`);
+    generatedKeys.add(busKey);
+  }
+  assert.equal(generatedKeys.size, 1, 'all To Do formal actions must share one generated App-table ingress key');
+  assert.ok(Array.isArray(rootLabel(state.runtime, 'tasks_json', { table_id: appEntry.table_id, model_id: 0 })), 'migrated To Do App table must keep task state');
+  return { key: 'seeded_app_table_ui_uses_generated_ingress', status: 'PASS' };
+}
+
 async function test_program_actions_route_and_update_tasks_json() {
   const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0405-todo-'));
   process.env.DY_AUTH = '0';
@@ -245,52 +300,58 @@ async function test_program_actions_route_and_update_tasks_json() {
   process.env.STATIC_PROJECTS_ROOT = join(tempRoot, 'static');
   process.env.DY_UI_SERVER_WORKER_ID = 'U1';
   try {
-    const { createServerState } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
     const state = createServerState({ dbPath: null });
     await state.activateRuntimeMode('running');
     const runtime = state.runtime;
-    const model = runtime.getModel(MODEL_ID);
-    assert.ok(model, 'runtime must load To Do Board model');
+    const appEntry = todoAppTableEntry(state);
+    assert.ok(appEntry, 'runtime must expose migrated To Do Board app table');
+    const modelRef = { table_id: appEntry.table_id, model_id: 0 };
+    const model = runtime.getModel(modelRef);
+    assert.ok(model, 'runtime must load migrated To Do Board App table root');
+    const snapshot = buildClientSnapshotForPrincipal(runtime.snapshot(), principal());
+    const ast = buildAstFromCellwiseModel(snapshot, modelRef);
+    const busKey = findNode(ast, 'todo_create_save')?.bind?.write?.bus_in_key;
+    assert.ok(busKey && busKey !== BUS_KEY, 'program actions must use generated To Do App table ingress');
 
     runtime.addLabel(model, 0, 0, 0, { k: 'draft_title', t: 'str', v: 'Browser-safe task' });
     runtime.addLabel(model, 0, 0, 0, { k: 'draft_body', t: 'str', v: 'Typed draft must be visible before save.' });
     runtime.addLabel(model, 0, 0, 0, { k: 'draft_status', t: 'str', v: 'doing' });
-    await dispatch(state, 'create_task');
-    let tasks = rootLabel(runtime, 'tasks_json');
+    await dispatch(state, busKey, 'create_task');
+    let tasks = rootLabel(runtime, 'tasks_json', modelRef);
     const created = tasks.find((task) => task.title === 'Browser-safe task');
     assert.ok(created, 'create_task must append the submitted task');
     assert.equal(created.status, 'doing', 'create_task must honor submitted draft status');
-    assert.equal(rootLabel(runtime, 'create_dialog_open'), false, 'create_task must close create dialog');
+    assert.equal(rootLabel(runtime, 'create_dialog_open', modelRef), false, 'create_task must close create dialog');
 
-    await dispatch(state, 'move_status', [
+    await dispatch(state, busKey, 'move_status', [
       { id: 0, p: 0, r: 0, c: 0, k: 'task_id', t: 'str', v: created.id },
       { id: 0, p: 0, r: 0, c: 0, k: 'status', t: 'str', v: 'done' },
     ]);
-    tasks = rootLabel(runtime, 'tasks_json');
+    tasks = rootLabel(runtime, 'tasks_json', modelRef);
     assert.equal(tasks.find((task) => task.id === created.id)?.status, 'done', 'move_status must update task status');
 
-    await dispatch(state, 'open_edit', [
+    await dispatch(state, busKey, 'open_edit', [
       { id: 0, p: 0, r: 0, c: 0, k: 'task_id', t: 'str', v: created.id },
     ]);
-    assert.equal(rootLabel(runtime, 'edit_dialog_open'), true, 'open_edit must open edit dialog');
-    assert.equal(rootLabel(runtime, 'selected_task_id'), created.id, 'open_edit must select task id');
+    assert.equal(rootLabel(runtime, 'edit_dialog_open', modelRef), true, 'open_edit must open edit dialog');
+    assert.equal(rootLabel(runtime, 'selected_task_id', modelRef), created.id, 'open_edit must select task id');
 
     runtime.addLabel(model, 0, 0, 0, { k: 'edit_title', t: 'str', v: 'Edited task title' });
     runtime.addLabel(model, 0, 0, 0, { k: 'edit_body', t: 'str', v: 'Edited task body' });
     runtime.addLabel(model, 0, 0, 0, { k: 'edit_status', t: 'str', v: 'todo' });
-    await dispatch(state, 'save_edit');
-    tasks = rootLabel(runtime, 'tasks_json');
+    await dispatch(state, busKey, 'save_edit');
+    tasks = rootLabel(runtime, 'tasks_json', modelRef);
     const edited = tasks.find((task) => task.id === created.id);
     assert.equal(edited.title, 'Edited task title', 'save_edit must update title');
     assert.equal(edited.body, 'Edited task body', 'save_edit must update body');
     assert.equal(edited.status, 'todo', 'save_edit must update status');
-    assert.equal(rootLabel(runtime, 'edit_dialog_open'), false, 'save_edit must close edit dialog');
+    assert.equal(rootLabel(runtime, 'edit_dialog_open', modelRef), false, 'save_edit must close edit dialog');
 
-    await dispatch(state, 'filter_focus', [
+    await dispatch(state, busKey, 'filter_focus', [
       { id: 0, p: 0, r: 0, c: 0, k: 'filter_text', t: 'str', v: 'edited' },
     ]);
-    assert.equal(rootLabel(runtime, 'filter_text'), 'edited', 'filter_focus must update focus filter label');
-    assert.equal(rootLabel(runtime, 'last_action'), 'filter_focus', 'last_action must record final action');
+    assert.equal(rootLabel(runtime, 'filter_text', modelRef), 'edited', 'filter_focus must update focus filter label');
+    assert.equal(rootLabel(runtime, 'last_action', modelRef), 'filter_focus', 'last_action must record final action');
     return { key: 'program_actions_route_and_update_tasks_json', status: 'PASS' };
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
@@ -300,6 +361,7 @@ async function test_program_actions_route_and_update_tasks_json() {
 const tests = [
   test_workspace_entry_mount_and_route_contract,
   test_cellwise_ui_fragmentation_and_sync_policy,
+  test_seeded_app_table_ui_uses_generated_ingress,
   test_program_actions_route_and_update_tasks_json,
 ];
 

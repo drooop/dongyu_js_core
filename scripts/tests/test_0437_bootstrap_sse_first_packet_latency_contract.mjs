@@ -143,12 +143,12 @@ function test_ready_bootstrap_with_app_ref_route_uses_scoped_builder_not_full_sn
 
 function test_ready_bootstrap_with_host_ref_route_uses_scoped_builder_not_full_snapshot() {
   runServerProbe('ready bootstrap host-ref scoped-builder probe', `
-    const ref = { table_id: 'host', model_id: 1086 };
+    const ref = { table_id: 'host', model_id: 1080 };
     const resp = await fetch(baseUrl + '/snapshot?profile=bootstrap&visible_model_ref=' + encodeURIComponent(JSON.stringify(ref)));
     const body = await readJsonResponse(resp);
     assert.equal(resp.status, 200, JSON.stringify(body));
     assert.ok(body.snapshot?.models?.['0'], 'bootstrap host-ref snapshot must keep host bootstrap model 0');
-    assert.ok(body.snapshot?.models?.['1086'], 'bootstrap host-ref snapshot must include requested host model');
+    assert.ok(body.snapshot?.models?.['1080'], 'bootstrap host-ref snapshot must include requested host model');
     assert.deepEqual(body.visible_model_refs, [ref], 'bootstrap host-ref snapshot must preserve table-qualified ref metadata');
     console.log(JSON.stringify({ ok: true, kind: 'bootstrap-host-ref', ref }));
   `);
