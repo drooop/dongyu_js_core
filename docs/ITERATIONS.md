@@ -340,6 +340,7 @@ source: ai
 | 0437-bootstrap-sse-first-packet-latency | 2026-07-04 | 优化 bootstrap snapshot 与 SSE 首包耗时：直接构建 bootstrap shell + requested visible refs，不再先生成全量 client snapshot | 4 | dropx/dev_0437-bootstrap-sse-first-packet-latency | Completed | ./docs/iterations/0437-bootstrap-sse-first-packet-latency/ |
 | 0438-app-open-frontend-latency | 2026-07-04 | 测量并优化前端打开滑动 App 的可见延时：拆分 click、visible snapshot、apply、projection、render 与 loading 解除指标 | 4 | dropx/dev_0438-app-open-frontend-latency | Completed | ./docs/iterations/0438-app-open-frontend-latency/ |
 | 0439-todo-subtable-view-snapshot | 2026-07-06 | 将常用 To Do Board 迁移为 principal-scoped App 子表，并补当前视图 snapshot、权限隔离和开发者文档护栏 | 5 | dropx/dev_0439-todo-subtable-view-snapshot | Completed | ./docs/iterations/0439-todo-subtable-view-snapshot/ |
+| 0440-slide-app-subtable-completion | 2026-07-06 | 完成剩余用户可见滑动 App 子表化：迁移常用内置与 RemoteWorker App、收紧当前 App snapshot、多用户隔离并补开发者接入文档 | 6 | dropx/dev_0440-slide-app-subtable-completion | Approved | ./docs/iterations/0440-slide-app-subtable-completion/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
