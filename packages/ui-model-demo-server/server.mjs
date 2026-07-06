@@ -2910,7 +2910,7 @@ function normalizeSlideExportLabelValue(label, actualToTempId) {
   return remapSlideExportValue(label ? label.v : null, actualToTempId);
 }
 
-function buildSlideAppExportPayload(runtime, rootModelId) {
+function buildSlideAppExportPayload(runtime, rootModelId, options = {}) {
   const rootRef = normalizeSlideExportRootRef(runtime, rootModelId);
   if (!rootRef) {
     return { ok: false, code: 'invalid_target', detail: 'valid_slide_app_model_ref_required' };
@@ -2929,7 +2929,7 @@ function buildSlideAppExportPayload(runtime, rootModelId) {
   const actualToTempId = rootRef.table_id === 'host'
     ? new Map(modelIds.map((modelId, index) => [modelId, index]))
     : new Map(modelIds.map((modelId) => [modelId, modelId]));
-  const records = [];
+  let records = [];
   for (const ref of modelRefs) {
     const tempId = actualToTempId.get(ref.model_id);
     const model = runtime.getModel({ table_id: ref.table_id, model_id: ref.model_id });
@@ -2955,6 +2955,9 @@ function buildSlideAppExportPayload(runtime, rootModelId) {
         });
       }
     }
+  }
+  if (options && typeof options.normalizeRecords === 'function') {
+    records = options.normalizeRecords(records, { rootRef, modelIds, modelRefs }) || records;
   }
   const validation = validateSlideImportPayload(records);
   if (!validation.ok) {
@@ -3950,7 +3953,130 @@ const SEEDED_SLID_IN_APP_SUBTABLE_MIGRATIONS = Object.freeze([
     sourceHostModelId: 100,
     sourceLabel: 'E2E 颜色生成器',
   },
+  {
+    sourceHostModelId: 1086,
+    sourceLabel: 'To Do Board',
+    metadataDefaults: {
+      fromUser: 'ui-server',
+      toUser: 'owner_principal',
+      sourceDe: 'UI Server',
+    },
+    hostIngress: {
+      semantic: 'submit',
+      pinName: 'todo_request',
+      locator: { p: 0, r: 0, c: 0 },
+    },
+    legacyBusInKey: 'todo_1086_bus_event',
+  },
 ]);
+
+function hasRootPayloadRecord(records, key) {
+  return Array.isArray(records) && records.some((record) => record
+    && record.id === 0
+    && record.p === 0
+    && record.r === 0
+    && record.c === 0
+    && record.k === key);
+}
+
+function addRootPayloadRecordIfMissing(records, key, t, v) {
+  if (hasRootPayloadRecord(records, key)) return records;
+  return records.concat([{ id: 0, p: 0, r: 0, c: 0, k: key, t, v }]);
+}
+
+function rewriteSeededLegacyBusInKey(value, legacyBusInKey, replacementBusInKey) {
+  if (!legacyBusInKey || !replacementBusInKey) return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => rewriteSeededLegacyBusInKey(item, legacyBusInKey, replacementBusInKey));
+  }
+  if (!isPlainObject(value)) return value;
+  const out = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (key === 'bus_in_key' && child === legacyBusInKey) {
+      out[key] = replacementBusInKey;
+      continue;
+    }
+    out[key] = rewriteSeededLegacyBusInKey(child, legacyBusInKey, replacementBusInKey);
+  }
+  return out;
+}
+
+function seededSlidInAppDefaultRootLabels(migration, runtime) {
+  const defaults = migration.metadataDefaults && typeof migration.metadataDefaults === 'object'
+    ? migration.metadataDefaults
+    : {};
+  const ownerPrincipalId = readRuntimePrincipalOwnerId(runtime);
+  const fromUser = typeof defaults.fromUser === 'string' && defaults.fromUser.trim()
+    ? defaults.fromUser.trim()
+    : '';
+  const toUser = defaults.toUser === 'owner_principal'
+    ? ownerPrincipalId
+    : (typeof defaults.toUser === 'string' && defaults.toUser.trim() ? defaults.toUser.trim() : '');
+  const sourceDe = typeof defaults.sourceDe === 'string' && defaults.sourceDe.trim()
+    ? defaults.sourceDe.trim()
+    : '';
+  return [
+    fromUser ? { k: 'from_user', t: 'str', v: fromUser } : null,
+    toUser ? { k: 'to_user', t: 'str', v: toUser } : null,
+    sourceDe ? { k: 'source_de', t: 'str', v: sourceDe } : null,
+  ].filter(Boolean);
+}
+
+function normalizeSeededSlidInAppExportRecords(records, migration, runtime) {
+  if (!Array.isArray(records) || !migration) return records;
+  let out = records.map((record) => ({ ...record }));
+  for (const label of seededSlidInAppDefaultRootLabels(migration, runtime)) {
+    out = addRootPayloadRecordIfMissing(out, label.k, label.t, label.v);
+  }
+
+  const hostIngress = migration.hostIngress && typeof migration.hostIngress === 'object'
+    ? migration.hostIngress
+    : null;
+  if (hostIngress && !hasRootPayloadRecord(out, SLIDE_IMPORT_HOST_INGRESS_LABEL)) {
+    const pinName = typeof hostIngress.pinName === 'string' ? hostIngress.pinName.trim() : '';
+    const locator = hostIngress.locator && typeof hostIngress.locator === 'object' ? hostIngress.locator : {};
+    if (pinName && Number.isInteger(locator.p) && Number.isInteger(locator.r) && Number.isInteger(locator.c)) {
+      const legacyBusInKey = typeof migration.legacyBusInKey === 'string' ? migration.legacyBusInKey.trim() : '';
+      const semantic = typeof hostIngress.semantic === 'string' && hostIngress.semantic.trim()
+        ? hostIngress.semantic.trim()
+        : SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_SEMANTIC;
+      const replacementBusInKey = `bus_event_${semantic}_0_${locator.p}_${locator.r}_${locator.c}`;
+      if (legacyBusInKey) {
+        out = out.map((record) => ({
+          ...record,
+          v: rewriteSeededLegacyBusInKey(record.v, legacyBusInKey, replacementBusInKey),
+        }));
+      }
+      out = addRootPayloadRecordIfMissing(out, SLIDE_IMPORT_HOST_INGRESS_LABEL, 'json', {
+        version: 'v1',
+        boundaries: [{
+          primary: true,
+          semantic,
+          pin_name: pinName,
+          value_t: SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_VALUE_T,
+          locator_kind: SLIDE_IMPORT_HOST_INGRESS_SUPPORTED_LOCATOR,
+          locator_value: { p: locator.p, r: locator.r, c: locator.c },
+        }],
+      });
+    }
+  }
+  return out;
+}
+
+function ensureSeededSlidInAppDefaultRootLabels(runtime, rootRef, migration) {
+  const model = runtime && typeof runtime.getModel === 'function' ? runtime.getModel(rootRef) : null;
+  if (!model) return false;
+  let updated = false;
+  for (const label of seededSlidInAppDefaultRootLabels(migration, runtime)) {
+    const current = typeof runtime.getLabelValue === 'function'
+      ? runtime.getLabelValue(model, 0, 0, 0, label.k)
+      : undefined;
+    if (current !== undefined && current !== null && String(current).trim() !== '') continue;
+    runtime.addLabel(model, 0, 0, 0, label);
+    updated = true;
+  }
+  return updated;
+}
 
 function readModelRootLabelValue(runtime, modelRef, key) {
   const model = runtime && typeof runtime.getModel === 'function' ? runtime.getModel(modelRef) : null;
@@ -4018,11 +4144,14 @@ function materializeSeededSlidInAppSubtables(runtime) {
   for (const migration of SEEDED_SLID_IN_APP_SUBTABLE_MIGRATIONS) {
     const existing = findSeededSlidInAppSubtable(runtime, migration.sourceHostModelId);
     if (existing) {
+      ensureSeededSlidInAppDefaultRootLabels(runtime, existing, migration);
       materialized.push({ ...existing, sourceHostModelId: migration.sourceHostModelId, status: 'existing' });
       continue;
     }
 
-    const exportResult = buildSlideAppExportPayload(runtime, migration.sourceHostModelId);
+    const exportResult = buildSlideAppExportPayload(runtime, migration.sourceHostModelId, {
+      normalizeRecords: (records) => normalizeSeededSlidInAppExportRecords(records, migration, runtime),
+    });
     if (!exportResult || exportResult.ok !== true) {
       runtime.eventLog.record({
         op: 'seeded_slid_in_subtable_materialize',
