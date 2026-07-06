@@ -7581,56 +7581,6 @@
           "model_id": -23,
           "name": "Docs",
           "source": "system"
-        },
-        {
-          "model_id": 1007,
-          "name": "Three Scene",
-          "source": "workspace"
-        },
-        {
-          "model_id": 1011,
-          "name": "Static",
-          "source": "workspace"
-        },
-        {
-          "model_id": 1030,
-          "name": "滑动 APP 导入",
-          "source": "zip-import"
-        },
-        {
-          "model_id": 1036,
-          "name": "Mgmt Bus Console",
-          "source": "ui-server"
-        },
-        {
-          "model_id": 1050,
-          "name": "最小 Submit 双总线示例",
-          "source": "manual-zip-import"
-        },
-        {
-          "model_id": 1051,
-          "name": "工作区管理器",
-          "source": "Workspace-Manager-DE"
-        },
-        {
-          "model_id": 1080,
-          "name": "Matrix Suite",
-          "source": "ui-server"
-        },
-        {
-          "model_id": 1081,
-          "name": "Settings",
-          "source": "ui-server"
-        },
-        {
-          "model_id": 1082,
-          "name": "ModelTable",
-          "source": "ui-server"
-        },
-        {
-          "model_id": 1083,
-          "name": "Matrix Chat",
-          "source": "ui-server"
         }
       ]
     },
@@ -7642,7 +7592,7 @@
       "c": 0,
       "k": "ws_app_selected",
       "t": "int",
-      "v": 1007
+      "v": -103
     },
     {
       "op": "add_label",
@@ -7654,7 +7604,7 @@
       "t": "json",
       "v": {
         "table_id": "host",
-        "model_id": 1007
+        "model_id": -103
       }
     },
     {

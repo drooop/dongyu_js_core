@@ -288,6 +288,22 @@ function getModel(snapshot, modelId) {
   return models[String(modelId)] || models[modelId] || null;
 }
 
+function getModelByRef(snapshot, ref) {
+  if (!ref || !Number.isInteger(ref.model_id)) return null;
+  const tableId = typeof ref.table_id === 'string' && ref.table_id.trim() ? ref.table_id.trim() : 'host';
+  if (tableId === 'host') return getModel(snapshot, ref.model_id);
+  return snapshot?.tables?.[tableId]?.models?.[String(ref.model_id)] || null;
+}
+
+function visibleRefQuery(ref) {
+  return 'visible_model_ref=' + encodeURIComponent(JSON.stringify(ref));
+}
+
+function visibleRefKey(ref) {
+  const tableId = typeof ref?.table_id === 'string' && ref.table_id.trim() ? ref.table_id.trim() : 'host';
+  return `${tableId}|${ref?.model_id}`;
+}
+
 function rootLabels(snapshot, modelId) {
   return getModel(snapshot, modelId)?.cells?.['0,0,0']?.labels || {};
 }
@@ -391,12 +407,22 @@ function visibleWorkspaceAppModelIds(snapshot) {
     .filter((modelId) => Number.isInteger(modelId) && modelId > 0 && getModel(snapshot, modelId));
 }
 
-function findVisibleFixtureIds(fullSnapshot) {
-  const ids = visibleWorkspaceAppModelIds(fullSnapshot);
-  const target = ids.find((modelId) => modelId !== 100) || ids[0];
-  const unrelated = ids.find((modelId) => modelId !== target);
-  assert.equal(Number.isInteger(target), true, 'full snapshot fixture must contain at least one positive workspace app model');
-  assert.equal(Number.isInteger(unrelated), true, 'full snapshot fixture must contain at least two positive workspace app models');
+function visibleWorkspaceAppRefs(snapshot) {
+  return workspaceRegistry(snapshot)
+    .map((entry) => {
+      if (!entry || !Number.isInteger(entry.model_id)) return null;
+      const tableId = typeof entry.table_id === 'string' && entry.table_id.trim() ? entry.table_id.trim() : 'host';
+      return { table_id: tableId, model_id: entry.model_id };
+    })
+    .filter((ref) => ref && ref.table_id !== 'host' && getModelByRef(snapshot, ref));
+}
+
+function findVisibleFixtureRefs(fullSnapshot) {
+  const refs = visibleWorkspaceAppRefs(fullSnapshot);
+  const target = refs.find((ref) => !String(ref.table_id).includes(':e2e:')) || refs[0];
+  const unrelated = refs.find((ref) => visibleRefKey(ref) !== visibleRefKey(target));
+  assert.equal(Boolean(target), true, 'full snapshot fixture must contain at least one App table workspace app ref');
+  assert.equal(Boolean(unrelated), true, 'full snapshot fixture must contain at least two App table workspace app refs');
   return { target, unrelated };
 }
 
@@ -690,7 +716,7 @@ async function test_snapshot_profiles_expose_bootstrap_and_visible_shapes() {
     assert.equal(fullResp.status, 200, 'full profile must remain available');
     const fullBody = await readJson(fullResp);
     const fullSnapshot = responseSnapshot(fullBody);
-    const { target, unrelated } = findVisibleFixtureIds(fullSnapshot);
+    const { target, unrelated } = findVisibleFixtureRefs(fullSnapshot);
     const allPositiveWorkspaceAppIds = visibleWorkspaceAppModelIds(fullSnapshot);
 
     const bootstrapResp = await fetch(`${baseUrl}/snapshot?profile=bootstrap`);
@@ -719,16 +745,16 @@ async function test_snapshot_profiles_expose_bootstrap_and_visible_shapes() {
     assertNoClientSecrets(defaultSnapshot, 'default snapshot');
     assert.equal(snapshotBytes(defaultBody) < snapshotBytes(fullBody), true, 'default snapshot must not be implicit full snapshot');
 
-    const visibleResp = await fetch(`${baseUrl}/snapshot?profile=visible&model_id=${target}`);
+    const visibleResp = await fetch(`${baseUrl}/snapshot?profile=visible&${visibleRefQuery(target)}`);
     assert.equal(visibleResp.status, 200, 'visible profile must accept requested allowed model');
     const visibleBody = await readJson(visibleResp);
     const visibleSnapshot = responseSnapshot(visibleBody);
-    assert.equal(Boolean(getModel(visibleSnapshot, target)), true, 'visible profile must include requested model');
-    assert.equal(Boolean(getModel(visibleSnapshot, unrelated)), false, 'visible profile must exclude unrelated app model');
+    assert.equal(Boolean(getModelByRef(visibleSnapshot, target)), true, 'visible profile must include requested app table model');
+    assert.equal(Boolean(getModelByRef(visibleSnapshot, unrelated)), false, 'visible profile must exclude unrelated app table model');
     assert.deepEqual(
-      modelIds(visibleSnapshot),
-      [target],
-      'explicit profile=visible snapshot must contain only the requested model body',
+      Object.keys(visibleSnapshot.tables || {}),
+      [target.table_id],
+      'explicit profile=visible snapshot must contain only the requested app table body',
     );
     assertNoPositiveWorkspaceAppBodies(
       visibleSnapshot,
@@ -868,7 +894,7 @@ async function test_stream_bootstrap_initial_event_avoids_full_snapshot_path() {
   await withAppServer(async (baseUrl) => {
     const fullBody = await readJson(await fetch(`${baseUrl}/snapshot?profile=full`));
     const fullSnapshot = responseSnapshot(fullBody);
-    const { target } = findVisibleFixtureIds(fullSnapshot);
+    const { target } = findVisibleFixtureRefs(fullSnapshot);
     const allPositiveWorkspaceAppIds = visibleWorkspaceAppModelIds(fullSnapshot);
 
     const event = await readFirstSseEvent(baseUrl, '?profile=bootstrap');
@@ -892,13 +918,14 @@ async function test_stream_bootstrap_initial_event_avoids_full_snapshot_path() {
     assertNoClientSecrets(defaultStreamSnapshot, 'default stream snapshot');
     assert.equal(snapshotBytes(defaultEvent.data) < snapshotBytes(fullBody), true, 'default stream must not be implicit full snapshot');
 
-    const visibleEvent = await readFirstSseEvent(baseUrl, `?profile=bootstrap&visible_model_id=${target}`);
+    const visibleEvent = await readFirstSseEvent(baseUrl, `?profile=bootstrap&${visibleRefQuery(target)}`);
     assert.equal(visibleEvent.event, 'snapshot', 'stream visible subscription first event must be a snapshot event');
     const visibleStreamSnapshot = responseSnapshot(visibleEvent.data);
     assertBootstrapModel0Minimal(visibleStreamSnapshot, 'stream visible subscription snapshot');
     assertBootstrapShellRootLabels(visibleStreamSnapshot, 'stream visible subscription snapshot');
-    assert.equal(Boolean(getModel(visibleStreamSnapshot, target)), true, 'stream visible subscription must include requested visible model');
-    assertBootstrapModelAllowlist(visibleStreamSnapshot, fullSnapshot, 'stream visible subscription snapshot', [target]);
+    assert.equal(Boolean(getModelByRef(visibleStreamSnapshot, target)), true, 'stream visible subscription must include requested visible app table model');
+    assertBootstrapModelAllowlist(visibleStreamSnapshot, fullSnapshot, 'stream visible subscription snapshot');
+    assert.deepEqual(Object.keys(visibleStreamSnapshot.tables || {}), [target.table_id], 'stream visible subscription must include only requested app table');
     assertNoPositiveWorkspaceAppBodies(
       visibleStreamSnapshot,
       allPositiveWorkspaceAppIds.filter((modelId) => modelId !== target),

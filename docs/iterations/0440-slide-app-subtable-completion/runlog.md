@@ -81,30 +81,66 @@ Review Gate Record
 ### Step 2 — Generalize Seeded App Table Migration
 
 - Command:
+  - `node scripts/tests/test_0440_slide_app_subtable_completion_contract.mjs`
+  - `node scripts/tests/test_0384_provider_owned_slide_app_install_flow.mjs`
+  - `node scripts/tests/test_0412_todo_provider_app1_contract.mjs`
 - Key output:
-- Result: PENDING
-- Commit:
+  - `5 passed, 0 failed out of 5`
+  - `10 passed, 0 failed out of 10`
+  - `PASS test_0412_todo_provider_app1_contract`
+- Result: PASS
+- Commit: pending
 
 ### Step 3 — Snapshot Closure And Permission Isolation
 
 - Command:
+  - `node scripts/tests/test_0440_slide_app_subtable_completion_contract.mjs`
+  - `node scripts/tests/test_0436_runtime_snapshot_build_latency_contract.mjs`
+  - `node scripts/tests/test_0437_bootstrap_sse_first_packet_latency_contract.mjs`
+  - `node scripts/tests/test_0418_visible_snapshot_projection_latency_contract.mjs`
+  - `node scripts/tests/test_0425_slide_app_subtable_install_contract.mjs`
 - Key output:
-- Result: PENDING
-- Commit:
+  - `5 passed, 0 failed out of 5`
+  - `6 passed, 0 failed`
+  - `4 passed, 0 failed`
+  - `PASS 8/8`
+  - `5 passed, 0 failed out of 5`
+- Result: PASS
+- Commit: pending
 
 ### Step 4 — Frontend Projection And App Identity
 
 - Command:
+  - `node scripts/tests/test_0425_frontend_model_ref_projection_contract.mjs`
+  - `node scripts/tests/test_0382_workspace_entry_cleanup_contract.mjs`
+  - `node scripts/tests/test_0383_matrix_suite_slide_app_contract.mjs`
+  - `node scripts/tests/test_0399_matrix_chat_app_ux_contract.mjs`
+  - `node scripts/tests/test_0403_frontend_auth_ux_contract.mjs`
+  - `npm -C packages/ui-model-demo-frontend run build`
+  - `npm -C packages/ui-model-demo-frontend run test`
 - Key output:
-- Result: PENDING
-- Commit:
+  - `12 passed, 0 failed out of 12`
+  - `test_0382_workspace_entry_cleanup_contract: PASS`
+  - `5 passed, 0 failed out of 5`
+  - `7 passed, 0 failed out of 7`
+  - `6 passed, 0 failed out of 6`
+  - `vite build ... built`
+  - `editor_*: PASS`
+- Result: PASS
+- Commit: pending
 
 ### Step 5 — Developer Documentation
 
 - Command:
+  - `node scripts/tests/test_0440_slide_app_subtable_completion_contract.mjs`
+  - `node scripts/tests/test_0439_todo_subtable_view_snapshot_contract.mjs`
+  - `node scripts/tests/test_0353_slide_app_runtime_docs_publish_contract.mjs`
 - Key output:
-- Result: PENDING
-- Commit:
+  - `developer_guide_documents_full_subtable_worker_authoring_path`
+  - `6 passed, 0 failed out of 6`
+  - `5 passed, 0 failed out of 5`
+- Result: PASS
+- Commit: pending
 
 ### Step 6 — Local Deploy And Browser Verification
 
@@ -117,7 +153,7 @@ Review Gate Record
 
 - [x] `docs/iterations/0440-slide-app-subtable-completion/plan.md`
 - [x] `docs/iterations/0440-slide-app-subtable-completion/resolution.md`
-- [ ] `docs/user-guide/slide-app-runtime/slide_app_runtime_developer_guide.md`
+- [x] `docs/user-guide/slide-app-runtime/slide_app_runtime_developer_guide.md`
 - [ ] `docs/ITERATIONS.md`
 
 ## Living Docs Review

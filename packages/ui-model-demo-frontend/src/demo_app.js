@@ -737,7 +737,8 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
       }
 
       function isMatrixChatForeground() {
-        return Number(desktopForegroundApp.value?.model_id) === MATRIX_CHAT_APP_MODEL_ID;
+        return Number(desktopForegroundApp.value?.model_id) === MATRIX_CHAT_APP_MODEL_ID
+          || Number(desktopForegroundApp.value?.source_host_model_id) === MATRIX_CHAT_APP_MODEL_ID;
       }
 
       function MatrixConnectionPanel() {

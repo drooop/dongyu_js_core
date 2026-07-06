@@ -44,6 +44,8 @@ function principal(subject) {
       'workspace:write',
       'slide_app:use',
       'matrix:read',
+      'matrix:connect',
+      'management_bus:use',
       'admin:read',
     ],
   };

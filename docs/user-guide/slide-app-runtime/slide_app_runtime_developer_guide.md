@@ -212,7 +212,7 @@ my-slide-app.zip
 
 - 包内 root model 使用 `id=0`。导入包的 root `model_type` 仍写 `t="model.table"`，安装器 materialize 后会在 App table root 写 `t="model.subtable"`。
 - root `(0,0,0)` 至少写 `app_name`、`slide_app_summary`、`slide_capable=true`、`slide_surface_type="workspace.page"`、`ui_authoring_version="cellwise.ui.v1"`、`ui_root_node_id`。
-- 需要展示 provider 来源时写 `source_worker` 和 `source_de`；桌面只把非 builtin App 的 `source_de` 当作来源徽标显示。
+- 需要展示 provider 来源时写 `source_worker` / `source_de` / `from_user` / `to_user`；桌面只把非 builtin App 的 `source_de` 当作来源徽标显示，安装器会用 `to_user` 绑定当前 principal。
 - 所有业务状态都放在 App table 自己的 labels 里。不要依赖宿主正数 model id 保存业务状态，也不要把 host source model 当成用户正在使用的 App。
 - UI 里的 `ModelRef` 必须能带 `table_id`。运行态打开、导出、删除、visible snapshot 都以 `{ table_id, model_id }` 为准；只有 builtin host App 才可以省略 `table_id`。
 - 正式按钮事件用 `bus_event_v2` 和临时 ModelTable record array。若事件要从 host 进入 App table，root 声明 `host_ingress_v1`，安装器会生成允许写入的 host ingress key。
@@ -246,6 +246,8 @@ my-slide-app.zip
 ### 4.4 Workspace Manager 安装 provider-owned APP（0384 current contract）
 
 Workspace Manager 的安装按钮不再从 UI Server 本地模型复制 `source_model_id`。它只读取 Workspace Manager DEM ModelTable 维护的资产索引；实际 APP bundle 必须由 provider worker 返回，并在 UI Server 校验 response 与 pending install 完全匹配后才会 materialize 为本地安装实例。
+
+RemoteWorker provider-owned bundle 的最小返回形态是：response packet 外层仍是 `pin_payload.v2`，业务 records 是 `slide_app_bundle_response.v1`，其中用 `bundle_payload` 或同一 Temporary ModelTable array 中的 offset records 承载真正的 App records。无论采用哪种承载方式，最终被安装的 bundle payload 都必须和 ZIP 的 `app_payload.json` 一样通过同一套 validator。
 
 当前实现中，工作区管理器页面展示的“可安装滑动 APP”来自 Workspace Manager DEM 模型表中的 `asset_catalog_json`。这份目录只是索引：它说明某个资产由哪个 DE / Worker 提供、安装时应向哪个 provider endpoint 请求 bundle、安装后运行时应走哪个业务 endpoint。UI Server 不把这份目录当成 APP payload truth。
 
