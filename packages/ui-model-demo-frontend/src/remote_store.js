@@ -180,6 +180,9 @@ export function createRemoteStore(options) {
   let runtimeActivationRetryTimer = null;
   const visibleModelIds = new Set();
   const visibleModelRefs = new Map();
+  const frontendTimingEvents = [];
+  let frontendTimingSeq = 0;
+  let activeForegroundAppOpenTiming = null;
   const snapshotFallbackDelayMs = Number.isFinite(options && options.snapshotFallbackDelayMs)
     ? Math.max(0, Number(options.snapshotFallbackDelayMs))
     : 300;
@@ -293,6 +296,124 @@ export function createRemoteStore(options) {
       eventSourceUrl,
       eventSourceReadyState: eventSource && Number.isInteger(eventSource.readyState) ? eventSource.readyState : null,
     };
+  }
+
+  function cloneTimingDetailValue(value) {
+    if (!value || typeof value !== 'object') return value;
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (_) {
+      return value;
+    }
+  }
+
+  function shouldAttachActiveForegroundTimingScope(type, detail = {}) {
+    if (!activeForegroundAppOpenTiming || typeof type !== 'string') return false;
+    const eventType = type.trim();
+    if (eventType.startsWith('foreground_app_') || eventType.startsWith('visible_model_load_')) return true;
+    if (!eventType.startsWith('snapshot_')) return false;
+    return typeof detail?.context === 'string' && detail.context.startsWith('visible model lazy load ');
+  }
+
+  function cloneForegroundTimingScope(scope) {
+    if (!scope || typeof scope !== 'object' || typeof scope.open_id !== 'string' || !scope.open_id) return null;
+    return {
+      open_id: scope.open_id,
+      app_name: typeof scope.app_name === 'string' ? scope.app_name : '',
+      model_ref: normalizeVisibleModelRef(scope.model_ref) || null,
+    };
+  }
+
+  function captureForegroundTimingScope() {
+    return cloneForegroundTimingScope(activeForegroundAppOpenTiming);
+  }
+
+  function recordFrontendTimingEvent(type, detail = {}) {
+    if (typeof type !== 'string' || !type.trim()) return null;
+    const clonedDetail = cloneTimingDetailValue(detail) || {};
+    const explicitScope = cloneForegroundTimingScope(clonedDetail.__foreground_timing_scope);
+    if (clonedDetail && typeof clonedDetail === 'object') delete clonedDetail.__foreground_timing_scope;
+    const scope = explicitScope || (shouldAttachActiveForegroundTimingScope(type, clonedDetail) ? activeForegroundAppOpenTiming : null);
+    const scopedDetail = scope
+      ? {
+          open_id: scope.open_id,
+          app_name: scope.app_name,
+          model_ref: scope.model_ref,
+          ...clonedDetail,
+        }
+      : clonedDetail;
+    const event = {
+      ...scopedDetail,
+      seq: ++frontendTimingSeq,
+      type: type.trim(),
+      ts: Date.now(),
+      perf_ms: nowClientPerfMs(),
+    };
+    frontendTimingEvents.push(event);
+    if (frontendTimingEvents.length > 500) frontendTimingEvents.splice(0, frontendTimingEvents.length - 500);
+    if (typeof window !== 'undefined' && window && typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+      try {
+        window.dispatchEvent(new CustomEvent('dy:frontend-timing', { detail: event }));
+      } catch (_) {
+        // Timing events are diagnostics only; they must not affect runtime behavior.
+      }
+    }
+    return event;
+  }
+
+  function getFrontendTimingEvents() {
+    return frontendTimingEvents.map((event) => cloneTimingDetailValue(event));
+  }
+
+  function clearFrontendTimingEvents() {
+    frontendTimingEvents.splice(0, frontendTimingEvents.length);
+    frontendTimingSeq = 0;
+  }
+
+  function beginForegroundAppOpenTiming(detail = {}) {
+    const modelRef = normalizeVisibleModelRef(detail.model_ref) || null;
+    const openId = `fg_open_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    activeForegroundAppOpenTiming = {
+      open_id: openId,
+      app_name: typeof detail.app_name === 'string' ? detail.app_name : '',
+      model_ref: modelRef,
+      started_perf_ms: nowClientPerfMs(),
+    };
+    recordFrontendTimingEvent('foreground_app_open_start', {
+      already_loaded: modelRef ? hasSnapshotModel(modelRef) : null,
+      path: typeof detail.path === 'string' ? detail.path : '',
+    });
+    return openId;
+  }
+
+  function recordForegroundAppContentVisible(detail = {}) {
+    const scope = activeForegroundAppOpenTiming;
+    if (!scope) return null;
+    const modelRef = normalizeVisibleModelRef(detail.model_ref) || scope?.model_ref || null;
+    return recordFrontendTimingEvent('foreground_app_content_visible', {
+      app_name: typeof detail.app_name === 'string' ? detail.app_name : scope?.app_name || '',
+      model_ref: modelRef,
+      has_model: modelRef ? hasSnapshotModel(modelRef) : null,
+      open_duration_ms: scope && Number.isFinite(scope.started_perf_ms)
+        ? Math.max(0, Math.round((nowClientPerfMs() - scope.started_perf_ms) * 1000) / 1000)
+        : null,
+    });
+  }
+
+  function endForegroundAppOpenTiming(detail = {}) {
+    const scope = activeForegroundAppOpenTiming;
+    if (!scope) return '';
+    const modelRef = normalizeVisibleModelRef(detail.model_ref) || scope?.model_ref || null;
+    recordFrontendTimingEvent('foreground_app_open_end', {
+      ok: detail.ok !== false,
+      has_model: modelRef ? hasSnapshotModel(modelRef) : null,
+      open_duration_ms: scope && Number.isFinite(scope.started_perf_ms)
+        ? Math.max(0, Math.round((nowClientPerfMs() - scope.started_perf_ms) * 1000) / 1000)
+        : null,
+    });
+    const endedOpenId = scope?.open_id || '';
+    activeForegroundAppOpenTiming = null;
+    return endedOpenId;
   }
 
   function labelRefKey(ref) {
@@ -518,6 +639,19 @@ export function createRemoteStore(options) {
 
   function applySnapshot(next, metadata = {}) {
     if (!next || !next.models) return;
+    const applyStartedPerfMs = nowClientPerfMs();
+    recordFrontendTimingEvent('snapshot_apply_start', {
+      __foreground_timing_scope: metadata?.__client_timing_scope || null,
+      context: typeof metadata?.__client_context === 'string' ? metadata.__client_context : '',
+      profile: typeof metadata?.__client_profile === 'string' ? metadata.__client_profile : '',
+      source: typeof metadata?.__client_source === 'string'
+        ? metadata.__client_source
+        : (metadata && metadata.snapshot_patch ? 'snapshot_patch' : 'snapshot'),
+      snapshot_seq: Number.isInteger(metadata?.snapshot_seq) ? metadata.snapshot_seq : null,
+      truth_snapshot: metadata && Object.prototype.hasOwnProperty.call(metadata, 'truth_snapshot') ? metadata.truth_snapshot : null,
+      model_count: Object.keys(next.models || {}).length,
+      table_count: Object.keys(next.tables || {}).length,
+    });
     clearWorkspaceInitializationRetry();
     const metaWorkspaceStatus = metadata && metadata.workspace_status && typeof metadata.workspace_status === 'object'
       ? metadata.workspace_status
@@ -580,6 +714,18 @@ export function createRemoteStore(options) {
     if (!initializingProjection) {
       scheduleRuntimeActivationRetryIfPending();
     }
+    recordFrontendTimingEvent('snapshot_apply_end', {
+      __foreground_timing_scope: metadata?.__client_timing_scope || null,
+      context: typeof metadata?.__client_context === 'string' ? metadata.__client_context : '',
+      profile: typeof metadata?.__client_profile === 'string' ? metadata.__client_profile : '',
+      source: typeof metadata?.__client_source === 'string'
+        ? metadata.__client_source
+        : (metadata && metadata.snapshot_patch ? 'snapshot_patch' : 'snapshot'),
+      snapshot_seq: Number.isInteger(metadata?.snapshot_seq) ? metadata.snapshot_seq : null,
+      duration_ms: Math.max(0, Math.round((nowClientPerfMs() - applyStartedPerfMs) * 1000) / 1000),
+      model_count: Object.keys(snapshot.models || {}).length,
+      table_count: Object.keys(snapshot.tables || {}).length,
+    });
   }
 
   function setWorkspaceStatus(next = {}) {
@@ -625,6 +771,29 @@ export function createRemoteStore(options) {
       timing: data && data.timing && typeof data.timing === 'object' ? data.timing : null,
     });
     scheduleWorkspaceInitializationRetry(context, { ...options, initialProjection: false }, retryAfterMs);
+  }
+
+  async function readSnapshotJsonWithTiming(resp, context, profile, timingScope = null) {
+    const parseStartedPerfMs = nowClientPerfMs();
+    let data = null;
+    let byteLength = null;
+    if (resp && typeof resp.text === 'function') {
+      const responseText = await resp.text();
+      byteLength = responseText.length;
+      data = JSON.parse(responseText);
+    } else if (resp && typeof resp.json === 'function') {
+      data = await resp.json();
+    } else {
+      throw new Error('snapshot_response_not_readable');
+    }
+    recordFrontendTimingEvent('snapshot_json_parsed', {
+      __foreground_timing_scope: timingScope,
+      context,
+      profile,
+      byte_length: byteLength,
+      duration_ms: Math.max(0, Math.round((nowClientPerfMs() - parseStartedPerfMs) * 1000) / 1000),
+    });
+    return data;
   }
 
   function scheduleRuntimeActivationRetryIfPending() {
@@ -1125,7 +1294,30 @@ export function createRemoteStore(options) {
       if (wantsInitialProjection) {
         initialProjectionRequestAvailable = false;
       }
-      const resp = await fetch(buildSnapshotUrl(requestOptions), { credentials: 'same-origin' });
+      const snapshotUrl = buildSnapshotUrl(requestOptions);
+      const fetchStartedPerfMs = nowClientPerfMs();
+      const timingScope = context.startsWith('visible model lazy load ')
+        ? captureForegroundTimingScope()
+        : null;
+      recordFrontendTimingEvent('snapshot_fetch_start', {
+        __foreground_timing_scope: timingScope,
+        context,
+        profile,
+        initial_projection: wantsInitialProjection,
+        visible_model_refs: Array.isArray(requestOptions.modelIds)
+          ? requestOptions.modelIds.map(normalizeVisibleModelRef).filter(Boolean)
+          : visibleModelRefList(),
+        url: snapshotUrl,
+      });
+      const resp = await fetch(snapshotUrl, { credentials: 'same-origin' });
+      recordFrontendTimingEvent('snapshot_fetch_response', {
+        __foreground_timing_scope: timingScope,
+        context,
+        profile,
+        status: resp.status,
+        ok: resp.ok,
+        duration_ms: Math.max(0, Math.round((nowClientPerfMs() - fetchStartedPerfMs) * 1000) / 1000),
+      });
       if (resp.status === 202) {
         const data = await resp.json().catch(() => ({}));
         const initializingSnapshotApplied = Boolean(data && data.snapshot && data.snapshot.models);
@@ -1139,6 +1331,10 @@ export function createRemoteStore(options) {
         if (initializingSnapshotApplied) {
           applySnapshot(data.snapshot, {
             ...data,
+            __client_context: context,
+            __client_profile: profile,
+            __client_source: 'snapshot_fetch_202',
+            __client_timing_scope: timingScope,
             workspace_status: data.workspace_status || {
               status: initializingStatus.status,
               code: initializingStatus.code,
@@ -1186,7 +1382,7 @@ export function createRemoteStore(options) {
         }
         return false;
       }
-      const data = await resp.json();
+      const data = await readSnapshotJsonWithTiming(resp, context, profile, timingScope);
       if (data && data.snapshot) {
         const mergeWithCurrentModels = Boolean(options && options.mergeWithCurrentModels);
         const staleMergedSnapshot = mergeWithCurrentModels
@@ -1197,7 +1393,11 @@ export function createRemoteStore(options) {
           : data.snapshot;
         const nextMetadata = staleMergedSnapshot
           ? { ...data, snapshot_seq: currentSnapshotSeq, stale_snapshot_seq: data.snapshot_seq }
-          : data;
+          : { ...data };
+        nextMetadata.__client_context = context;
+        nextMetadata.__client_profile = profile;
+        nextMetadata.__client_source = 'snapshot_fetch';
+        nextMetadata.__client_timing_scope = timingScope;
         applySnapshot(nextSnapshot, nextMetadata);
         return true;
       } else {
@@ -1230,16 +1430,41 @@ export function createRemoteStore(options) {
       throw new Error('invalid_visible_model_id');
     }
     const targetKey = visibleModelRefKey(targetRef);
+    const loadStartedPerfMs = nowClientPerfMs();
+    const loadTimingScope = activeForegroundAppOpenTiming
+      ? {
+          open_id: activeForegroundAppOpenTiming.open_id,
+          app_name: activeForegroundAppOpenTiming.app_name,
+          model_ref: activeForegroundAppOpenTiming.model_ref,
+        }
+      : null;
+    const finishVisibleModelTiming = (ok, detail = {}) => {
+      recordFrontendTimingEvent('visible_model_load_end', {
+        ...(loadTimingScope || {}),
+        model_ref: targetRef,
+        model_ref_key: targetKey,
+        ok: Boolean(ok),
+        has_model: hasSnapshotModel(targetRef),
+        duration_ms: Math.max(0, Math.round((nowClientPerfMs() - loadStartedPerfMs) * 1000) / 1000),
+        ...detail,
+      });
+    };
+    recordFrontendTimingEvent('visible_model_load_start', {
+      model_ref: targetRef,
+      model_ref_key: targetKey,
+      already_loaded: hasSnapshotModel(targetRef),
+    });
     if (hasSnapshotModel(targetRef)) {
       rememberVisibleModelRef(targetRef);
       connectEventSource();
+      finishVisibleModelTiming(true, { already_loaded: true });
       return true;
     }
     rememberVisibleModelRef(targetRef);
     let visibleFailure = null;
     const ok = await fetchSnapshotAndApply(`visible model lazy load ${targetKey}`, {
       profile: 'visible',
-      modelIds: visibleModelRefList(),
+      modelIds: [targetRef],
       initialProjection: true,
       acceptInitializingSnapshot: true,
       mergeWithCurrentModels: true,
@@ -1282,15 +1507,22 @@ export function createRemoteStore(options) {
           }
           rememberVisibleModelRef(targetRef);
           connectEventSource();
+          finishVisibleModelTiming(true, { retried_after_stale_refs: true });
           return true;
         }
       }
       forgetVisibleModelRef(targetRef);
       connectEventSource();
+      finishVisibleModelTiming(false, {
+        failure_status: visibleFailure?.status ?? null,
+        failure_code: failureCode || '',
+      });
       return false;
     }
     connectEventSource();
-    return hasSnapshotModel(targetRef);
+    const loaded = hasSnapshotModel(targetRef);
+    finishVisibleModelTiming(loaded);
+    return loaded;
   }
 
   function scheduleSnapshotFallback(context, expectedOpId = '') {
@@ -1682,6 +1914,11 @@ export function createRemoteStore(options) {
     refreshSnapshot,
     hasSnapshotModel,
     getVisibleSubscriptionState,
+    getFrontendTimingEvents,
+    clearFrontendTimingEvents,
+    beginForegroundAppOpenTiming,
+    recordForegroundAppContentVisible,
+    endForegroundAppOpenTiming,
     ensureVisibleModelLoaded,
     buildDispatchLabel: buildBusDispatchLabel,
     buildUiEventV2: buildBusEventV2,

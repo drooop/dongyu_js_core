@@ -385,8 +385,21 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
         syncGalleryRoute(app.path);
         syncPageLabel(app.path);
         if (app.page === 'workspace' && Number.isInteger(app.model_id)) {
+          const modelRef = typeof app.table_id === 'string' && app.table_id.trim()
+            ? { table_id: app.table_id.trim(), model_id: app.model_id }
+            : { table_id: 'host', model_id: app.model_id };
+          if (typeof mainStore?.beginForegroundAppOpenTiming === 'function') {
+            mainStore.beginForegroundAppOpenTiming({
+              app_name: app.title || app.name || '',
+              path: app.path || '',
+              model_ref: modelRef,
+            });
+          }
           void ensureForegroundAppVisibleModelLoaded(mainStore, app).then((loaded) => {
             if (loaded) foregroundVisibleLoadTick.value += 1;
+            if (!loaded && typeof mainStore?.endForegroundAppOpenTiming === 'function') {
+              mainStore.endForegroundAppOpenTiming({ ok: false, model_ref: modelRef });
+            }
           });
           selectWorkspaceModel(app);
         } else {
@@ -575,6 +588,20 @@ export function createAppShell({ mainStore, galleryStore, authStore }) {
           });
         }
         const focusedAppContentAst = buildFocusedWorkspaceAppContentAst(app, mainStore?.snapshot);
+        const modelRef = typeof app.table_id === 'string' && app.table_id.trim()
+          ? { table_id: app.table_id.trim(), model_id: app.model_id }
+          : { table_id: 'host', model_id: app.model_id };
+        if (app.page === 'workspace' && Number.isInteger(app.model_id)) {
+          if (typeof mainStore?.recordForegroundAppContentVisible === 'function') {
+            mainStore.recordForegroundAppContentVisible({
+              app_name: app.title || app.name || '',
+              model_ref: modelRef,
+            });
+          }
+          if (typeof mainStore?.endForegroundAppOpenTiming === 'function') {
+            mainStore.endForegroundAppOpenTiming({ ok: true, model_ref: modelRef });
+          }
+        }
         const content = app.page === 'gallery'
           ? h(GalleryRoot)
           : (
