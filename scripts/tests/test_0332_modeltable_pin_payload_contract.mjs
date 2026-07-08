@@ -5,7 +5,7 @@
 //   (2) mt_write rejects payloads with multiple user labels
 //   (3) legacy { op, records } envelopes no longer pass on mt_write_req or old mt_write_in
 //   (4) V1N.writeLabel emits through explicit write_label_req -> mt_write_req route only
-//   (5) mt_bus_send_in / pin.bus.cb.out use temporary ModelTable payloads internally
+//   (5) mt_bus_send_in / pin.bus.cb.out use formal v2 temporary ModelTable payloads internally
 //   (6) positive-model pin.in/pin.out reject non-ModelTable values at runtime core
 
 import assert from 'node:assert/strict';
@@ -25,8 +25,8 @@ async function seedTable(modelId) {
   return { rt, model };
 }
 
-function mt(k, t, v) {
-  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+function mt(k, t, v, id = 0) {
+  return { id, p: 0, r: 0, c: 0, k, t, v };
 }
 
 function mtAt({ id = 0, p = 0, r = 0, c = 0 }, k, t, v) {
@@ -65,9 +65,11 @@ function busSendPayload({
   originModelId = 100,
   pin = 'submit',
   busOutKey = 'model100_submit_bus',
-  payload = [mt('message_text', 'str', 'hello_bus')],
+  payload = [mt('message_text', 'str', 'hello_bus', 1)],
+  payloadModelId = 1,
   requestId = 'req_bus_send_0332',
   topic = `UIPUT/ws/dam/pic/de/R1/3000/${pin}`,
+  responseTopic = `UIPUT/ws/dam/pic/de/ui-server-test/${originModelId}/result`,
   routeKind = 'control',
 } = {}) {
   return [
@@ -75,25 +77,30 @@ function busSendPayload({
     mt('__mt_request_id', 'str', requestId),
     mt('message_role', 'str', 'request'),
     mt('topic', 'str', topic),
+    mt('response_topic', 'str', responseTopic),
     mt('route_kind', 'str', routeKind),
     mt('bus', 'str', routeKind),
     mt('endpoint_worker_id', 'str', 'R1'),
+    mt('endpoint_table_id', 'str', 'host'),
     mt('endpoint_model_id', 'int', 3000),
     mt('endpoint_pin', 'str', pin),
     mt('origin_worker_id', 'str', 'ui-server-test'),
+    mt('origin_table_id', 'str', 'host'),
     mt('origin_model_id', 'int', originModelId),
     mt('origin_pin', 'str', pin),
     mt('reply_target_worker_id', 'str', 'ui-server-test'),
+    mt('reply_target_table_id', 'str', 'host'),
     mt('reply_target_model_id', 'int', originModelId),
     mt('reply_target_pin', 'str', 'result'),
     mt('bus_out_key', 'str', busOutKey),
-    mt('payload', 'json', payload),
+    mt('payload_model_id', 'int', payloadModelId),
+    ...payload.map((record) => ({ ...record, id: payloadModelId })),
   ];
 }
 
-function getPayloadLabel(payload, key) {
+function getPayloadLabel(payload, key, id = 0) {
   assert.ok(Array.isArray(payload), `expected payload array, got: ${JSON.stringify(payload)}`);
-  return payload.find((rec) => rec && rec.id === 0 && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key) || null;
+  return payload.find((rec) => rec && rec.id === id && rec.p === 0 && rec.r === 0 && rec.c === 0 && rec.k === key) || null;
 }
 
 function assertResult(model, status, errorCode = null, { optional = false } = {}) {
@@ -513,7 +520,7 @@ async function test_mt_bus_send_uses_temporary_payload_and_externalizes_bus_out(
   });
   await rt.setRuntimeMode('running');
 
-  const nestedPayload = [mt('message_text', 'str', 'hello_bus')];
+  const nestedPayload = [mt('message_text', 'str', 'hello_bus', 1)];
 	  rt.addLabel(model0, 0, 0, 0, {
 	    k: 'mt_bus_send_in',
 	    t: 'pin.in',
@@ -531,13 +538,19 @@ async function test_mt_bus_send_uses_temporary_payload_and_externalizes_bus_out(
   assert.ok(busLabel, 'mt_bus_send must materialize requested Model 0 bus out label');
 	  assert.equal(busLabel.t, 'pin.bus.cb.out', 'mt_bus_send output must be pin.bus.cb.out');
 	  assert.ok(Array.isArray(busLabel.v), 'pin.bus.cb.out business value must be temporary ModelTable payload array');
-	  assert.equal(getPayloadLabel(busLabel.v, '__mt_payload_kind')?.v, 'pin_payload.v1');
+	  assert.equal(getPayloadLabel(busLabel.v, '__mt_payload_kind')?.v, 'pin_payload.v2');
+	  assert.equal(getPayloadLabel(busLabel.v, 'response_topic')?.v, 'UIPUT/ws/dam/pic/de/ui-server-test/100/result');
 	  assert.equal(getPayloadLabel(busLabel.v, 'endpoint_worker_id')?.v, 'R1');
+	  assert.equal(getPayloadLabel(busLabel.v, 'endpoint_table_id')?.v, 'host');
 	  assert.equal(getPayloadLabel(busLabel.v, 'endpoint_model_id')?.v, 3000);
 	  assert.equal(getPayloadLabel(busLabel.v, 'endpoint_pin')?.v, 'submit');
+	  assert.equal(getPayloadLabel(busLabel.v, 'origin_table_id')?.v, 'host');
 	  assert.equal(getPayloadLabel(busLabel.v, 'origin_model_id')?.v, 100);
+	  assert.equal(getPayloadLabel(busLabel.v, 'reply_target_table_id')?.v, 'host');
 	  assert.equal(getPayloadLabel(busLabel.v, 'reply_target_model_id')?.v, 100);
-	  assert.deepEqual(getPayloadLabel(busLabel.v, 'payload')?.v, nestedPayload);
+	  assert.equal(getPayloadLabel(busLabel.v, 'payload_model_id')?.v, 1);
+	  assert.equal(getPayloadLabel(busLabel.v, 'message_text', 1)?.v, 'hello_bus');
+	  assert.equal(getPayloadLabel(busLabel.v, 'payload'), null);
 
   const publish = rt.mqttTrace.list().find((entry) =>
     entry.type === 'publish' &&
