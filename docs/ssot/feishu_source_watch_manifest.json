@@ -1,0 +1,146 @@
+{
+  "schema": "feishu_source_watch_manifest.v1",
+  "authority_note": "Feishu documents are meeting-consensus source input; repository SSOT changes still require iteration review.",
+  "confirmation_policy": {
+    "compatible_change": "adopt_plan_update",
+    "conflict_or_unclear_change": "requires_user_confirmation",
+    "reject_defer_rule": "Do not make final reject/defer decisions automatically. Surface changed heading, explicit reason, and wait for user/team confirmation."
+  },
+  "documents": [
+    {
+      "id": "main",
+      "role": "Main",
+      "title": "软件工人模型2（整理改写版 v0）",
+      "url": "https://bob3y2gxxp.feishu.cn/wiki/Wurow8wi2iFyJqkDu81cyySQnlf",
+      "source_type": "wiki",
+      "wiki_node_token": "Wurow8wi2iFyJqkDu81cyySQnlf",
+      "obj_type": "docx",
+      "likely_ssot_targets": [
+        "docs/ssot/feishu_alignment_decisions_v0.md",
+        "docs/architecture_mantanet_and_workers.md"
+      ],
+      "confirmation_keywords": [
+        "直接修改业务状态",
+        "绕过",
+        "兼容",
+        "废弃",
+        "延后"
+      ]
+    },
+    {
+      "id": "rules",
+      "role": "Rules",
+      "title": "软件工人模型2-标签与连接规则 v0",
+      "url": "https://bob3y2gxxp.feishu.cn/wiki/QnzqwrqRgiUOjUkzTA3chrVfnBd",
+      "source_type": "wiki",
+      "wiki_node_token": "QnzqwrqRgiUOjUkzTA3chrVfnBd",
+      "obj_type": "docx",
+      "likely_ssot_targets": [
+        "docs/ssot/runtime_semantics_modeltable_driven.md",
+        "docs/ssot/label_type_registry.md",
+        "docs/ssot/feishu_model_label_alignment_v1.md"
+      ],
+      "confirmation_keywords": [
+        "pin.connect.model",
+        "直接修改业务状态",
+        "UI 直接",
+        "绕过",
+        "兼容",
+        "废弃",
+        "延后"
+      ]
+    },
+    {
+      "id": "examples",
+      "role": "Examples",
+      "title": "软件工人模型2-完整模型表示例 v0",
+      "url": "https://bob3y2gxxp.feishu.cn/wiki/LlBKwio3MiaIEBkLnaOcfzx4nuh",
+      "source_type": "wiki",
+      "wiki_node_token": "LlBKwio3MiaIEBkLnaOcfzx4nuh",
+      "obj_type": "docx",
+      "likely_ssot_targets": [
+        "docs/ssot/temporary_modeltable_payload_v1.md",
+        "docs/ssot/feishu_model_label_alignment_v1.md"
+      ],
+      "confirmation_keywords": [
+        "pin.connect.model",
+        "endpoint_pin",
+        "topic",
+        "response_topic",
+        "嵌套"
+      ]
+    },
+    {
+      "id": "planning",
+      "role": "Planning",
+      "title": "软件工人模型2-Tier2实现与模型ID规划 v0",
+      "url": "https://bob3y2gxxp.feishu.cn/wiki/RazQwQpPjiZXtZkBIoocZq9Unuc",
+      "source_type": "wiki",
+      "wiki_node_token": "RazQwQpPjiZXtZkBIoocZq9Unuc",
+      "obj_type": "docx",
+      "likely_ssot_targets": [
+        "docs/ssot/data_model_tier2_implementation_v1.md",
+        "docs/ssot/feishu_data_model_contract_v1.md"
+      ],
+      "confirmation_keywords": [
+        "延后",
+        "暂不实现",
+        "model_id",
+        "负数模型",
+        "Tier2"
+      ]
+    },
+    {
+      "id": "feishu-model2",
+      "role": "FocusedSource",
+      "title": "软件工人模型2",
+      "url": "https://bob3y2gxxp.feishu.cn/wiki/JYNWwQOOjiWcOLktv07cBvIVnOh",
+      "source_type": "wiki",
+      "wiki_node_token": "JYNWwQOOjiWcOLktv07cBvIVnOh",
+      "obj_type": "docx",
+      "likely_ssot_targets": [
+        "docs/ssot/feishu_alignment_decisions_v0.md",
+        "docs/ssot/feishu_data_model_contract_v1.md",
+        "docs/ssot/feishu_model_label_alignment_v1.md",
+        "docs/ssot/runtime_semantics_modeltable_driven.md",
+        "docs/ssot/label_type_registry.md"
+      ],
+      "confirmation_keywords": [
+        "pin.connect.model",
+        "直接修改业务状态",
+        "UI 直接",
+        "绕过",
+        "兼容",
+        "废弃",
+        "延后",
+        "model_id",
+        "负数模型"
+      ]
+    },
+    {
+      "id": "feishu-message-api",
+      "role": "FocusedSource",
+      "title": "软件工人消息API文档",
+      "url": "https://bob3y2gxxp.feishu.cn/wiki/WBZjwY3DSil6pAkQ8DZcpsrWnUf",
+      "source_type": "wiki",
+      "wiki_node_token": "WBZjwY3DSil6pAkQ8DZcpsrWnUf",
+      "obj_type": "docx",
+      "likely_ssot_targets": [
+        "docs/ssot/temporary_modeltable_payload_v1.md",
+        "docs/ssot/feishu_model_label_alignment_v1.md",
+        "docs/ssot/runtime_semantics_modeltable_driven.md"
+      ],
+      "confirmation_keywords": [
+        "pin.connect.model",
+        "endpoint_pin",
+        "origin_pin",
+        "topic",
+        "response_topic",
+        "嵌套",
+        "兼容",
+        "废弃",
+        "延后"
+      ]
+    }
+  ]
+}

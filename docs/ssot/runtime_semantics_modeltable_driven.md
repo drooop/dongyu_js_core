@@ -88,9 +88,10 @@ Principal-scoped subtable namespace target：`docs/ssot/principal_scoped_subtabl
 ### 1.4 Effective Cell Model Label 与 Scope Discoverability（Cell 有效模型标签与层级发现）
 
 - 每个 materialized Cell 仍然必须且只能有一个有效模型标签（effective model label）。
-- 有效模型标签是该 Cell 的主归属 / 主执行形态。当前已冻结集合为：`model.single` / `model.matrix` / `model.table` / `model.subtable` / `model.subtableconnection` / `model.submt` / `model.submtconnection`。
+- 有效模型标签是该 Cell 的主归属 / 主执行形态。当前已冻结集合为：`model.single` / `model.matrix` / `model.table` / `model.v1n` / `model.subtable` / `model.subtableconnection` / `model.submt` / `model.submtconnection`。
 - 0431 target 修正：`model.subtable` / `model.submt` 是子侧声明；`model.subtableconnection` / `model.submtconnection` 是父侧/主侧索引。
 - `model.table`：模型根 `(0,0,0)` 的显式根声明。
+- `model.v1n`：软件工人 host table Model 0 root `(0,0,0)` 的 Feishu-current 主模型表声明；普通模型表仍使用 `model.table`。
 - `model.matrix`：矩阵自身相对 `(0,0,0)` 的显式根声明。
 - `model.submt`：子模型 root 的显式声明。
 - `model.submtconnection`：父侧/主侧对子模型的索引 Cell。
@@ -126,6 +127,7 @@ Principal-scoped namespace 的完整多用户权限目标由 `docs/ssot/principa
 - `model_id >= 0` 在每个 `table_id` 内独立。
 - 每个安装后的 slide App instance 必须在自己的 App instance table 内。
 - 跨 table 的 PIN 路由只能通过父侧/主侧 `model.subtableconnection` Cell 和 child table root boundary pins；`pin.connect.cell` 仍只允许同 table 内连接，`pin.connect.model` 仍然禁止。
+- Feishu numeric `model.subtableconnection.v` 是父表分配的 child table id；runtime 必须将其归一化成 table-qualified child table reference。principal-scoped App instance 仍可直接使用 object descriptor 以保留 owner / table identity。
 - 每个 SSO principal 的 durable desktop state 应进入 principal-scoped user desktop table；这是多用户权限隔离目标，不得被 bare host positive `model_id` 口径扩展为长期合法语义。
 
 新代码、新文档和新测试不得把 bare positive `model_id` 当作跨 table / 跨 principal / App instance 的 durable identity。
@@ -617,6 +619,24 @@ bus pin 的 `v` 必须是 ModelTable-like temporary record array。标准外发�
 App instance traffic 的 origin / reply target metadata 必须包含 table 维度：`origin_table_id` / `reply_target_table_id`。仅靠 `origin_model_id` / `reply_target_model_id` 不足以定位 App instance，不得作为 principal-scoped App instance 合同。
 
 这些 metadata 必须作为 Temporary ModelTable record array 中的 records 存在，不能放在外层 JSON object 上。普通业务 JSON、旧 envelope、raw `resultPayload`、loose top-level `origin_*` / `reply_target_*` / `endpoint_*` 字段不能作为 fallback 发送。正式 bus / pin transport 不允许把 ModelTable records 放进 `payload.v`、`bundle_payload.v`、`json_patch.v` 或其他 `json` label 中；业务 records 必须作为同一数组中的 records 出现，并由 `payload_model_id` 指向。
+
+0442 起，Feishu-current `pin_payload.v1` 作为公开消息 API 的输入形态重新进入运行时入口校验，但只针对 Feishu 文档中的子模型表 payload 结构：消息根是 `id="0"`，版本与回复标记在 `0,0,1`，总线/引脚信息在 `0,1,0` / `0,1,1` / `0,1,2`，payload 连接在 `0,2,0`，业务 payload 放在 `0.<child_id>`。该输入面接受 Feishu source 的 `route_kind="control"` / `"manage"`；`message_server` 只能是 `"local"` / `"global"`；`between` 只能是 `"WSM_DEM"` / `"DEM_V1N"`；`manage` 消息必须携带管理总线发送/接收用户；未知 `sys_msg_type` 必须 fail closed；`task_data` 必须指向文档列出的任务管理器 pin。该入口不取消正式 `pin_payload.v2` 的 table-qualified transport 合同。
+
+0443 起，Feishu-current `pin_payload.v1` 通过 bus ingress 后会进入一个最小业务分发层。运行时必须按 `sys_msg_type` 分成 `resource` / `data` / `ui` / `task` family，并把结果写成可观察记录：`runtime.intercepts` 中的 `feishu_message_api_dispatch`，以及 Model 0 root 的 `feishu_message_api_last_type` / `feishu_message_api_last_family` / `feishu_message_api_last_action` / `feishu_message_api_last_result` labels。该层只声明“消息已被哪类 handler 接收”，不得直接伪造 DAM 持久化、资源目录、UI 刷新或任务状态流转结果。`task_data` 额外按 Feishu source 的 task pin 要求校验必填字段，例如 `add_task` 必须包含 `title`、`body`、`publisher`、`publish_time`；缺字段必须在 bus ingress fail closed，并写出具体字段名。
+
+0444 起，`task_data` 拥有第一版运行时任务管理器处理器。`add_task` 创建本地任务并生成整数 `id`，状态为 `added_waiting_receive`；`receive_task` 推进到 `received_waiting_finish`；`finish_task` 推进到 `finished_waiting_archive`；`archive_task` 推进到 `archived`；`delete_task` 标记为 `deleted`；`edit_task` 按 `id` 更新已有字段且不改变当前状态。任务状态必须通过 `feishu_task_manager_tasks` 与 `feishu_task_manager_last_result` labels 可观察，同时写 `feishu_task_manager_event` intercept。除 `add_task` 外，引用不存在的任务 id 必须 fail closed，例如 `bus_in_task_not_found:99`。本处理器仍不自动发布 `add_task_return`，因为跨 worker 回包必须另按 `response_topic` 合同实现。
+
+0445 起，`resource.report` / `resource.result` 拥有第一版运行时资源目录处理器。payload 子表中的每条资源记录由同一单元格上的 `type` 与 `resource` labels 组成，其中 `type` 必须是非空字符串，`resource` 必须是非空字符串列表；缺少有效资源条目的 `resource.report` / `resource.result` 必须在 bus ingress fail closed，例如 `bus_in_missing_resource_entries`。处理器维护运行时内存资源目录，并通过 Model 0 root 的 `feishu_resource_manager_catalog` / `feishu_resource_manager_last_result` labels 与 `feishu_resource_manager_event` intercept 可观察。`resource.request` 只记录请求并暴露当前资源目录，不自动发布 `resource.result`，因为跨 worker 回包仍必须另按 `response_topic` 合同实现。
+
+0446 起，`data.save_modeltable` / `data.load_modeltable` / `data.save_flow` / `data.load_flow` 拥有第一版运行时数据管理器处理器。`data.save_modeltable` 与 `data.load_modeltable` 的 payload 子表根类型必须是 `Data`；`data.save_flow` 与 `data.load_flow` 的 payload 子表根类型必须是 `Flow`。除 payload 根元数据 `model_type` / `model_name` / `sys_msg_type` 外，payload 子表必须包含至少一条实际数据 record；缺失时必须在 bus ingress fail closed，例如 `bus_in_missing_data_payload_records`，类型不匹配时拒绝为 `bus_in_invalid_data_payload_type`。处理器维护运行时内存数据存储，并通过 Model 0 root 的 `feishu_data_manager_store` / `feishu_data_manager_last_result` labels 与 `feishu_data_manager_event` intercept 可观察。该存储不是 DAM 持久化；`load_*` 也不自动发布 response，因为跨 worker 回包仍必须另按 `response_topic` 合同实现。
+
+0447 起，`ui.update_data` / `ui.tmp_data` / `ui.form_data` / `ui.refresh_data` 拥有第一版运行时 UI 管理器处理器。四类消息的 payload 子表根类型必须是 `Data`，且除 payload 根元数据 `model_type` / `model_name` / `sys_msg_type` 外必须包含至少一条实际 UI payload record；缺失时必须在 bus ingress fail closed，例如 `bus_in_missing_ui_payload_records`，类型不匹配时拒绝为 `bus_in_invalid_ui_payload_type`。处理器通过 Model 0 root 的 `feishu_ui_manager_state` / `feishu_ui_manager_last_result` labels 与 `feishu_ui_manager_event` intercept 可观察：`update_data` 记录当前后端可保存 UI 数据并追加运行时 history；`tmp_data` 只记录当前临时数据；`form_data` 记录表单提交；`refresh_data` 只记录待刷新参数。该处理器不直接修改 UI labels，不触发 frontend/SSE 刷新，也不自动发布 response。
+
+0448 起，Feishu-current `pin_payload.v1` 在业务 handler 接收后可以生成正式 `pin_payload.v2` response outbox。仅当 `is_need_response=true`，且 `response_pin` 与 `endpoint_pin` 都能解析为合法 v2 full topic 时，运行时才写 Model 0 root 的 `feishu_message_api_response_out`（`t="pin.bus.cb.out"`）。生成的 response 必须满足：`message_role="response"`，`topic=response_topic=<request response_pin>`，endpoint 来自 `response_pin`，origin 来自请求 `endpoint_pin`，host-table reply target 等于 response endpoint；payload records 必须包含 `sys_msg_type`、handler family/action 与 handler result。不需要回包或无法安全解析回包目标时，运行时只写 `feishu_message_api_response_last_result` skipped 结果并记录 `feishu_message_api_response_outbox` intercept，绝不 fallback 到请求 topic。
+
+0449 起，Feishu response outbox 的运行态发布状态必须可观察。运行时处于 `running` 且存在 MQTT client 时，写入 `feishu_message_api_response_out` 会复用正式 `pin.bus.cb.out` 发布路径，并将 response packet 发布到 `response_pin`；`feishu_message_api_response_last_result.v.publish_status` 必须写为 `"published"`，`publish_topic` 必须等于 `response_pin`。非运行态或没有 MQTT client 时，运行时仍可准备 outbox，但 `publish_status` 必须写为 `"prepared_not_published"`，`publish_topic` 为空。非法 `response_pin` / 不需要回包的消息不得发布。
+
+0450 起，入站 `message_role="response"` 的正式 `pin_payload.v2` packet 不再被 endpoint runtime 当作请求程序处理，也不得被静默忽略。UI Server/runtime 必须按 `reply_target_worker_id` 确认这是本地目标，再用 `reply_target_table_id + reply_target_model_id` 定位 materialization model，并通过 `add_label` 将 payload model records 写入对应 Cell。response materialization 必须先验证全部 payload records 均可写，再执行写入；任一 record 非法时必须整体拒绝，不得留下部分 materialization。response materialization 不得向 response endpoint model 写 `pin.in`，不得触发 endpoint 程序链路，不得在 reply target worker 不匹配、目标 model 不存在、或写入失败时 fallback 到 host/shared runtime。运行时必须写 `pin_payload_response_materialize_last_result` 与 `pin_payload_response_materialize` intercept 记录 applied/rejected 结果。
 
 `message_role="request"` 表示该 payload 会触发目标 worker/model/pin 上的程序链路；`message_role="response"` 表示这是回包，必须发布到 `response_topic`，并由 UI Server 按 `reply_target_*` materialize。远端 runtime 收到请求 endpoint topic 上的 `response` 必须拒绝或忽略，不能再次触发程序。
 

@@ -87,30 +87,37 @@ Adoption notes:
 
 ## 2. Decisions
 
-### 2.1 Keep `model.table`; do not adopt `model.v1n`
+### 2.1 Adopt Feishu `model.v1n` for software worker root
 
-Project target label:
+Project target labels:
 
+- `model.v1n`
 - `model.table`
 
 Meaning:
 
-- Root declaration for an independently runnable ModelTable.
-- Applies to host/root ModelTables and child ModelTables.
+- `model.v1n` declares the software worker main model table on host table Model
+  0 root `(0,0,0)`.
+- `model.table` remains the ordinary root declaration for independently
+  runnable non-worker ModelTables.
 - `label.k = "model_type"`.
-- `label.v` remains the domain type, for example `UI.SlideApp`,
-  `Data.Array`, `Flow`, or `Doc.Markdown`.
+- For `model.v1n`, `label.v` may be an empty string, matching the current
+  Feishu examples.
+- For `model.table`, `label.v` remains the domain type, for example
+  `UI.SlideApp`, `Data.Array`, `Flow`, or `Doc.Markdown`.
 
 Reason:
 
-- `V1N` is a worker role / software-worker category, not a model form.
-- Encoding worker role into a model label would mix two independent concepts.
-- Worker identity remains expressed by `worker.role` and `worker.id`.
+- The current Feishu source uses `model.v1n` for the software worker main
+  model table, and the user confirmed on 2026-07-08 that this should be
+  implemented according to the source.
+- Worker identity remains separately expressed by `worker.role` and
+  `worker.id`; `model.v1n` does not replace those labels.
 
 Feishu mapping:
 
-- Feishu `model.v1n` maps to project `model.table` on the worker root table,
-  plus an exact worker role label on Model 0 `(0,0,0)` where applicable:
+- Feishu `model.v1n` maps directly to project `model.v1n` on the worker root
+  table, plus exact worker role labels on Model 0 `(0,0,0)` where applicable:
   `k = "sys_worker_role"`, `t = "worker.role"`,
   `v = "V1N"` / `"DEM"` / `"WSM"`.
 
@@ -139,6 +146,17 @@ Parent-side `model.subtableconnection` target value:
   "owner_principal_id": "zitadel:123456789"
 }
 ```
+
+Feishu numeric input is also current:
+
+```json
+{ "k": "model_type", "t": "model.subtableconnection", "v": 1 }
+```
+
+The numeric form means "child table id allocated by the parent table". Runtime
+must normalize it to a table-qualified child table descriptor when the relation
+is materialized. Temporary messages may use the same numeric value to point to
+payload child ids such as `0.1`.
 
 Rules:
 
@@ -362,10 +380,6 @@ Adopted:
   project `model.subtableconnection` parent-side connection Cell semantics plus
   child root `model.subtable` declaration semantics.
 
-Not adopted as project input labels:
-
-- `model.v1n` remains mapped to project `model.table` plus worker labels.
-
 Recommended follow-up:
 
 - Use this source when updating `label_type_registry` so the worker-role table
@@ -393,9 +407,8 @@ Adopted:
 Adjusted for project target:
 
 - The source `pin_payload.v1` examples use `model.subtableconnection` as a
-  relationship/index label. The project target accepts the relationship label,
-  but formal bus/pin payload records still travel directly in the same
-  Temporary ModelTable message rather than nested under a JSON payload label.
+  relationship/index label. The project target now accepts the documented
+  child ModelTable payload shape such as `0.1` for Feishu message API parsing.
 - The source examples use full topic strings in `origin_pin`, `endpoint_pin`,
   and `response_pin`. The project target separates transport truth from
   semantic endpoint truth:
@@ -409,10 +422,69 @@ Adjusted for project target:
   - `reply_target_worker_id` / `reply_target_table_id` /
     `reply_target_model_id` / `reply_target_pin` describe where the response
     should be materialized.
-- The source document calls this family `pin_payload.v1`; repo implementation
-  iteration 0430 adopts `pin_payload.v2` as the project target name to remove
-  nested ModelTable arrays from formal payload fields. This does not require
-  changing the Feishu source document before implementation.
+- The source document calls this family `pin_payload.v1`; 0442 reintroduces
+  `pin_payload.v1` as the Feishu-current message API input shape while keeping
+  existing table-qualified runtime paths for durable App instance traffic.
+- 0442 validates the Feishu-current API envelope before it reaches bus ingress:
+  `route_kind` accepts the source values `"control"` / `"manage"`;
+  optional `message_server` must be `"local"` / `"global"`; optional
+  `between` must be `"WSM_DEM"` / `"DEM_V1N"`; `manage` route messages must
+  include non-empty management users; unknown `sys_msg_type` values fail
+  closed; `task_data` must target one of the documented task manager pins.
+- 0443 adds a narrow business dispatch point after accepted bus ingress:
+  resource/data/UI/task messages are classified into handler families and
+  mirrored to observable runtime labels and intercepts. This is not the final
+  resource catalog, DAM persistence, UI mutation, or task-state implementation;
+  those remain downstream handlers. Task messages already fail closed when a
+  documented task pin is missing its required payload fields.
+- 0444 implements the first downstream handler for `task_data`: it creates and
+  mutates runtime task manager state for `add_task`, `edit_task`,
+  `delete_task`, `receive_task`, `finish_task`, and `archive_task`, exposing
+  current tasks and the last result on Model 0. It still does not synthesize
+  `add_task_return`; response publishing remains bound to the existing
+  `response_topic` contract.
+- 0445 implements the first downstream handler for `resource.report`,
+  `resource.request`, and `resource.result`: report/result payload rows update
+  a visible runtime resource catalog, and request records the current catalog
+  without synthesizing a response packet. Empty report/result payloads fail
+  closed with `missing_resource_entries`; cross-worker result publishing
+  remains bound to the existing `response_topic` contract.
+- 0446 implements the first downstream handler for `data.save_modeltable`,
+  `data.load_modeltable`, `data.save_flow`, and `data.load_flow`: the payload
+  child table records are captured in a visible runtime data-manager store.
+  ModelTable payloads require a `Data` payload root, Flow payloads require a
+  `Flow` payload root, and empty data payloads fail closed. This is not DAM
+  persistence, and load actions still do not synthesize response packets.
+- 0447 implements the first downstream handler for `ui.update_data`,
+  `ui.tmp_data`, `ui.form_data`, and `ui.refresh_data`: the payload child table
+  records are captured in visible runtime UI-manager state. UI payloads require
+  a `Data` payload root and at least one non-metadata record. `refresh_data`
+  records pending refresh parameters but does not directly mutate UI labels or
+  synthesize a response packet.
+- 0448 adds the first response outbox bridge from Feishu-current
+  `pin_payload.v1` requests to formal `pin_payload.v2` responses. If
+  `is_need_response=true` and both `response_pin` and `endpoint_pin` are valid
+  full v2 topics, runtime writes `feishu_message_api_response_out` on Model 0 as
+  a `pin.bus.cb.out` response packet. The response uses
+  `topic=response_topic=<response_pin>`, response endpoint metadata from
+  `response_pin`, origin metadata from the request endpoint, and handler result
+  records as payload. Missing/no-response or invalid response destinations are
+  recorded as skipped response results and never fall back to the request topic.
+- 0449 makes the response outbox delivery state observable: a running runtime
+  with an MQTT client publishes the response packet through the existing
+  `pin.bus.cb.out` path to `response_pin` and records
+  `publish_status="published"` plus `publish_topic=<response_pin>` in
+  `feishu_message_api_response_last_result`. Edit/non-running mode can prepare
+  the outbox but records `publish_status="prepared_not_published"` and an empty
+  `publish_topic`.
+- 0450 materializes inbound formal response packets into the local reply target:
+  runtime accepts `message_role="response"` on the response endpoint topic,
+  checks that `reply_target_worker_id` is local, and writes payload records to
+  `reply_target_table_id + reply_target_model_id` via `addLabel`. It does not
+  write `pin.in` to the response endpoint model, does not re-trigger endpoint
+  programs, validates all payload records before writing so invalid records do
+  not leave partial materialization, and rejects foreign or missing reply targets
+  without falling back to host/shared runtime.
 
 ## 5. Follow-Up Implementation Scope
 
@@ -435,7 +507,6 @@ This file does not:
 
 - implement runtime behavior;
 - create compatibility aliases;
-- make `model.v1n` a project-accepted `label.t`;
 - restore `pin.connect.model`;
 - define the final database migration SQL;
 - decide collaborative/shared App state semantics.
