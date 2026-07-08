@@ -288,6 +288,22 @@ function getModel(snapshot, modelId) {
   return models[String(modelId)] || models[modelId] || null;
 }
 
+function getModelByRef(snapshot, ref) {
+  if (!ref || !Number.isInteger(ref.model_id)) return null;
+  const tableId = typeof ref.table_id === 'string' && ref.table_id.trim() ? ref.table_id.trim() : 'host';
+  if (tableId === 'host') return getModel(snapshot, ref.model_id);
+  return snapshot?.tables?.[tableId]?.models?.[String(ref.model_id)] || null;
+}
+
+function visibleRefQuery(ref) {
+  return 'visible_model_ref=' + encodeURIComponent(JSON.stringify(ref));
+}
+
+function visibleRefKey(ref) {
+  const tableId = typeof ref?.table_id === 'string' && ref.table_id.trim() ? ref.table_id.trim() : 'host';
+  return `${tableId}|${ref?.model_id}`;
+}
+
 function rootLabels(snapshot, modelId) {
   return getModel(snapshot, modelId)?.cells?.['0,0,0']?.labels || {};
 }
@@ -391,12 +407,22 @@ function visibleWorkspaceAppModelIds(snapshot) {
     .filter((modelId) => Number.isInteger(modelId) && modelId > 0 && getModel(snapshot, modelId));
 }
 
-function findVisibleFixtureIds(fullSnapshot) {
-  const ids = visibleWorkspaceAppModelIds(fullSnapshot);
-  const target = ids.find((modelId) => modelId !== 100) || ids[0];
-  const unrelated = ids.find((modelId) => modelId !== target);
-  assert.equal(Number.isInteger(target), true, 'full snapshot fixture must contain at least one positive workspace app model');
-  assert.equal(Number.isInteger(unrelated), true, 'full snapshot fixture must contain at least two positive workspace app models');
+function visibleWorkspaceAppRefs(snapshot) {
+  return workspaceRegistry(snapshot)
+    .map((entry) => {
+      if (!entry || !Number.isInteger(entry.model_id)) return null;
+      const tableId = typeof entry.table_id === 'string' && entry.table_id.trim() ? entry.table_id.trim() : 'host';
+      return { table_id: tableId, model_id: entry.model_id };
+    })
+    .filter((ref) => ref && ref.table_id !== 'host' && getModelByRef(snapshot, ref));
+}
+
+function findVisibleFixtureRefs(fullSnapshot) {
+  const refs = visibleWorkspaceAppRefs(fullSnapshot);
+  const target = refs.find((ref) => !String(ref.table_id).includes(':e2e:')) || refs[0];
+  const unrelated = refs.find((ref) => visibleRefKey(ref) !== visibleRefKey(target));
+  assert.equal(Boolean(target), true, 'full snapshot fixture must contain at least one App table workspace app ref');
+  assert.equal(Boolean(unrelated), true, 'full snapshot fixture must contain at least two App table workspace app refs');
   return { target, unrelated };
 }
 
@@ -690,7 +716,7 @@ async function test_snapshot_profiles_expose_bootstrap_and_visible_shapes() {
     assert.equal(fullResp.status, 200, 'full profile must remain available');
     const fullBody = await readJson(fullResp);
     const fullSnapshot = responseSnapshot(fullBody);
-    const { target, unrelated } = findVisibleFixtureIds(fullSnapshot);
+    const { target, unrelated } = findVisibleFixtureRefs(fullSnapshot);
     const allPositiveWorkspaceAppIds = visibleWorkspaceAppModelIds(fullSnapshot);
 
     const bootstrapResp = await fetch(`${baseUrl}/snapshot?profile=bootstrap`);
@@ -719,16 +745,16 @@ async function test_snapshot_profiles_expose_bootstrap_and_visible_shapes() {
     assertNoClientSecrets(defaultSnapshot, 'default snapshot');
     assert.equal(snapshotBytes(defaultBody) < snapshotBytes(fullBody), true, 'default snapshot must not be implicit full snapshot');
 
-    const visibleResp = await fetch(`${baseUrl}/snapshot?profile=visible&model_id=${target}`);
+    const visibleResp = await fetch(`${baseUrl}/snapshot?profile=visible&${visibleRefQuery(target)}`);
     assert.equal(visibleResp.status, 200, 'visible profile must accept requested allowed model');
     const visibleBody = await readJson(visibleResp);
     const visibleSnapshot = responseSnapshot(visibleBody);
-    assert.equal(Boolean(getModel(visibleSnapshot, target)), true, 'visible profile must include requested model');
-    assert.equal(Boolean(getModel(visibleSnapshot, unrelated)), false, 'visible profile must exclude unrelated app model');
+    assert.equal(Boolean(getModelByRef(visibleSnapshot, target)), true, 'visible profile must include requested app table model');
+    assert.equal(Boolean(getModelByRef(visibleSnapshot, unrelated)), false, 'visible profile must exclude unrelated app table model');
     assert.deepEqual(
-      modelIds(visibleSnapshot),
-      [target],
-      'explicit profile=visible snapshot must contain only the requested model body',
+      Object.keys(visibleSnapshot.tables || {}),
+      [target.table_id],
+      'explicit profile=visible snapshot must contain only the requested app table body',
     );
     assertNoPositiveWorkspaceAppBodies(
       visibleSnapshot,
@@ -868,7 +894,7 @@ async function test_stream_bootstrap_initial_event_avoids_full_snapshot_path() {
   await withAppServer(async (baseUrl) => {
     const fullBody = await readJson(await fetch(`${baseUrl}/snapshot?profile=full`));
     const fullSnapshot = responseSnapshot(fullBody);
-    const { target } = findVisibleFixtureIds(fullSnapshot);
+    const { target } = findVisibleFixtureRefs(fullSnapshot);
     const allPositiveWorkspaceAppIds = visibleWorkspaceAppModelIds(fullSnapshot);
 
     const event = await readFirstSseEvent(baseUrl, '?profile=bootstrap');
@@ -892,13 +918,14 @@ async function test_stream_bootstrap_initial_event_avoids_full_snapshot_path() {
     assertNoClientSecrets(defaultStreamSnapshot, 'default stream snapshot');
     assert.equal(snapshotBytes(defaultEvent.data) < snapshotBytes(fullBody), true, 'default stream must not be implicit full snapshot');
 
-    const visibleEvent = await readFirstSseEvent(baseUrl, `?profile=bootstrap&visible_model_id=${target}`);
+    const visibleEvent = await readFirstSseEvent(baseUrl, `?profile=bootstrap&${visibleRefQuery(target)}`);
     assert.equal(visibleEvent.event, 'snapshot', 'stream visible subscription first event must be a snapshot event');
     const visibleStreamSnapshot = responseSnapshot(visibleEvent.data);
     assertBootstrapModel0Minimal(visibleStreamSnapshot, 'stream visible subscription snapshot');
     assertBootstrapShellRootLabels(visibleStreamSnapshot, 'stream visible subscription snapshot');
-    assert.equal(Boolean(getModel(visibleStreamSnapshot, target)), true, 'stream visible subscription must include requested visible model');
-    assertBootstrapModelAllowlist(visibleStreamSnapshot, fullSnapshot, 'stream visible subscription snapshot', [target]);
+    assert.equal(Boolean(getModelByRef(visibleStreamSnapshot, target)), true, 'stream visible subscription must include requested visible app table model');
+    assertBootstrapModelAllowlist(visibleStreamSnapshot, fullSnapshot, 'stream visible subscription snapshot');
+    assert.deepEqual(Object.keys(visibleStreamSnapshot.tables || {}), [target.table_id], 'stream visible subscription must include only requested app table');
     assertNoPositiveWorkspaceAppBodies(
       visibleStreamSnapshot,
       allPositiveWorkspaceAppIds.filter((modelId) => modelId !== target),
@@ -1127,11 +1154,6 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     v1nConfig: {},
   };
   const visibleSnapshot = createVisibleModelSnapshot(4100, 'Lazy App');
-  const visibleSnapshot4100And4200 = createVisibleModelSnapshot(4100, 'Lazy App');
-  visibleSnapshot4100And4200.models['4200'] = createVisibleModelSnapshot(4200, 'Second Lazy App').models['4200'];
-  const visibleSnapshot4100To4300 = createVisibleModelSnapshot(4100, 'Lazy App');
-  visibleSnapshot4100To4300.models['4200'] = createVisibleModelSnapshot(4200, 'Second Lazy App From Newer Response').models['4200'];
-  visibleSnapshot4100To4300.models['4300'] = createVisibleModelSnapshot(4300, 'Third Lazy App').models['4300'];
   const visibleSnapshot4200 = createVisibleModelSnapshot(4200, 'Second Lazy App');
   const visibleSnapshot4300 = createVisibleModelSnapshot(4300, 'Third Lazy App');
   const visibleSnapshot4400 = createVisibleModelSnapshot(4400, 'Fourth Lazy App');
@@ -1155,39 +1177,22 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     if (matchesVisibleSnapshotRequest(url, [4100], true)) {
       return jsonResponse({ snapshot: visibleSnapshot, snapshot_seq: 2, patch_kind: 'visible_model' });
     }
-    if (matchesVisibleSnapshotRequest(url, [4100, 4200], true)) {
+    if (matchesVisibleSnapshotRequest(url, [4200], true)) {
       return new Promise((resolve) => {
         visibleResponders.set(4200, () => resolve(jsonResponse({
-          snapshot: visibleSnapshot4100And4200,
+          snapshot: visibleSnapshot4200,
           snapshot_seq: 4,
           patch_kind: 'visible_model',
         })));
       });
     }
-    if (matchesVisibleSnapshotRequest(url, [4100, 4200, 4300], true)) {
+    if (matchesVisibleSnapshotRequest(url, [4300], true)) {
       return new Promise((resolve) => {
         visibleResponders.set(4300, () => resolve(jsonResponse({
-          snapshot: visibleSnapshot4100To4300,
+          snapshot: visibleSnapshot4300,
           snapshot_seq: 5,
           patch_kind: 'visible_model',
         })));
-      });
-    }
-    if (matchesVisibleSnapshotRequest(url, [4100, 4200, 4300, 4400], true)) {
-      return jsonErrorResponse(403, { ok: false, error: 'model_not_visible' });
-    }
-    if (matchesVisibleSnapshotRequest(url, [4200], true)) {
-      return jsonResponse({
-        snapshot: visibleSnapshot4200,
-        snapshot_seq: 7,
-        patch_kind: 'visible_model',
-      });
-    }
-    if (matchesVisibleSnapshotRequest(url, [4300], true)) {
-      return jsonResponse({
-        snapshot: visibleSnapshot4300,
-        snapshot_seq: 7,
-        patch_kind: 'visible_model',
       });
     }
     if (matchesVisibleSnapshotRequest(url, [4400], true)) {
@@ -1271,10 +1276,7 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     visibleResponders.get(4300)();
     assert.equal(await visibleLoad4300, true, 'newer visible model request must resolve');
     assert.equal(store.hasSnapshotModel(4300), true, 'newer visible model response must hydrate its model');
-    await waitUntil(
-      () => store.projectionStore.getLabelValue({ model_id: 4200, p: 0, r: 0, c: 0, k: 'app_name' }) === 'Second Lazy App From Newer Response',
-      'newer visible response must be able to update an already requested model before older response arrives',
-    );
+    assert.equal(store.hasSnapshotModel(4200), false, 'newer target-only visible response must not hydrate the still-pending older model');
     visibleResponders.get(4200)();
     assert.equal(await visibleLoad4200, true, 'older visible model request must also resolve');
     assert.equal(store.hasSnapshotModel(4200), true, 'older visible model response must hydrate its model');
@@ -1285,8 +1287,8 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
     );
     assert.equal(
       store.projectionStore.getLabelValue({ model_id: 4200, p: 0, r: 0, c: 0, k: 'app_name' }),
-      'Second Lazy App From Newer Response',
-      'late older visible model response must not overwrite a model already updated by a newer visible response',
+      'Second Lazy App',
+      'late older target-only visible model response must hydrate its own model without depending on newer combined responses',
     );
     assert.equal(typeof latestSnapshotPatchListener, 'function', 'remote_store must keep a snapshot_patch listener after visible stream reconnects');
     latestSnapshotPatchListener({
@@ -1319,31 +1321,16 @@ async function test_frontend_uses_bootstrap_and_visible_model_lazy_load_contract
       'latest remote_store stream must subscribe to every currently visible model id after out-of-order visible fetches',
     );
     assertVisibleSubscriptionState(store, [4100, 4200, 4300], 'visible subscription state must match every currently visible model id');
-    assert.equal(await store.ensureVisibleModelLoaded(4400), true, 'visible lazy load must recover when a stale visible id makes the combined request fail');
+    assert.equal(await store.ensureVisibleModelLoaded(4400), true, 'visible lazy load must request only the target model even when several visible ids are already subscribed');
     assert.equal(
       hasRequestedVisibleSnapshot(requestedUrls, [4100, 4200, 4300, 4400], true),
-      true,
-      'test fixture must first reproduce the combined visible request with stale ids',
+      false,
+      'remote_store must not issue a combined visible request with already visible ids during foreground lazy load',
     );
     assert.equal(
       hasRequestedVisibleSnapshot(requestedUrls, [4400], true),
       true,
-      'remote_store must retry target-only visible fetch after stale id model_not_visible',
-    );
-    assert.equal(
-      requestedUrls.filter((url) => matchesVisibleSnapshotRequest(url, [4100], true)).length >= 2,
-      true,
-      'remote_store must revalidate already hydrated visible model 4100 after stale id recovery',
-    );
-    assert.equal(
-      hasRequestedVisibleSnapshot(requestedUrls, [4200], true),
-      true,
-      'remote_store must revalidate already hydrated visible model 4200 after stale id recovery',
-    );
-    assert.equal(
-      hasRequestedVisibleSnapshot(requestedUrls, [4300], true),
-      true,
-      'remote_store must revalidate already hydrated visible model 4300 after stale id recovery',
+      'remote_store must use target-only visible fetch for the fourth App',
     );
     assert.equal(store.hasSnapshotModel(4100), true, 'stale-id recovery must keep valid existing visible model 4100');
     assert.equal(store.hasSnapshotModel(4200), true, 'stale-id recovery must keep valid existing visible model 4200');

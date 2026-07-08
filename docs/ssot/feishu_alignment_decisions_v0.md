@@ -2,7 +2,7 @@
 title: "Feishu Alignment Decisions v0"
 doc_type: ssot
 status: active
-updated: 2026-07-01
+updated: 2026-07-08
 source: ai
 ---
 
@@ -322,6 +322,9 @@ source: ai
 - 这 4 篇 Feishu 文档属于协作层文档，不自动高于当前仓库 SSOT。
 - 若 Feishu 文档与 `CLAUDE.md`、架构 SSOT、运行时语义、标签注册表冲突，以当前仓库高优先级规约为准。
 - 若 Feishu 文档中的改动影响了正式规则，必须回写到当前仓库规约链路。
+- 这 4 篇 Feishu 文档的持续追踪入口为
+  `docs/ssot/feishu_source_watch_manifest.json`；该 manifest 只记录来源、token hint、影响面和确认规则，不保存密钥或原文快照。
+- Feishu 文档是每周会议共识的整理输入。若追踪报告发现疑似冲突、需要拒绝、或需要延后，不得由工具或 agent 自动定案；必须列明变更标题、具体原因和影响面，等待用户与同事确认后再继续 SSOT 改动。
 - 主文档负责导航；规则、例子、规划三篇文档负责拆分维护，不再继续把所有内容堆回主文档。
 
 建议查阅顺序：

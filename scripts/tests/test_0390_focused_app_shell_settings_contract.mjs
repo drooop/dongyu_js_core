@@ -285,13 +285,19 @@ function test_settings_mt_matrix_docs_registry_contract() {
   for (const entry of slid) {
     assert.ok(String(entry.source_de ?? '').trim(), `${entry.name}_source_de_missing`);
   }
-  for (const name of ['E2E 颜色生成器', '最小 Submit 双总线示例', '工作区管理器']) {
+  for (const name of ['最小 Submit 双总线示例']) {
     const source = byName.get(name)?.source_de;
     assert.ok(source && source !== 'source unknown', `${name}_seeded_app_must_have_real_source_de`);
   }
+  assert.equal(byName.get('工作区管理器')?.app_origin, 'builtin', 'workspace_manager_must_be_builtin_app_list_entry');
   const modelTableStore = createDemoStore({ uiMode: 'v1', adapterMode: 'v1' });
   const modelTableSnapshot = cloneJson(modelTableStore.snapshot);
   modelTableSnapshot.models['-2'].cells['0,0,0'].labels.ws_app_selected.v = 1082;
+  modelTableSnapshot.models['-2'].cells['0,0,0'].labels.ws_app_selected_ref = {
+    k: 'ws_app_selected_ref',
+    t: 'json',
+    v: { table_id: 'host', model_id: 1082 },
+  };
   const modelTableAst = resolveRouteUiAst(modelTableSnapshot, '/workspace')?.ast;
   assert.ok(collectNodes(modelTableAst, (node) => node.id === 'ws_not_mounted').length === 0, 'modeltable_app_1082_must_be_mounted_into_workspace');
   assert.ok(collectNodes(modelTableAst, (node) => node.id === 'tbl_home_cells' && node.type === 'Table').length === 1, 'modeltable_app_1082_must_own_modeltable_table');
@@ -679,6 +685,11 @@ function test_remote_store_route_override_supports_foreground_workspace_apps() {
   remoteStore.snapshot.models = remoteSnapshot.models;
   remoteStore.snapshot.v1nConfig = remoteSnapshot.v1nConfig;
   remoteStore.snapshot.models['-2'].cells['0,0,0'].labels.ws_app_selected.v = 1082;
+  remoteStore.snapshot.models['-2'].cells['0,0,0'].labels.ws_app_selected_ref = {
+    k: 'ws_app_selected_ref',
+    t: 'json',
+    v: { table_id: 'host', model_id: 1082 },
+  };
   remoteStore.setRoutePath('/');
 
   assert.equal(remoteStore.getUiAst()?.id, 'desktop_root', 'remote_store_default_getUiAst_must_use_current_route');

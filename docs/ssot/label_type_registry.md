@@ -58,11 +58,12 @@ Conflict behavior:
 |---|---|---|---|---|
 | `model.single` | 普通 Cell / 简单模型声明 | `model_type` | 类型名（如 `Code.JS`） | 任意 Cell；table/matrix 普通 Cell 可隐式默认为本类型 |
 | `model.matrix` | 矩阵模型根声明 | `model_type` | 类型名（如 `Data.Array.One`） | 矩阵自身相对 `(0,0,0)`；创建必填 |
+| `model.v1n` | 软件工人主模型表根声明 | `model_type` | 空字符串或软件工人表类型名 | 仅 host table Model 0 root `(0,0,0)` |
 | `model.table` | 模型表根声明 | `model_type` | 类型名（如 `Flow`） | 模型 `(0,0,0)`；创建必填 |
 | `model.submt` | 子模型声明 | `model_type` | 类型名（如 `Flow.Child`） | 子模型自己的 root `(0,0,0)`；创建子模型必填 |
 | `model.submtconnection` | 父侧/主侧对子模型的索引 | `model_type` | 子模型 id，或 `{ "model_id": int, "mount_kind": string? }` | 父模型/主模型/副模型中的索引 Cell；该 Cell 仅允许本标签 + 边界 `pin.in` / `pin.out` / `pin.login` / `pin.logout` |
 | `model.subtable` | 子模型表声明 | `model_type` | 类型名（如 `Slide.App.Table`） | 子模型表自己的 Model 0 root `(0,0,0)`；创建子模型表必填 |
-| `model.subtableconnection` | 父侧/主侧对子模型表的索引 | `model_type` | `{ "table_id": string, "root_model_id": int, "mount_kind": string, "owner_principal_id": string? }` | 主表/父表中的索引 Cell；该 Cell 仅允许本标签 + 边界 `pin.in` / `pin.out` / `pin.login` / `pin.logout` |
+| `model.subtableconnection` | 父侧/主侧对子模型表的索引 | `model_type` | Feishu numeric child table id, or `{ "table_id": string, "root_model_id": int, "mount_kind": string, "owner_principal_id": string? }` | 主表/父表中的索引 Cell；该 Cell 仅允许本标签 + 边界 `pin.in` / `pin.out` / `pin.login` / `pin.logout` |
 
 补充约束：
 - `model.submt` / `model.subtable` 只声明子侧身份，不承载父侧索引。
@@ -78,8 +79,9 @@ Conflict behavior:
 - `model.subtableconnection` 表示主表/父表对子模型表的索引；它通常指向 `{ table_id, root_model_id }`。
 - `model.subtable` 不允许让 child table 直接声明或改写 host negative models；host system capabilities 只能通过 host-owned boundary pins 暴露。
 - `model.subtableconnection` 不恢复 `pin.connect.model`。跨 table 连接只能通过父侧 connection Cell 与 child table root boundary pins。
-- Feishu source 中的 `model.v1n` 不作为项目 `label.t` 输入面。软件工人仍写成 `model.table` root 加 `sys_worker_role` / `sys_worker_id`。
-- Feishu source 中的 `model.subtableconnection` / `model.submtconnection` 是项目当前输入面，但只表示父侧/主侧索引；pin wiring 仍通过 boundary pins 与 `pin.connect.cell` 表达。
+- 0442 起，Feishu source 中的 `model.v1n` 是软件工人 host table Model 0 root 的正式输入面；普通模型表仍使用 `model.table`。
+- Feishu numeric `model.subtableconnection.v` 是正式输入面；runtime 在 durable parent table 中将其归一化为 table-qualified child table descriptor。显式 object descriptor 仍用于 principal-scoped App instance 等 durable child tables。
+- Feishu source 中的 `model.subtableconnection` / `model.submtconnection` 只表示父侧/主侧索引；pin wiring 仍通过 boundary pins 与 `pin.connect.cell` 表达。
 
 根程序约定：
 - 每个正数 `model.table` root `(0,0,0)` 默认携带 `mt_write` / `mt_bus_receive` / `mt_bus_send` 三类程序入口。

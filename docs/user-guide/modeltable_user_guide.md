@@ -94,26 +94,31 @@ source: ai
 - CRUD 真正写表时，同工作区默认必须走 `bus_event_v2 -> Model 0 pin.bus.cb.in -> intent_dispatch_table / pin-chain -> handle_three_scene_* -> Model 1008/1007 labels`。
 - local mode 必须明确返回 `unsupported / three_scene_remote_only`，不能偷偷复制第二套本地 CRUD 逻辑。
 
-## 2.4 Workspace Slide App Built-ins (0289 / 0290 / 0302)
+## 2.4 Workspace Slide App Source Templates And App Tables (0289 / 0290 / 0302 / 0440)
 
-当前 Workspace slide 主线额外保留这组正数模型：
+0440 后，用户在桌面看到的正数滑动 App 不再直接暴露 host 正数模型。当前口径是：
 
-- `Model 100`
-  - 内置 flow-shell slide app（`E2E 颜色生成器`）
-- `Model 1030`
-  - `滑动 APP 导入` host
-- `Model 1031`
-  - zip 导入器 truth
-- `Model 1034`
-  - `滑动 APP 创建` host
-- `Model 1035`
-  - 填表创建器 truth
-- `Model 1082`
-  - `ModelTable` 内置模型表编辑滑动 app
-- `Model 1083`
-  - `Matrix Chat` 内置 Matrix 聊天滑动 app
-- `Model 1086`
-  - `To Do Board` 内置分状态任务看板滑动 app
+- host 正数模型保留为 source template / source host model，用来导出、安装或迁移 App 内容。
+- 用户可见入口是 principal-scoped App table root，引用形如 `ModelRef = { table_id: "app:<principal>:...", model_id: 0 }`。
+- App table root 必须声明 `model.subtable`，host `Model 0` 的索引 Cell 必须写 `model.subtableconnection`，并带上 `owner_principal_id`。
+- `ws_apps_registry` 里的迁移入口必须写 `table_id`、`model_id: 0`、`source_host_model_id` 和来源字段；不要再把这些正数 host source model 当成用户可直接打开的 Workspace entry。
+
+当前保留的 source host models 包括：
+
+- `Model 100`：`E2E 颜色生成器`
+- `Model 1007`：`Three Scene`
+- `Model 1011`：`Static`
+- `Model 1030`：`滑动 APP 导入`
+- `Model 1034`：`滑动 APP 创建` host source template；当前不作为默认用户可见入口
+- `Model 1035`：填表创建器 truth
+- `Model 1036`：`Mgmt Bus Console`
+- `Model 1050`：`最小 Submit 双总线示例`
+- `Model 1051`：`工作区管理器`
+- `Model 1080`：`Matrix Suite`
+- `Model 1081`：`Settings`
+- `Model 1082`：`ModelTable`
+- `Model 1083`：`Matrix Chat`
+- `Model 1086`：`To Do Board`
 
 当前 `slide_surface_type` 正式枚举：
 
@@ -141,9 +146,10 @@ source: ai
 
 用户入口：
 
-- `Gallery`、`Docs`、`ModelTable`、`Static`、`Settings`、`Matrix Suite`、`Matrix Chat`、`To Do Board` 等内置入口以桌面 app card 进入。
+- `Gallery`、`Docs` 仍是 host built-in app card。
+- `ModelTable`、`Static`、`Settings`、`Matrix Suite`、`Matrix Chat`、`To Do Board`、`工作区管理器`、`Mgmt Bus Console`、`Three Scene`、`E2E 颜色生成器`、`最小 Submit 双总线示例` 等正数滑动 App 以 App table card 进入，显示在 `Slid in from DE` 分组。
 - `Docs` 不再是 Dock 专属入口，而是普通 app card。
-- `ModelTable` 不再依赖桌面侧边栏；它是 `Model 1082` 上的 UI Server built-in slide app。打开卡片时先进入 1082 的滑动 App，再由 1082 的 UI 模型挂载完整模型表编辑界面，用于查看、新增、编辑、删除和详情查看。
+- `ModelTable` 不再依赖桌面侧边栏；它以 `source_host_model_id = 1082` 的 App table 入口打开，再挂载完整模型表编辑界面，用于查看、新增、编辑、删除和详情查看。
 - Workspace 下所有 `slide_capable=true` 且属于用户可见入口的滑动 app，会从 `ws_apps_registry` 投影为桌面 app card。
 - App card 的短说明来自滑动 app 根单元格的 `slide_app_summary` 标签；这让用户打开前就能知道 app 的作用。
 - app list 分为 `Built-in` 和 `Slid in from DE` 两组。

@@ -27,32 +27,11 @@ export const GALLERY_CATALOG_MODEL_ID = -103;
 export const WORKSPACE_ENTRY_MODEL_IDS = Object.freeze([
   -103,
   -23,
-  1007,
-  1011,
-  1030,
-  1036,
-  1050,
-  1051,
-  1080,
-  1081,
-  1082,
-  1083,
-  1086,
 ]);
 
 export const BUILTIN_WORKSPACE_APP_MODEL_IDS = Object.freeze([
   -103,
   -23,
-  1007,
-  1011,
-  1030,
-  1036,
-  1051,
-  1080,
-  1081,
-  1082,
-  1083,
-  1086,
 ]);
 
 // Wave C demo submodel.

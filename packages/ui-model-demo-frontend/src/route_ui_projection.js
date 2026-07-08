@@ -142,6 +142,7 @@ export function normalizeDesktopWorkspaceApps(snapshot) {
     const sourceDE = origin === 'slid_in'
       ? String(entry.source_de || 'source unknown').trim() || 'source unknown'
       : '';
+    const sourceHostModelId = Number.isInteger(entry.source_host_model_id) ? entry.source_host_model_id : null;
     apps.push({
       modelId,
       tableId,
@@ -149,6 +150,7 @@ export function normalizeDesktopWorkspaceApps(snapshot) {
       summary: summary || (origin === 'builtin' ? `${title} built-in app.` : ''),
       origin,
       sourceDE,
+      ...(Number.isInteger(sourceHostModelId) ? { sourceHostModelId } : {}),
       deletable: entry.deletable === true,
       surface: typeof entry.slide_surface_type === 'string' && entry.slide_surface_type.trim()
         ? entry.slide_surface_type.trim()
@@ -167,6 +169,7 @@ function desktopLaunchValueForApp(app) {
     path: '/workspace',
     model_id: app.modelId,
     ...(tableId !== 'host' ? { table_id: tableId } : {}),
+    ...(Number.isInteger(app.sourceHostModelId) ? { source_host_model_id: app.sourceHostModelId } : {}),
     title: app.title,
     summary: app.summary,
   };
@@ -195,11 +198,12 @@ function buildDesktopWorkspaceAppNode(app, displayMode = 'cards', manageMode = f
       desktopApp: true,
       appKind: 'workspace',
       appOrigin: app.origin,
-      sourceDE: app.origin === 'slid_in' ? app.sourceDE : '',
-      modelId: app.modelId,
-      tableId: app.tableId,
-      surface: app.surface,
-      displayMode,
+        sourceDE: app.origin === 'slid_in' ? app.sourceDE : '',
+        modelId: app.modelId,
+        tableId: app.tableId,
+        sourceHostModelId: app.sourceHostModelId,
+        surface: app.surface,
+        displayMode,
       density: 'compact',
       sourcePlacement: 'cornerBadge',
       manageMode,
@@ -251,12 +255,15 @@ function composeDesktopProjection(snapshot, desktopAst) {
   }
   const builtinApps = apps.filter((app) => app.origin === 'builtin');
   const slidInApps = apps.filter((app) => app.origin !== 'builtin');
-  const matrixApp = apps.find((app) => app.modelId === MATRIX_SUITE_APP_MODEL_ID) || {
+  const matrixApp = apps.find((app) => (
+    app.modelId === MATRIX_SUITE_APP_MODEL_ID || app.sourceHostModelId === MATRIX_SUITE_APP_MODEL_ID
+  )) || {
     modelId: MATRIX_SUITE_APP_MODEL_ID,
     title: 'Matrix Suite',
     summary: '',
     origin: 'builtin',
     surface: 'workspace.page',
+    sourceHostModelId: MATRIX_SUITE_APP_MODEL_ID,
   };
 
   const visit = (node) => {

@@ -61,6 +61,9 @@ export function normalizeDesktopForegroundApp(value) {
   if (typeof value.table_id === 'string' && value.table_id.trim()) {
     app.table_id = value.table_id.trim();
   }
+  if (Number.isInteger(value.source_host_model_id)) {
+    app.source_host_model_id = value.source_host_model_id;
+  }
   return app;
 }
 

@@ -2,7 +2,7 @@
 title: "Slide App Runtime Developer Guide"
 doc_type: user-guide
 status: active
-updated: 2026-07-02
+updated: 2026-07-06
 source: ai
 ---
 
@@ -206,9 +206,48 @@ my-slide-app.zip
 
 同一个 ZIP 可以被同一用户或不同用户安装多次。每次安装都会得到独立 `table_id`；包内 `model_id=0` 仍然是该 App table 的 root。这样同一个颜色生成器安装成两个实例时，两个实例能显示不同颜色而不会互相覆盖。
 
-### 4.1 Workspace Manager 安装 provider-owned APP（0384 current contract）
+### 4.1 子表化滑动 APP 的 authoring checklist
+
+开发者写包时仍然写 table-local records；安装完成后才会变成某个用户自己的 App table。最小规则是：
+
+- 包内 root model 使用 `id=0`。导入包的 root `model_type` 仍写 `t="model.table"`，安装器 materialize 后会在 App table root 写 `t="model.subtable"`。
+- root `(0,0,0)` 至少写 `app_name`、`slide_app_summary`、`slide_capable=true`、`slide_surface_type="workspace.page"`、`ui_authoring_version="cellwise.ui.v1"`、`ui_root_node_id`。
+- 需要展示 provider 来源时写 `source_worker` / `source_de` / `from_user` / `to_user`；桌面只把非 builtin App 的 `source_de` 当作来源徽标显示，安装器会用 `to_user` 绑定当前 principal。
+- 所有业务状态都放在 App table 自己的 labels 里。不要依赖宿主正数 model id 保存业务状态，也不要把 host source model 当成用户正在使用的 App。
+- UI 里的 `ModelRef` 必须能带 `table_id`。运行态打开、导出、删除、visible snapshot 都以 `{ table_id, model_id }` 为准；只有 builtin host App 才可以省略 `table_id`。
+- 正式按钮事件用 `bus_event_v2` 和临时 ModelTable record array。若事件要从 host 进入 App table，root 声明 `host_ingress_v1`，安装器会生成允许写入的 host ingress key。
+
+`host_ingress_v1` 的 `semantic` 建议使用稳定业务词，例如 `submit`、`save`、`refresh`。安装后生成的 key 会带 App table 身份；文档里常用的 `imported_host_submit_<modelId>` 是缩写，实际实现会生成类似 `imported_host_submit_<tableId>_<modelId>` 的 table-qualified key。
+
+### 4.2 从旧 host source model 迁移到 App table
+
+如果已有一个内置或 RemoteWorker 提供的滑动 APP 曾经直接作为 host positive model 出现在 Workspace，需要按下面顺序迁移：
+
+1. 保留原 host model 作为 source template 或测试 fixture。
+2. 从 source template 导出 table-local payload，补齐 root metadata、`from_user`、`to_user` 和 `host_ingress_v1`。
+3. 如果旧 UI 按钮写死了 host-only `bus_in_key`，把它改成安装器可 remap 的占位 key，例如 `bus_event_submit_0_0_0_0`；安装后由宿主生成 table-qualified ingress key。
+4. materialize 为当前 principal 自己的 App table，并在 host Model 0 的 index cell 写 `model.subtableconnection`。
+5. 从 host Workspace allowlist 和静态 `ws_apps_registry` 删除旧 host entry，让用户只看到 App table entry。
+6. 用两个不同 principal 验证：A 和 B 看到的 `table_id` 不同，且 A 请求 B 的 visible App table 会失败。
+
+迁移后的 source template 可以继续存在，但它不再是用户桌面上的 App。用户打开的是 `model.subtable` App table root；宿主保存的是 `model.subtableconnection` 索引边界。
+
+### 4.3 当前视图 snapshot 和多用户隔离
+
+前端启动时不应下载每个 App 的完整模型体。当前约定是：
+
+- `bootstrap` 只加载桌面壳、App registry、route state、任务栈和必要系统模型。
+- 打开某个 App 时，前端用 `visibleModelRefs=[{ table_id, model_id }]` 请求 `visible` profile。
+- `visible` profile 只返回当前 principal 可见的目标 App table/model body；不应顺带返回无关 host positive models、其他 App table 或其他用户的 App table。
+- 如果当前 principal 没有权限看某个 `{ table_id, model_id }`，server 必须 fail closed，而不是返回空数据伪装成功。
+
+这意味着开发者要把当前视图真正需要的数据放在被打开的 App table/model 中。跨 App 或跨用户共享数据必须先有明确的权限和共享模型，不要靠“打开 App 时顺便加载全局 snapshot”来拿数据。
+
+### 4.4 Workspace Manager 安装 provider-owned APP（0384 current contract）
 
 Workspace Manager 的安装按钮不再从 UI Server 本地模型复制 `source_model_id`。它只读取 Workspace Manager DEM ModelTable 维护的资产索引；实际 APP bundle 必须由 provider worker 返回，并在 UI Server 校验 response 与 pending install 完全匹配后才会 materialize 为本地安装实例。
+
+RemoteWorker provider-owned bundle 的最小返回形态是：response packet 外层仍是 `pin_payload.v2`，业务 records 是 `slide_app_bundle_response.v1`，其中用 `bundle_payload` 或同一 Temporary ModelTable array 中的 offset records 承载真正的 App records。无论采用哪种承载方式，最终被安装的 bundle payload 都必须和 ZIP 的 `app_payload.json` 一样通过同一套 validator。
 
 当前实现中，工作区管理器页面展示的“可安装滑动 APP”来自 Workspace Manager DEM 模型表中的 `asset_catalog_json`。这份目录只是索引：它说明某个资产由哪个 DE / Worker 提供、安装时应向哪个 provider endpoint 请求 bundle、安装后运行时应走哪个业务 endpoint。UI Server 不把这份目录当成 APP payload truth。
 

@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { createRenderer } from '../../packages/ui-renderer/src/renderer.mjs';
 import { createRemoteStore } from '../../packages/ui-model-demo-frontend/src/remote_store.js';
 import { buildClientSnapshotPatchMessage } from '../../packages/ui-model-demo-server/server.mjs';
+import { pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 function label(k, t, v) {
   return { k, t, v };
@@ -49,35 +50,36 @@ function pinPayloadPacket({
   topic,
   includeResponseTopic = true,
   responseTopic = topic,
-  endpoint = { worker_id: 'U1', model_id: 9417, pin: 'result' },
-  origin = { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
-  replyTarget = { worker_id: 'U1', model_id: 9417, pin: 'result' },
+  endpoint = { worker_id: 'U1', table_id: 'host', model_id: 9417, pin: 'result' },
+  origin = { worker_id: 'R1', table_id: 'host', model_id: 3000, pin: 'submit1' },
+  replyTarget = { worker_id: 'U1', table_id: 'host', model_id: 9417, pin: 'result' },
   replyTargetPrincipalKey = 'alice-sub',
   payload = [],
 } = {}) {
-  const records = [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', opId),
-    mt('op_id', 'str', opId),
-    mt('message_role', 'str', 'response'),
-    mt('topic', 'str', topic),
-    mt('route_kind', 'str', 'control'),
-    mt('bus', 'str', 'control'),
-    mt('endpoint_worker_id', 'str', endpoint.worker_id),
-    mt('endpoint_model_id', 'int', endpoint.model_id),
-    mt('endpoint_pin', 'str', endpoint.pin),
-    mt('origin_worker_id', 'str', origin.worker_id),
-    mt('origin_model_id', 'int', origin.model_id),
-    mt('origin_pin', 'str', origin.pin),
-    mt('reply_target_worker_id', 'str', replyTarget.worker_id),
-    mt('reply_target_model_id', 'int', replyTarget.model_id),
-    mt('reply_target_pin', 'str', replyTarget.pin),
-    mt('reply_target_principal_key', 'str', replyTargetPrincipalKey),
-    mt('payload', 'json', payload),
-    mt('timestamp', 'int', 1700000000000),
-  ];
-  if (includeResponseTopic) {
-    records.splice(4, 0, mt('response_topic', 'str', responseTopic));
+  const records = pinPayloadV2Records({
+    opId,
+    messageRole: 'response',
+    topic,
+    responseTopic,
+    endpointWorkerId: endpoint.worker_id,
+    endpointTableId: endpoint.table_id || 'host',
+    endpointModelId: endpoint.model_id,
+    endpointPin: endpoint.pin,
+    originWorkerId: origin.worker_id,
+    originTableId: origin.table_id || 'host',
+    originModelId: origin.model_id,
+    originPin: origin.pin,
+    replyTargetWorkerId: replyTarget.worker_id,
+    replyTargetTableId: replyTarget.table_id || 'host',
+    replyTargetModelId: replyTarget.model_id,
+    replyTargetPin: replyTarget.pin,
+    replyTargetPrincipalKey,
+    payloadModelId: 1,
+    payloadRecords: payload,
+    timestamp: 1700000000000,
+  });
+  if (!includeResponseTopic) {
+    return { version: 'v1', type: 'pin_payload', payload: records.filter((record) => record.k !== 'response_topic') };
   }
   return { version: 'v1', type: 'pin_payload', payload: records };
 }
@@ -441,9 +443,11 @@ async function test_principal_workspace_runtime_isolation() {
     bob.state.runtime.addLabel(bobModel, 0, 0, 0, label('task_title', 'str', 'Bob private task'));
 
     const responseTopic = 'UIPUT/ws/dam/pic/de/U1/9417/result';
-    const wrongPinHandled = await registry.handleControlBusPacket(responseTopic, pinPayloadPacket({
+    const wrongPinTopic = 'UIPUT/ws/dam/pic/de/U1/9417/wrong_result';
+    const wrongPinHandled = await registry.handleControlBusPacket(wrongPinTopic, pinPayloadPacket({
       opId: 'it0417_response_wrong_pin',
-      topic: responseTopic,
+      topic: wrongPinTopic,
+      endpoint: { worker_id: 'U1', model_id: 9417, pin: 'wrong_result' },
       replyTargetPrincipalKey: alice.principalKey,
       replyTarget: { worker_id: 'U1', model_id: 9417, pin: 'wrong_result' },
       payload: [mt('materialized_result', 'str', 'Wrong pin response')],
@@ -486,9 +490,11 @@ async function test_principal_workspace_runtime_isolation() {
     }));
     assert.equal(missingRuntimeHandled, false, 'registry must reject responses for an unknown principal runtime');
     assert.equal(labelValueFromState(alice.state, modelId, 'materialized_result'), undefined, 'unknown runtime must not materialize payload');
-    const missingModelHandled = await registry.handleControlBusPacket(responseTopic, pinPayloadPacket({
+    const missingModelTopic = 'UIPUT/ws/dam/pic/de/U1/999917/result';
+    const missingModelHandled = await registry.handleControlBusPacket(missingModelTopic, pinPayloadPacket({
       opId: 'it0417_response_missing_model',
-      topic: responseTopic,
+      topic: missingModelTopic,
+      endpoint: { worker_id: 'U1', model_id: 999917, pin: 'result' },
       replyTargetPrincipalKey: alice.principalKey,
       replyTarget: { worker_id: 'U1', model_id: 999917, pin: 'result' },
       payload: [mt('materialized_result', 'str', 'Missing model response')],

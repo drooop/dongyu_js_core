@@ -339,6 +339,18 @@ class ModelTableRuntime {
     this.modelTables = new Map([[HOST_TABLE_ID, this.models]]);
     this.subtableMounts = new Map();
     this.subtableMountsByHostCell = new Map();
+    this.feishuResourceManager = { catalog: {} };
+    this.feishuDataManager = {
+      modeltable: { saved: null, loaded: null },
+      flow: { saved: null, loaded: null },
+    };
+    this.feishuUiManager = {
+      update: { current: null, history: [] },
+      tmp: { current: null },
+      form: { submissions: [] },
+      refresh: { pending: null },
+    };
+    this.feishuTaskManager = { nextTaskId: 1, tasks: new Map() };
     this.v1nConfig = { local_mqtt: null, global_mqtt: null };
     this.mqttClient = null;
     // 0141: CELL_CONNECT graph (two-level Map)
@@ -441,6 +453,14 @@ class ModelTableRuntime {
 
   _subtableHostCellKey(model, p, r, c) {
     return `${this._modelTableId(model)}|${model.id}|${p}|${r}|${c}`;
+  }
+
+  _deriveFeishuChildTableId(parentTableId, childTableId) {
+    if (!Number.isInteger(childTableId) || childTableId <= 0) {
+      throw new Error('invalid_child_table_id');
+    }
+    const parent = this._normalizeTableId(parentTableId, { defaultHost: true });
+    return `${parent}.${childTableId}`;
   }
 
   _isBusInResolvedType(typeName) {
@@ -613,7 +633,7 @@ class ModelTableRuntime {
     for (const [, lbl] of origin.labels) {
       const t = this._resolveLabelType(lbl.t);
       if (t === 'model.single') return 'single';
-      if (t === 'model.table' || t === 'model.matrix' || t === 'model.submt') return 'table';
+      if (t === 'model.table' || t === 'model.v1n' || t === 'model.matrix' || t === 'model.submt') return 'table';
     }
     return 'table';
   }
@@ -625,7 +645,7 @@ class ModelTableRuntime {
     if (!cell || !cell.labels) return null;
     for (const [, lbl] of cell.labels) {
       const t = this._resolveLabelType(lbl.t);
-      if (t === 'model.single' || t === 'model.table' || t === 'model.matrix' || t === 'model.submt') {
+      if (t === 'model.single' || t === 'model.table' || t === 'model.v1n' || t === 'model.matrix' || t === 'model.submt') {
         return t;
       }
     }
@@ -675,7 +695,7 @@ class ModelTableRuntime {
     const isRoot = p === 0 && r === 0 && c === 0;
 
     if (isRoot) {
-      if (rootDeclared === 'model.table' || rootDeclared === 'model.submt') return 'table';
+      if (rootDeclared === 'model.table' || rootDeclared === 'model.v1n' || rootDeclared === 'model.submt') return 'table';
       if (rootDeclared === 'model.matrix') return 'matrix';
     }
 
@@ -683,7 +703,7 @@ class ModelTableRuntime {
 
     if (declaredAtCell === 'model.matrix') return 'matrix';
     if (rootDeclared === 'model.matrix') return 'matrix';
-    if (rootDeclared === 'model.table' || rootDeclared === 'model.submt') return 'table';
+    if (rootDeclared === 'model.table' || rootDeclared === 'model.v1n' || rootDeclared === 'model.submt') return 'table';
     return null;
   }
 
@@ -840,7 +860,6 @@ class ModelTableRuntime {
     }
     if (
       label.t === 'pin.connect.model'
-      || label.t === 'model.v1n'
       || label.t === 'submt'
       || label.t === 'subModel'
       || label.t === 'pin.bus.in'
@@ -893,6 +912,11 @@ class ModelTableRuntime {
         return 'management_bus_pin_requires_dem';
       }
     }
+    if (resolvedType === 'model.v1n') {
+      if (!model || this._modelTableId(model) !== HOST_TABLE_ID || model.id !== 0 || !this._isRootCell(p, r, c)) {
+        return 'model_v1n_requires_worker_root';
+      }
+    }
     if (resolvedType === 'model.subtable') {
       if (!model || this._modelTableId(model) === HOST_TABLE_ID || model.id !== 0 || !this._isRootCell(p, r, c)) {
         return 'subtable_requires_child_table_root';
@@ -920,7 +944,7 @@ class ModelTableRuntime {
       return normalized.ok ? null : normalized.reason;
     }
     if (resolvedType === 'model.subtableconnection') {
-      const normalized = this._normalizeSubtableConnectionDescriptor(label);
+      const normalized = this._normalizeSubtableConnectionDescriptor(model, label);
       if (!normalized.ok) return normalized.reason;
       const currentTableIndex = this.subtableMounts.get(normalized.table_id);
       if (
@@ -983,6 +1007,749 @@ class ModelTableRuntime {
 
   _isTemporaryModelTablePayload(value) {
     return Array.isArray(value) && value.every((rec) => this._isExactTemporaryModelTableRecord(rec));
+  }
+
+  _feishuRecordId(record) {
+    return record && Object.prototype.hasOwnProperty.call(record, 'id') ? String(record.id) : '';
+  }
+
+  _isFeishuMessageRecord(record) {
+    return record
+      && typeof record === 'object'
+      && !Array.isArray(record)
+      && (typeof record.id === 'string' || Number.isInteger(record.id))
+      && Number.isInteger(record.p)
+      && Number.isInteger(record.r)
+      && Number.isInteger(record.c)
+      && typeof record.k === 'string'
+      && record.k.length > 0
+      && typeof record.t === 'string'
+      && record.t.length > 0
+      && Object.prototype.hasOwnProperty.call(record, 'v');
+  }
+
+  _feishuPayloadLabel(records, id, p, r, c, key) {
+    const targetId = String(id);
+    return Array.isArray(records)
+      ? records.find((rec) => (
+        this._feishuRecordId(rec) === targetId
+        && rec.p === p
+        && rec.r === r
+        && rec.c === c
+        && rec.k === key
+      )) || null
+      : null;
+  }
+
+  _feishuPayloadValue(records, id, p, r, c, key) {
+    const label = this._feishuPayloadLabel(records, id, p, r, c, key);
+    return label ? label.v : undefined;
+  }
+
+  _feishuPayloadValueFromCells(records, id, cells, key) {
+    for (const cell of cells) {
+      const value = this._feishuPayloadValue(records, id, cell.p, cell.r, cell.c, key);
+      if (value !== undefined) return value;
+    }
+    return undefined;
+  }
+
+  _isNonBlankFeishuString(value) {
+    return typeof value === 'string' && value.trim().length > 0;
+  }
+
+  _feishuEndpointPinName(value) {
+    if (!this._isNonBlankFeishuString(value)) return '';
+    const parts = value.split('/').map((part) => part.trim()).filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : value.trim();
+  }
+
+  _feishuPayloadLabelAnyCell(records, id, key) {
+    const targetId = String(id);
+    return Array.isArray(records)
+      ? records.find((rec) => this._feishuRecordId(rec) === targetId && rec.k === key) || null
+      : null;
+  }
+
+  _feishuPayloadFields(records, id) {
+    const targetId = String(id);
+    const skipKeys = new Set(['model_type', 'model_name', 'sys_msg_type']);
+    const fields = {};
+    if (!Array.isArray(records)) return fields;
+    for (const rec of records) {
+      if (this._feishuRecordId(rec) !== targetId || skipKeys.has(rec.k)) continue;
+      fields[rec.k] = rec.v;
+    }
+    return fields;
+  }
+
+  _validateFeishuRequiredPayloadField(records, id, field) {
+    const label = this._feishuPayloadLabelAnyCell(records, id, field.key);
+    if (!label) return false;
+    if (field.type === 'str') return label.t === 'str' && this._isNonBlankFeishuString(label.v);
+    if (field.type === 'int') return label.t === 'int' && Number.isInteger(label.v);
+    if (field.type === 'bool') return label.t === 'bool' && typeof label.v === 'boolean';
+    return true;
+  }
+
+  _isDocumentedFeishuSysMsgType(value) {
+    return new Set([
+      'resource.report',
+      'resource.request',
+      'resource.result',
+      'data.save_modeltable',
+      'data.load_modeltable',
+      'data.save_flow',
+      'data.load_flow',
+      'ui.update_data',
+      'ui.tmp_data',
+      'ui.form_data',
+      'ui.refresh_data',
+      'task_data',
+    ]).has(value);
+  }
+
+  _isDocumentedFeishuTaskPin(value) {
+    return new Set([
+      'add_task',
+      'add_task_return',
+      'edit_task',
+      'delete_task',
+      'receive_task',
+      'finish_task',
+      'archive_task',
+    ]).has(value);
+  }
+
+  _validateFeishuTaskPayloadFields(records, payloadTableId, taskPin) {
+    const requirements = {
+      add_task: [
+        { key: 'title', type: 'str' },
+        { key: 'body', type: 'str' },
+        { key: 'publisher', type: 'str' },
+        { key: 'publish_time', type: 'str' },
+      ],
+      add_task_return: [
+        { key: 'id', type: 'int' },
+        { key: 'title', type: 'str' },
+        { key: 'body', type: 'str' },
+        { key: 'publisher', type: 'str' },
+        { key: 'publish_time', type: 'str' },
+      ],
+      edit_task: [
+        { key: 'id', type: 'int' },
+      ],
+      delete_task: [
+        { key: 'id', type: 'int' },
+      ],
+      receive_task: [
+        { key: 'id', type: 'int' },
+        { key: 'receive_time', type: 'str' },
+        { key: 'receiver', type: 'str' },
+      ],
+      finish_task: [
+        { key: 'id', type: 'int' },
+        { key: 'end_time', type: 'str' },
+        { key: 'is_success', type: 'bool' },
+      ],
+      archive_task: [
+        { key: 'id', type: 'int' },
+        { key: 'archive_time', type: 'str' },
+        { key: 'review', type: 'str' },
+      ],
+    };
+    const required = requirements[taskPin] || [];
+    for (const field of required) {
+      if (!this._validateFeishuRequiredPayloadField(records, payloadTableId, field)) {
+        return { ok: false, code: `missing_task_field:${field.key}` };
+      }
+    }
+    return { ok: true };
+  }
+
+  _validateFeishuPinPayloadV1Records(records) {
+    if (!Array.isArray(records) || records.length === 0) {
+      return { ok: false, code: 'invalid_records' };
+    }
+    if (!records.every((rec) => this._isFeishuMessageRecord(rec))) {
+      return { ok: false, code: 'invalid_record_shape' };
+    }
+    const messageRoot = this._feishuPayloadLabel(records, '0', 0, 0, 0, 'model_type');
+    if (!messageRoot || messageRoot.t !== 'model.subtable') {
+      return { ok: false, code: 'invalid_message_root' };
+    }
+    const versionCell = this._feishuPayloadLabel(records, '0', 0, 0, 1, 'model_type');
+    if (!versionCell || versionCell.t !== 'model.single') {
+      return { ok: false, code: 'invalid_message_version_cell' };
+    }
+    const kind = this._feishuPayloadLabel(records, '0', 0, 0, 1, '__mt_payload_kind');
+    if (!kind || kind.t !== 'str' || kind.v !== 'pin_payload.v1') {
+      return { ok: false, code: 'invalid_payload_kind' };
+    }
+    const responseFlag = this._feishuPayloadLabel(records, '0', 0, 0, 1, 'is_need_response');
+    if (!responseFlag || responseFlag.t !== 'bool' || typeof responseFlag.v !== 'boolean') {
+      return { ok: false, code: 'invalid_is_need_response' };
+    }
+    const routeKind = this._feishuPayloadValue(records, '0', 0, 1, 0, 'route_kind');
+    if (routeKind !== 'control' && routeKind !== 'manage') {
+      return { ok: false, code: 'invalid_route_kind' };
+    }
+    const busCell = this._feishuPayloadLabel(records, '0', 0, 1, 0, 'model_type');
+    if (!busCell || busCell.t !== 'model.matrix') {
+      return { ok: false, code: 'invalid_bus_cell' };
+    }
+    const originPin = this._feishuPayloadValue(records, '0', 0, 1, 0, 'origin_pin');
+    const endpointPin = this._feishuPayloadValue(records, '0', 0, 1, 0, 'endpoint_pin');
+    const responsePin = this._feishuPayloadValue(records, '0', 0, 1, 0, 'response_pin');
+    if (typeof originPin !== 'string' || !originPin.trim()) return { ok: false, code: 'invalid_origin_pin' };
+    if (typeof endpointPin !== 'string' || !endpointPin.trim()) return { ok: false, code: 'invalid_endpoint_pin' };
+    if (responseFlag.v === true && (typeof responsePin !== 'string' || !responsePin.trim())) {
+      return { ok: false, code: 'invalid_response_pin' };
+    }
+    const messageServer = this._feishuPayloadValue(records, '0', 0, 1, 1, 'message_server');
+    if (messageServer !== undefined && !new Set(['local', 'global']).has(messageServer)) {
+      return { ok: false, code: 'invalid_message_server' };
+    }
+    const between = this._feishuPayloadValue(records, '0', 0, 1, 1, 'between');
+    if (between !== undefined && !new Set(['WSM_DEM', 'DEM_V1N']).has(between)) {
+      return { ok: false, code: 'invalid_between' };
+    }
+    const userCells = [
+      { p: 0, r: 1, c: 2 },
+      { p: 0, r: 1, c: 1 },
+    ];
+    const sendUser = this._feishuPayloadValueFromCells(records, '0', userCells, 'send_user');
+    const receiveUser = this._feishuPayloadValueFromCells(records, '0', userCells, 'receive_user');
+    if (routeKind === 'manage') {
+      if (!this._isNonBlankFeishuString(sendUser)) return { ok: false, code: 'invalid_send_user' };
+      if (!this._isNonBlankFeishuString(receiveUser)) return { ok: false, code: 'invalid_receive_user' };
+    }
+    const subtableConnection = this._feishuPayloadLabel(records, '0', 0, 2, 0, 'model_type');
+    if (
+      !subtableConnection
+      || subtableConnection.t !== 'model.subtableconnection'
+      || !Number.isInteger(subtableConnection.v)
+      || subtableConnection.v <= 0
+    ) {
+      return { ok: false, code: 'invalid_payload_subtableconnection' };
+    }
+    const payloadTableId = `0.${subtableConnection.v}`;
+    const payloadRecords = records.filter((rec) => this._feishuRecordId(rec) === payloadTableId);
+    if (payloadRecords.length === 0) {
+      return { ok: false, code: 'missing_payload_records' };
+    }
+    const payloadRoot = this._feishuPayloadLabel(records, payloadTableId, 0, 0, 0, 'model_type');
+    if (!payloadRoot || payloadRoot.t !== 'model.subtable') {
+      return { ok: false, code: 'invalid_payload_root' };
+    }
+    const sysMsgType = this._feishuPayloadValue(records, payloadTableId, 0, 0, 0, 'sys_msg_type');
+    if (sysMsgType !== undefined && !this._isDocumentedFeishuSysMsgType(sysMsgType)) {
+      return { ok: false, code: 'unknown_sys_msg_type' };
+    }
+    const taskPin = sysMsgType === 'task_data' ? this._feishuEndpointPinName(endpointPin) : '';
+    if (sysMsgType === 'task_data' && !this._isDocumentedFeishuTaskPin(taskPin)) {
+      return { ok: false, code: 'unknown_task_pin' };
+    }
+    if (sysMsgType === 'task_data') {
+      const taskFields = this._validateFeishuTaskPayloadFields(records, payloadTableId, taskPin);
+      if (!taskFields.ok) return taskFields;
+    }
+    return {
+      ok: true,
+      kind: 'pin_payload.v1',
+      isNeedResponse: responseFlag.v,
+      routeKind,
+      originPin,
+      endpointPin,
+      endpointPinName: this._feishuEndpointPinName(endpointPin),
+      responsePin: responsePin || '',
+      messageServer: messageServer || '',
+      between: between || '',
+      sendUser: sendUser || '',
+      receiveUser: receiveUser || '',
+      payloadTableId,
+      payloadRecords,
+      payloadFields: this._feishuPayloadFields(records, payloadTableId),
+      sysMsgType: sysMsgType || '',
+      taskPin,
+    };
+  }
+
+  _isFeishuPinPayloadV1Records(value) {
+    return Array.isArray(value)
+      && Boolean(this._feishuPayloadLabel(value, '0', 0, 0, 1, '__mt_payload_kind'));
+  }
+
+  _feishuMessageApiDispatchInfo(parsed) {
+    if (!parsed || !parsed.sysMsgType) return null;
+    if (parsed.sysMsgType === 'task_data') {
+      return { family: 'task', action: parsed.taskPin || '' };
+    }
+    const [family, ...rest] = String(parsed.sysMsgType).split('.');
+    const action = rest.join('.');
+    if (!family || !action) return null;
+    return { family, action };
+  }
+
+  _applyFeishuMessageApiDispatch(model, label) {
+    const parsed = this._validateFeishuPinPayloadV1Records(label.v);
+    if (!parsed.ok) return;
+    const info = this._feishuMessageApiDispatchInfo(parsed);
+    if (!info) return;
+    const result = {
+      status: 'accepted',
+      sys_msg_type: parsed.sysMsgType,
+      family: info.family,
+      action: info.action,
+      payload_table_id: parsed.payloadTableId,
+      payload_record_count: parsed.payloadRecords.length,
+      route_kind: parsed.routeKind,
+      endpoint_pin: parsed.endpointPinName || parsed.endpointPin,
+      task_pin: parsed.taskPin || '',
+      ts: Date.now(),
+    };
+    this.intercepts.record('feishu_message_api_dispatch', result);
+    this.addLabel(model, 0, 0, 0, { k: 'feishu_message_api_last_type', t: 'str', v: parsed.sysMsgType });
+    this.addLabel(model, 0, 0, 0, { k: 'feishu_message_api_last_family', t: 'str', v: info.family });
+    this.addLabel(model, 0, 0, 0, { k: 'feishu_message_api_last_action', t: 'str', v: info.action });
+    this.addLabel(model, 0, 0, 0, { k: 'feishu_message_api_last_result', t: 'json', v: result });
+    if (info.family === 'task') {
+      this._applyFeishuTaskManagerMessage(model, parsed);
+    }
+    if (info.family === 'resource') {
+      this._applyFeishuResourceManagerMessage(model, parsed, info.action);
+    }
+    if (info.family === 'data') {
+      this._applyFeishuDataManagerMessage(model, parsed, info.action);
+    }
+    if (info.family === 'ui') {
+      this._applyFeishuUiManagerMessage(model, parsed, info.action);
+    }
+    this._applyFeishuMessageApiResponseOutbox(model, parsed, info, result);
+  }
+
+  _feishuTopicEndpoint(topic) {
+    const parts = this._payloadTopicParts(topic);
+    if (!parts) return null;
+    return { ...parts.endpoint, table_id: HOST_TABLE_ID };
+  }
+
+  _feishuResponsePayloadRecord(k, t, v, p = 0, r = 0, c = 0) {
+    return { id: 1, p, r, c, k, t, v };
+  }
+
+  _feishuRouteKindForResponse(parsed) {
+    if (!parsed || parsed.routeKind !== 'manage') return 'control';
+    return 'management';
+  }
+
+  _feishuLatestHandlerResult(model, family) {
+    const keys = {
+      resource: 'feishu_resource_manager_last_result',
+      task: 'feishu_task_manager_last_result',
+      data: 'feishu_data_manager_last_result',
+      ui: 'feishu_ui_manager_last_result',
+    };
+    const key = keys[family];
+    if (!key) return null;
+    const label = model.getCell(0, 0, 0).labels.get(key);
+    return label && label.t === 'json' ? this._cloneFeishuValue(label.v) : null;
+  }
+
+  _writeFeishuMessageApiResponseResult(model, result) {
+    if (result.status !== 'ready') {
+      this.rmLabel(model, 0, 0, 0, 'feishu_message_api_response_out');
+    }
+    this.intercepts.record('feishu_message_api_response_outbox', result);
+    this.addLabel(model, 0, 0, 0, {
+      k: 'feishu_message_api_response_last_result',
+      t: 'json',
+      v: result,
+    });
+  }
+
+  _skipFeishuMessageApiResponse(model, parsed, info, reason) {
+    this._writeFeishuMessageApiResponseResult(model, {
+      status: 'skipped',
+      reason,
+      sys_msg_type: parsed.sysMsgType,
+      family: info.family,
+      action: info.action,
+      ts: Date.now(),
+    });
+  }
+
+  _applyFeishuMessageApiResponseOutbox(model, parsed, info, dispatchResult) {
+    if (!parsed.isNeedResponse) {
+      this._skipFeishuMessageApiResponse(model, parsed, info, 'response_not_required');
+      return;
+    }
+    const responseEndpoint = this._feishuTopicEndpoint(parsed.responsePin);
+    if (!responseEndpoint) {
+      this._skipFeishuMessageApiResponse(model, parsed, info, 'invalid_response_pin');
+      return;
+    }
+    const originEndpoint = this._feishuTopicEndpoint(parsed.endpointPin);
+    if (!originEndpoint) {
+      this._skipFeishuMessageApiResponse(model, parsed, info, 'invalid_endpoint_pin');
+      return;
+    }
+    const handlerResult = this._feishuLatestHandlerResult(model, info.family) || dispatchResult;
+    const payload = [
+      this._feishuResponsePayloadRecord('sys_msg_type', 'str', parsed.sysMsgType),
+      this._feishuResponsePayloadRecord('family', 'str', info.family),
+      this._feishuResponsePayloadRecord('action', 'str', info.action),
+      this._feishuResponsePayloadRecord('status', 'str', 'accepted'),
+      this._feishuResponsePayloadRecord('handler_result', 'json', handlerResult),
+    ];
+    const records = this._buildPinPayloadValue({
+      opId: `feishu_message_api_response_${Date.now()}`,
+      payload,
+      payloadModelId: 1,
+      endpoint: responseEndpoint,
+      origin: originEndpoint,
+      replyTarget: responseEndpoint,
+      messageRole: 'response',
+      topic: parsed.responsePin,
+      responseTopic: parsed.responsePin,
+      routeKind: this._feishuRouteKindForResponse(parsed),
+      bus: 'control',
+    });
+    if (!this._pinBusOutValueToExternalPayload(records)) {
+      this._skipFeishuMessageApiResponse(model, parsed, info, 'invalid_response_payload');
+      return;
+    }
+    const publishStatus = this.mqttClient && this.isRuntimeRunning()
+      ? 'published'
+      : 'prepared_not_published';
+    const addResult = this.addLabel(model, 0, 0, 0, {
+      k: 'feishu_message_api_response_out',
+      t: 'pin.bus.cb.out',
+      v: records,
+    });
+    if (!addResult || !addResult.applied) {
+      this._skipFeishuMessageApiResponse(model, parsed, info, 'response_outbox_write_failed');
+      return;
+    }
+    this._writeFeishuMessageApiResponseResult(model, {
+      status: 'ready',
+      packet_kind: 'pin_payload.v2',
+      topic: parsed.responsePin,
+      response_topic: parsed.responsePin,
+      publish_status: publishStatus,
+      publish_topic: publishStatus === 'published' ? parsed.responsePin : '',
+      sys_msg_type: parsed.sysMsgType,
+      family: info.family,
+      action: info.action,
+      record_count: payload.length,
+      ts: Date.now(),
+    });
+  }
+
+  _cloneFeishuValue(value) {
+    if (value && typeof value === 'object') return JSON.parse(JSON.stringify(value));
+    return value;
+  }
+
+  _cloneFeishuRecord(record) {
+    return {
+      id: record.id,
+      p: record.p,
+      r: record.r,
+      c: record.c,
+      k: record.k,
+      t: record.t,
+      v: this._cloneFeishuValue(record.v),
+    };
+  }
+
+  _feishuDataPayloadRootType(parsed) {
+    const root = parsed
+      ? this._feishuPayloadLabel(parsed.payloadRecords, parsed.payloadTableId, 0, 0, 0, 'model_type')
+      : null;
+    return root && root.t === 'model.subtable' ? root.v : '';
+  }
+
+  _isFeishuDataPayloadMetadataRecord(parsed, record) {
+    return record
+      && record.p === 0
+      && record.r === 0
+      && record.c === 0
+      && new Set(['model_type', 'model_name', 'sys_msg_type']).has(record.k)
+      && this._feishuRecordId(record) === String(parsed.payloadTableId);
+  }
+
+  _feishuDataPayloadRecords(parsed) {
+    if (!parsed || !Array.isArray(parsed.payloadRecords)) return [];
+    return parsed.payloadRecords
+      .filter((record) => !this._isFeishuDataPayloadMetadataRecord(parsed, record))
+      .map((record) => this._cloneFeishuRecord(record));
+  }
+
+  _feishuDataMessageKind(action) {
+    if (action === 'save_modeltable' || action === 'load_modeltable') return 'modeltable';
+    if (action === 'save_flow' || action === 'load_flow') return 'flow';
+    return '';
+  }
+
+  _feishuDataMessageSlot(action) {
+    if (action === 'save_modeltable' || action === 'save_flow') return 'saved';
+    if (action === 'load_modeltable' || action === 'load_flow') return 'loaded';
+    return '';
+  }
+
+  _validateFeishuDataManagerState(parsed) {
+    if (!parsed || !String(parsed.sysMsgType || '').startsWith('data.')) return { ok: true };
+    const info = this._feishuMessageApiDispatchInfo(parsed);
+    const action = info ? info.action : '';
+    const kind = this._feishuDataMessageKind(action);
+    if (!kind) return { ok: true };
+    const payloadType = this._feishuDataPayloadRootType(parsed);
+    if ((kind === 'modeltable' && payloadType !== 'Data') || (kind === 'flow' && payloadType !== 'Flow')) {
+      return { ok: false, code: 'invalid_data_payload_type' };
+    }
+    return this._feishuDataPayloadRecords(parsed).length > 0
+      ? { ok: true }
+      : { ok: false, code: 'missing_data_payload_records' };
+  }
+
+  _feishuDataManagerSnapshot() {
+    return this._cloneFeishuValue(this.feishuDataManager);
+  }
+
+  _writeFeishuDataManagerResult(model, result) {
+    this.intercepts.record('feishu_data_manager_event', result);
+    this.addLabel(model, 0, 0, 0, {
+      k: 'feishu_data_manager_store',
+      t: 'json',
+      v: this._feishuDataManagerSnapshot(),
+    });
+    this.addLabel(model, 0, 0, 0, { k: 'feishu_data_manager_last_result', t: 'json', v: result });
+  }
+
+  _applyFeishuDataManagerMessage(model, parsed, action) {
+    if (!parsed || !String(parsed.sysMsgType || '').startsWith('data.')) return;
+    const kind = this._feishuDataMessageKind(action);
+    const slot = this._feishuDataMessageSlot(action);
+    if (!kind || !slot) return;
+    const records = this._feishuDataPayloadRecords(parsed);
+    const payloadType = this._feishuDataPayloadRootType(parsed);
+    const entry = {
+      payload_table_id: parsed.payloadTableId,
+      payload_type: payloadType,
+      record_count: records.length,
+      records,
+    };
+    this.feishuDataManager[kind][slot] = entry;
+    const result = {
+      status: 'accepted',
+      action,
+      kind,
+      sys_msg_type: parsed.sysMsgType,
+      payload_table_id: parsed.payloadTableId,
+      payload_type: payloadType,
+      record_count: records.length,
+      records,
+      ts: Date.now(),
+    };
+    this._writeFeishuDataManagerResult(model, result);
+  }
+
+  _validateFeishuUiManagerState(parsed) {
+    if (!parsed || !String(parsed.sysMsgType || '').startsWith('ui.')) return { ok: true };
+    const payloadType = this._feishuDataPayloadRootType(parsed);
+    if (payloadType !== 'Data') {
+      return { ok: false, code: 'invalid_ui_payload_type' };
+    }
+    return this._feishuDataPayloadRecords(parsed).length > 0
+      ? { ok: true }
+      : { ok: false, code: 'missing_ui_payload_records' };
+  }
+
+  _feishuUiManagerSnapshot() {
+    return this._cloneFeishuValue(this.feishuUiManager);
+  }
+
+  _writeFeishuUiManagerResult(model, result) {
+    this.intercepts.record('feishu_ui_manager_event', result);
+    this.addLabel(model, 0, 0, 0, {
+      k: 'feishu_ui_manager_state',
+      t: 'json',
+      v: this._feishuUiManagerSnapshot(),
+    });
+    this.addLabel(model, 0, 0, 0, { k: 'feishu_ui_manager_last_result', t: 'json', v: result });
+  }
+
+  _applyFeishuUiManagerMessage(model, parsed, action) {
+    if (!parsed || !String(parsed.sysMsgType || '').startsWith('ui.')) return;
+    const records = this._feishuDataPayloadRecords(parsed);
+    const entry = {
+      payload_table_id: parsed.payloadTableId,
+      record_count: records.length,
+      records,
+    };
+    if (action === 'update_data') {
+      this.feishuUiManager.update.current = entry;
+      this.feishuUiManager.update.history.push({ ...entry, records: this._cloneFeishuValue(records) });
+    } else if (action === 'tmp_data') {
+      this.feishuUiManager.tmp.current = entry;
+    } else if (action === 'form_data') {
+      this.feishuUiManager.form.submissions.push(entry);
+    } else if (action === 'refresh_data') {
+      this.feishuUiManager.refresh.pending = entry;
+    } else {
+      return;
+    }
+    const result = {
+      status: 'accepted',
+      action,
+      sys_msg_type: parsed.sysMsgType,
+      payload_table_id: parsed.payloadTableId,
+      record_count: records.length,
+      temporary: action === 'tmp_data',
+      records,
+      ts: Date.now(),
+    };
+    this._writeFeishuUiManagerResult(model, result);
+  }
+
+  _feishuResourceEntries(parsed) {
+    const entries = [];
+    for (const rec of parsed && Array.isArray(parsed.payloadRecords) ? parsed.payloadRecords : []) {
+      if (rec.k !== 'type' || rec.t !== 'str' || !this._isNonBlankFeishuString(rec.v)) continue;
+      const resource = this._feishuPayloadLabel(parsed.payloadRecords, parsed.payloadTableId, rec.p, rec.r, rec.c, 'resource');
+      if (!resource || resource.t !== 'list' || !Array.isArray(resource.v)) continue;
+      const values = resource.v.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim());
+      if (values.length === 0) continue;
+      entries.push({ type: rec.v.trim(), resource: values });
+    }
+    return entries;
+  }
+
+  _validateFeishuResourceManagerState(parsed) {
+    if (!parsed || (parsed.sysMsgType !== 'resource.report' && parsed.sysMsgType !== 'resource.result')) {
+      return { ok: true };
+    }
+    return this._feishuResourceEntries(parsed).length > 0
+      ? { ok: true }
+      : { ok: false, code: 'missing_resource_entries' };
+  }
+
+  _feishuResourceCatalogSnapshot() {
+    const out = {};
+    for (const [type, values] of Object.entries(this.feishuResourceManager.catalog)) {
+      out[type] = [...values];
+    }
+    return out;
+  }
+
+  _writeFeishuResourceManagerResult(model, result) {
+    this.intercepts.record('feishu_resource_manager_event', result);
+    this.addLabel(model, 0, 0, 0, {
+      k: 'feishu_resource_manager_catalog',
+      t: 'json',
+      v: this._feishuResourceCatalogSnapshot(),
+    });
+    this.addLabel(model, 0, 0, 0, { k: 'feishu_resource_manager_last_result', t: 'json', v: result });
+  }
+
+  _applyFeishuResourceManagerMessage(model, parsed, action) {
+    if (!parsed || !String(parsed.sysMsgType || '').startsWith('resource.')) return;
+    let entries = [];
+    if (action === 'report' || action === 'result') {
+      entries = this._feishuResourceEntries(parsed);
+      const next = {};
+      for (const entry of entries) {
+        next[entry.type] = entry.resource;
+      }
+      this.feishuResourceManager.catalog = next;
+    }
+    const result = {
+      status: 'accepted',
+      action,
+      sys_msg_type: parsed.sysMsgType,
+      entries,
+      catalog: this._feishuResourceCatalogSnapshot(),
+      ts: Date.now(),
+    };
+    this._writeFeishuResourceManagerResult(model, result);
+  }
+
+  _feishuTaskById(id) {
+    return Number.isInteger(id) ? this.feishuTaskManager.tasks.get(id) || null : null;
+  }
+
+  _validateFeishuTaskManagerState(parsed) {
+    if (!parsed || parsed.sysMsgType !== 'task_data') return { ok: true };
+    if (parsed.taskPin === 'add_task' || parsed.taskPin === 'add_task_return') return { ok: true };
+    const id = parsed.payloadFields && parsed.payloadFields.id;
+    if (!Number.isInteger(id)) return { ok: false, code: 'missing_task_field:id' };
+    if (!this._feishuTaskById(id)) return { ok: false, code: `task_not_found:${id}` };
+    return { ok: true };
+  }
+
+  _feishuTaskList() {
+    return [...this.feishuTaskManager.tasks.values()]
+      .map((task) => ({ ...task }))
+      .sort((a, b) => a.id - b.id);
+  }
+
+  _writeFeishuTaskManagerResult(model, result) {
+    this.intercepts.record('feishu_task_manager_event', result);
+    this.addLabel(model, 0, 0, 0, { k: 'feishu_task_manager_tasks', t: 'json', v: this._feishuTaskList() });
+    this.addLabel(model, 0, 0, 0, { k: 'feishu_task_manager_last_result', t: 'json', v: result });
+  }
+
+  _applyFeishuTaskManagerMessage(model, parsed) {
+    if (!parsed || parsed.sysMsgType !== 'task_data') return;
+    const fields = parsed.payloadFields || {};
+    const now = Date.now();
+    let task = null;
+    if (parsed.taskPin === 'add_task') {
+      const id = this.feishuTaskManager.nextTaskId++;
+      task = {
+        id,
+        title: fields.title,
+        body: fields.body,
+        publisher: fields.publisher,
+        publish_time: fields.publish_time,
+        status: 'added_waiting_receive',
+      };
+      this.feishuTaskManager.tasks.set(id, task);
+    } else if (parsed.taskPin === 'edit_task') {
+      task = this._feishuTaskById(fields.id);
+      for (const key of ['title', 'body', 'publisher', 'publish_time']) {
+        if (Object.prototype.hasOwnProperty.call(fields, key)) task[key] = fields[key];
+      }
+    } else if (parsed.taskPin === 'delete_task') {
+      task = this._feishuTaskById(fields.id);
+      task.status = 'deleted';
+    } else if (parsed.taskPin === 'receive_task') {
+      task = this._feishuTaskById(fields.id);
+      task.receiver = fields.receiver;
+      task.receive_time = fields.receive_time;
+      task.status = 'received_waiting_finish';
+    } else if (parsed.taskPin === 'finish_task') {
+      task = this._feishuTaskById(fields.id);
+      task.end_time = fields.end_time;
+      task.is_success = fields.is_success;
+      task.status = 'finished_waiting_archive';
+    } else if (parsed.taskPin === 'archive_task') {
+      task = this._feishuTaskById(fields.id);
+      task.archive_time = fields.archive_time;
+      task.review = fields.review;
+      task.status = 'archived';
+    } else {
+      return;
+    }
+    const result = {
+      status: task.status,
+      action: parsed.taskPin,
+      task_id: task.id,
+      task: { ...task },
+      ts: now,
+    };
+    this._writeFeishuTaskManagerResult(model, result);
   }
 
   _buildWriteLabelPayload(fromCell, targetCell, label) {
@@ -1682,6 +2449,10 @@ class ModelTableRuntime {
   }
 
   _normalizeBusInValue(value, expectedPin = '') {
+    if (this._isFeishuPinPayloadV1Records(value)) {
+      const parsed = this._validateFeishuPinPayloadV1Records(value);
+      return parsed.ok ? { ok: true, value } : { ok: false, code: parsed.code };
+    }
     if (this._isTemporaryModelTablePayload(value)) {
       return { ok: true, value };
     }
@@ -1704,6 +2475,26 @@ class ModelTableRuntime {
       return null;
     }
     if (label.v === null || label.v === undefined) return null;
+    if (this._isFeishuPinPayloadV1Records(label.v)) {
+      const parsed = this._validateFeishuPinPayloadV1Records(label.v);
+      if (!parsed.ok) {
+        return `${this._isBusInResolvedType(resolvedType) ? 'bus_in' : 'bus_out'}_${parsed.code || 'invalid_payload'}`;
+      }
+      const taskState = this._validateFeishuTaskManagerState(parsed);
+      if (!taskState.ok) {
+        return `${this._isBusInResolvedType(resolvedType) ? 'bus_in' : 'bus_out'}_${taskState.code || 'invalid_payload'}`;
+      }
+      const resourceState = this._validateFeishuResourceManagerState(parsed);
+      if (!resourceState.ok) {
+        return `${this._isBusInResolvedType(resolvedType) ? 'bus_in' : 'bus_out'}_${resourceState.code || 'invalid_payload'}`;
+      }
+      const dataState = this._validateFeishuDataManagerState(parsed);
+      if (!dataState.ok) {
+        return `${this._isBusInResolvedType(resolvedType) ? 'bus_in' : 'bus_out'}_${dataState.code || 'invalid_payload'}`;
+      }
+      const uiState = this._validateFeishuUiManagerState(parsed);
+      return uiState.ok ? null : `${this._isBusInResolvedType(resolvedType) ? 'bus_in' : 'bus_out'}_${uiState.code || 'invalid_payload'}`;
+    }
     if (!this._isTemporaryModelTablePayload(label.v)) {
       return 'pin_payload_not_modeltable';
     }
@@ -1877,8 +2668,24 @@ class ModelTableRuntime {
     return { ok: true, type_name: label.v.trim() };
   }
 
-  _normalizeSubtableConnectionDescriptor(label) {
+  _normalizeSubtableConnectionDescriptor(model, label) {
     const value = label && label.v;
+    if (Number.isInteger(value)) {
+      if (value <= 0) return { ok: false, reason: 'subtableconnection_invalid_child_table_id' };
+      let tableId = '';
+      try {
+        tableId = this._deriveFeishuChildTableId(this._modelTableId(model), value);
+      } catch (_) {
+        return { ok: false, reason: 'subtableconnection_invalid_table_id' };
+      }
+      return {
+        ok: true,
+        table_id: tableId,
+        root_model_id: 0,
+        mount_kind: 'feishu_child_table',
+        owner_principal_id: '',
+      };
+    }
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return { ok: false, reason: 'subtableconnection_invalid_descriptor' };
     }
@@ -1963,7 +2770,7 @@ class ModelTableRuntime {
   _getHostedSubtableRootForCell(model, p, r, c) {
     const cell = this.getCell(model, p, r, c);
     const subtableLabel = this._findSubtableLabel(cell);
-    const normalized = this._normalizeSubtableConnectionDescriptor(subtableLabel);
+    const normalized = this._normalizeSubtableConnectionDescriptor(model, subtableLabel);
     if (!normalized.ok) return null;
     return this.getModel({ table_id: normalized.table_id, model_id: normalized.root_model_id }) || null;
   }
@@ -2532,6 +3339,116 @@ class ModelTableRuntime {
     }
   }
 
+  _pinPayloadResponseMaterializeBase(topic, parsed) {
+    const replyTarget = parsed && parsed.replyTarget ? parsed.replyTarget : {};
+    return {
+      topic,
+      response_topic: parsed ? parsed.responseTopic : '',
+      op_id: parsed ? parsed.opId : '',
+      reply_target_worker_id: replyTarget.worker_id || '',
+      reply_target_table_id: replyTarget.table_id || '',
+      reply_target_model_id: Number.isInteger(replyTarget.model_id) ? replyTarget.model_id : null,
+      reply_target_pin: replyTarget.pin || '',
+    };
+  }
+
+  _writePinPayloadResponseMaterializeResult(result) {
+    this.intercepts.record('pin_payload_response_materialize', result);
+    const model0 = this.getModel(0);
+    if (!model0) return;
+    this.addLabel(model0, 0, 0, 0, {
+      k: 'pin_payload_response_materialize_last_result',
+      t: 'json',
+      v: result,
+    });
+  }
+
+  _rejectPinPayloadResponseMaterialization(topic, payload, parsed, reason) {
+    const result = {
+      status: 'rejected',
+      reason,
+      ...this._pinPayloadResponseMaterializeBase(topic, parsed),
+      ts: Date.now(),
+    };
+    this._writePinPayloadResponseMaterializeResult(result);
+    this.mqttTrace.record('inbound_response_rejected', {
+      topic,
+      payload,
+      mode: 'pin_payload_v1',
+      reason,
+    });
+    return false;
+  }
+
+  _validatePinPayloadResponseMaterializationRecord(targetModel, record) {
+    if (!record || typeof record !== 'object') return 'invalid_payload_record';
+    if (!this._validateCell(record.p, record.r, record.c)) return 'invalid_cell';
+    const label = { k: record.k, t: record.t, v: record.v };
+    const validationError = this._validateLabel(label);
+    if (validationError) return validationError;
+    const placementError = this._validatePlacement(targetModel, record.p, record.r, record.c, label);
+    if (placementError) return placementError;
+    const resolvedType = this._resolveLabelType(label.t);
+    const structuralLabelError = this._validateStructuralLabelValue(targetModel, record.p, record.r, record.c, label, resolvedType);
+    if (structuralLabelError) return structuralLabelError;
+    const busPinPayloadError = this._validateBusPinPayload(targetModel, record.p, record.r, record.c, label, resolvedType);
+    if (busPinPayloadError) return busPinPayloadError;
+    const positivePinPayloadError = this._validatePositiveModelPinPayload(targetModel, label, resolvedType);
+    if (positivePinPayloadError) return positivePinPayloadError;
+    return null;
+  }
+
+  _materializePinPayloadResponse(topic, payload, parsed, config) {
+    const localWorkerId = typeof config.worker_id === 'string' && config.worker_id
+      ? config.worker_id
+      : parsed.endpoint.worker_id;
+    if (!parsed.replyTarget || parsed.replyTarget.worker_id !== localWorkerId) {
+      return this._rejectPinPayloadResponseMaterialization(topic, payload, parsed, 'reply_target_worker_mismatch');
+    }
+    const targetModel = this.getModel({
+      table_id: parsed.replyTarget.table_id,
+      model_id: parsed.replyTarget.model_id,
+    });
+    if (!targetModel) {
+      return this._rejectPinPayloadResponseMaterialization(topic, payload, parsed, 'reply_target_model_not_found');
+    }
+    for (const record of parsed.payloadRecords) {
+      const validationError = this._validatePinPayloadResponseMaterializationRecord(targetModel, record);
+      if (validationError) {
+        return this._rejectPinPayloadResponseMaterialization(topic, payload, parsed, 'reply_target_write_failed');
+      }
+    }
+    let applied = 0;
+    for (const record of parsed.payloadRecords) {
+      const result = this.addLabel(targetModel, record.p, record.r, record.c, {
+        k: record.k,
+        t: record.t,
+        v: this._cloneFeishuValue(record.v),
+      });
+      if (!result || !result.applied) {
+        return this._rejectPinPayloadResponseMaterialization(topic, payload, parsed, 'reply_target_write_failed');
+      }
+      applied += 1;
+    }
+    const result = {
+      status: 'applied',
+      ...this._pinPayloadResponseMaterializeBase(topic, parsed),
+      payload_record_count: parsed.payloadRecords.length,
+      applied_count: applied,
+      ts: Date.now(),
+    };
+    this._writePinPayloadResponseMaterializeResult(result);
+    this.mqttTrace.record('inbound_response_materialized', {
+      topic,
+      payload,
+      mode: 'pin_payload_v1',
+      reply_target_table_id: parsed.replyTarget.table_id,
+      reply_target_model_id: parsed.replyTarget.model_id,
+      applied_count: applied,
+    });
+    return true;
+  }
+
   mqttIncoming(topic, payload) {
     if (!this.isRuntimeRunning()) return false;
     const config = this._getConfigFromPage0();
@@ -2651,13 +3568,7 @@ class ModelTableRuntime {
         return false;
       }
       if (parsed.messageRole === 'response') {
-        this.mqttTrace.record('inbound_ignored', {
-          topic,
-          payload,
-          mode: 'pin_payload_v1',
-          reason: 'response_packet_not_delivered_to_endpoint_runtime',
-        });
-        return false;
+        return this._materializePinPayloadResponse(topic, payload, parsed, config);
       }
       const ingressPin = typeof config.ingress_pin === 'string' ? config.ingress_pin.trim() : '';
       if (ingressPin) {
@@ -3316,7 +4227,7 @@ class ModelTableRuntime {
       if (prevLabel && this._resolveLabelType(prevLabel.t) === 'model.subtableconnection') {
         this._clearSubtableConnectionIndex(model, p, r, c);
       }
-      const normalized = this._normalizeSubtableConnectionDescriptor(label);
+      const normalized = this._normalizeSubtableConnectionDescriptor(model, label);
       if (!normalized.ok) {
         this._recordError(model, p, r, c, label, normalized.reason);
         return;
@@ -3377,6 +4288,9 @@ class ModelTableRuntime {
       this.busInPorts.set(label.k, resolvedType);
       this._syncBusInSubscription(label.k, true);
       if (label.v !== null && label.v !== undefined) {
+        if (this._isFeishuPinPayloadV1Records(label.v)) {
+          this._applyFeishuMessageApiDispatch(model, label);
+        }
         this._routeViaCellConnection(model, 0, 0, 0, label.k, label.v);
         const cellKey = this._cellConnectGraphKey(model, 0, 0, 0);
         if (this.cellConnectGraph.has(cellKey)) {
