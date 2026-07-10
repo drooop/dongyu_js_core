@@ -6,7 +6,7 @@ updated: 2026-07-10
 source: ai
 iteration_id: 0457-feishu-message-api-v2-local-de
 id: 0457-feishu-message-api-v2-local-de
-phase: phase2
+phase: phase3
 ---
 
 # Iteration 0457 Feishu Message API v2 + Local DE Runlog
@@ -33,7 +33,7 @@ phase: phase2
   - Baseline worktree was clean at `e0c48fa`.
   - 0457 branch and iteration directory were created successfully.
 - Result: PASS
-- Commit: pending planning commit
+- Commit: `ce32178`
 
 ### Read-Only OrbStack Baseline Check
 
@@ -115,7 +115,94 @@ phase: phase2
 
 ## Phase 3 Execution Records
 
-- Not started. No runtime, worker, patch, test, deployment, SSOT behavior, or Feishu state has been changed in Phase 1.
+- Phase 3 started from planning commit `ce32178` after the recorded 3/3 Approved Gate.
+- Step 1 is TDD RED only: tests/helpers may change; production code, deployment configuration, actor patches, runtime behavior, and Feishu state remain unchanged until the expected RED results are recorded.
+
+### Step 1 — Initial TDD RED
+
+- Commands:
+  - `node --check scripts/lib/ssot_de_actor_test_helpers.mjs`
+  - `node --check scripts/tests/test_0457_local_orbstack_de_actor_contract.mjs`
+  - `node scripts/tests/test_0457_local_orbstack_de_actor_contract.mjs`
+  - `node scripts/tests/test_0175_local_baseline_matrix_contract.mjs`
+  - `node scripts/tests/test_0364_system_refill_contract.mjs`
+  - `git diff --check`
+- Key output:
+  - Syntax checks: PASS.
+  - Local baseline contract: expected RED with seven missing contract groups covering OrbStack context, local Synapse/Mosquitto, local auth, TLS, actor declarations, and the single force-rebuild path.
+  - DE actor contract: expected RED, `2 passed / 4 failed`; missing worker-root `model.v1n`, MBR bus-boundary violations, R1 direct-positive ingress risk, and missing patch-derived attestations.
+  - System refill contract: expected RED, `6 passed / 4 failed`; authority docs and loaded actor roots still disagree, and MBR lacks management ingress.
+  - `git diff --check`: PASS.
+- Result: expected RED observed; no production file changed.
+
+### Step 1 RED Review Round 1
+
+- Gate: `Change Requested`.
+- Findings:
+  - Source-token checks could pass without executable checker behavior.
+  - Actor helper concatenated patch JSON instead of deriving final state from an applied `ModelTableRuntime`.
+  - MBR checks did not prove Matrix → Model 0 management ingress and MQTT → Model 0 control ingress, or prohibit runner bypass to Model `-10`.
+  - Attestation checks could pass from comments/dead text instead of actual post-load output.
+  - Exact alias/topic-base and the positive Feishu external-read boundary were not locked.
+  - The force-rebuild test overfit one shell spelling.
+- Decision: keep production implementation blocked; strengthen Step 1 tests and repeat RED review.
+
+### Step 1 — Strengthened Behavior RED
+
+- Changes to test evidence:
+  - The local baseline test now executes the real checker against fake `kubectl`, `docker`, and `orb` live-state fixtures instead of accepting source tokens as proof.
+  - Local Matrix/MQTT/auth/actor fixtures and an explicit `https://open.feishu.cn` read-only fixture are positive cases; wrong Kubernetes/Docker contexts and remote Matrix/MQTT/OIDC are negative cases.
+  - The force-rebuild test executes `ensure_runtime_baseline.sh` in a bounded sandbox and records deploy/check call order and count.
+  - The actor helper now applies system and role patches through `ModelTableRuntime`, rejects any failed record, and derives actor facts from final loaded state with source provenance.
+  - MBR runner checks use parsed JavaScript structure to require Matrix → Model 0 management ingress and MQTT → Model 0 control ingress while prohibiting direct Model `-10` writes/direct business-function calls.
+  - R1 checks require a Model `-10` route-table dispatcher chain and prove malformed MQTT input cannot write an error label into a positive model.
+  - Attestation checks require a pure loaded-state builder plus a five-second-bounded runner output probe; comments or dead strings cannot satisfy the contract.
+- Commands:
+  - `node --check scripts/tests/test_0175_local_baseline_matrix_contract.mjs`
+  - `node --check scripts/lib/ssot_de_actor_test_helpers.mjs`
+  - `node --check scripts/tests/test_0457_local_orbstack_de_actor_contract.mjs`
+  - `node --check scripts/tests/test_0364_system_refill_contract.mjs`
+  - `node scripts/tests/test_0175_local_baseline_matrix_contract.mjs`
+  - `node scripts/tests/test_0457_local_orbstack_de_actor_contract.mjs`
+  - `node scripts/tests/test_0364_system_refill_contract.mjs`
+  - `git diff --check`
+- Key output:
+  - All syntax checks and `git diff --check`: PASS.
+  - Local baseline: expected RED with nine failures. The complete local fixture and Feishu read-only fixture pass; both wrong contexts, remote Matrix/MQTT/OIDC, old local defaults/TLS, and missing force-rebuild behavior fail.
+  - Actor contract: expected RED, `1 passed / 9 failed`, all tied to missing target behavior; the malformed R1 request currently writes `mqtt_inbound_error` into Model 100, proving the direct-positive mutation bug.
+  - System refill: expected RED, `7 passed / 3 failed`; only the documented/declared/loaded worker-root `model.v1n` contracts remain missing.
+- Result: expected strengthened RED observed; production implementation remains unchanged pending review approval.
+
+### Step 1 RED Review Round 2
+
+- Gate: `Change Requested`.
+- Blocking findings:
+  - R1 tests did not yet prove dispatcher output travels through declared PIN connections to positive models or prohibit cross-model host writes.
+  - MBR runner checks did not yet prove adapters pass the inner record array rather than the outer packet, and direct function execution could be disguised.
+  - The malformed R1 case checked only one known error key instead of proving every positive-model snapshot stays unchanged.
+  - R1 boundary discovery selected the first `pin.in` and over-constrained route-table storage.
+- Decision: production implementation remains blocked; close these false-green and false-red paths and repeat review.
+
+### Step 1 — Round 2 Remediation
+
+- MBR AST checks now require Matrix `event.payload` and parsed MQTT `packet.payload` to be the values written to their Model 0 bus inputs; any callback-level direct function execution or Model `-10` mutation fails.
+- R1 boundary selection now follows the actual Model 0 ingress route instead of choosing the first `pin.in`.
+- R1 dispatcher checks allow either root-direct or internal-cell declared wiring, prohibit cross-model host APIs, and require declared PIN output.
+- A behavior probe now loads a fresh real R1 actor for every subscribed/mounted endpoint and requires delivery through the corresponding parent connection Cell into the positive-model input PIN.
+- Malformed R1 MQTT input now compares the complete before/after snapshot of every positive model.
+- Verification:
+  - Actor syntax and helper syntax: PASS.
+  - Actor contract: expected RED, `1 passed / 10 failed`; the additional failure is the intentionally missing subscribed-endpoint PIN chain.
+  - `git diff --check`: PASS.
+- Result: production implementation remains unchanged pending RED review round 3.
+
+### Step 1 RED Review Round 3
+
+- Gate: `Approved`.
+- Findings: none.
+- Open questions: none.
+- Verification gaps: none.
+- Decision: Step 1 behavior RED may be committed; production GREEN may begin from that commit.
 
 ## Docs Review Checklist
 
