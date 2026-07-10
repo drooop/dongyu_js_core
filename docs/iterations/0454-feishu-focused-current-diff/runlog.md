@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0454 Feishu Focused Current Diff Runlog"
 doc_type: iteration-runlog
-status: in_progress
+status: completed
 updated: 2026-07-10
 source: ai
 iteration_id: 0454-feishu-focused-current-diff
 id: 0454-feishu-focused-current-diff
-phase: phase3
+phase: phase4
 ---
 
 # Iteration 0454-feishu-focused-current-diff Runlog
@@ -256,3 +256,11 @@ Review Gate Record
 - Review Index: 15
 - Decision: Approved
 - Notes: Evidence and branch readiness remain valid after the documentation-only fix.
+
+## Completion
+
+Completion Record
+- Accepted commit: `b24f073`
+- Branch: `dropx/dev_0454-feishu-focused-current-diff`
+- Result: Completed. The accepted commit contains only the 0454 report, iteration evidence, and registry row; 0455 candidate implementation files were excluded.
+- Handoff: 0455 must use the 0454 closeout commit that records this accepted hash as its parent and rollback baseline.
