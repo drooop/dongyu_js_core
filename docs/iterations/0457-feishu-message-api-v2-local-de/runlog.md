@@ -273,6 +273,33 @@ phase: phase3
 - Final independent review round 2: `Approved`; no findings, questions, or verification gaps.
 - Result: PASS for the versioned real-actor/runtime slice. Live OrbStack deployment/acceptance remains pending after F-01 Model 3200 implementation.
 
+### Step 3A — F-01 Model 3200 Actor/Schema TDD RED
+
+- Added `scripts/tests/test_0457_feishu_model3200_actor_contract.mjs` without changing production code.
+- The RED locks:
+  - committed Model 3200 patch, `model.submt/Flow` root, exact ten request inputs, generic `result` output only, parent mount, subscriptions, dispatcher routes, and result return route;
+  - generic v2 `bus`, `route_kind`, equality, timestamp, positive payload-model id, removed `manage`, distinct response topic, segment pins, and legacy metadata rejection;
+  - Model 3200-only `is_need_response`, optional enums, management users, business root/type, and documented `sys_msg_type` validation;
+  - valid control and management requests returning generic v2 through `result`;
+  - ordinary v2 requests without Feishu-only fields and non-3200 `sys_msg_type` packets remaining normal transport;
+  - F-04 alias remains absent, F-05 refresh behavior is not tested, and F-08 has only the approved `add_task_return:pin.in` structural slot with no dedicated output.
+- Initial result: expected RED, `5 failed / 1 passed`; 0450 remained `4 passed / 0 failed`, and the existing actor contract remained `14 passed / 0 failed`.
+- RED review round 1: `Change Requested`.
+  - Missing legal control/management positive paths allowed an all-reject implementation to pass.
+  - No plain non-Feishu request protected Feishu-only fields from becoming global requirements.
+  - Unknown `sys_msg_type`, exact PIN set, and single-variable `manage` rejection were incomplete.
+- Remediation result: expected RED, `6 failed / 2 passed`; both plain v2 and non-3200 discriminator guards pass.
+- RED review round 2: `Change Requested` because the positive `resource.report` fixture used a scalar resource instead of the preserved `resource:list` contract.
+- Remediation: changed the resource fixture to a non-empty string list in the same Cell; RED remained `6 failed / 2 passed`.
+- RED review round 3: `Approved`; no findings, questions, or verification gaps.
+- Commands:
+  - `node --check scripts/tests/test_0457_feishu_model3200_actor_contract.mjs`
+  - `node scripts/tests/test_0457_feishu_model3200_actor_contract.mjs`
+  - `node scripts/tests/test_0450_feishu_response_materialization.mjs`
+  - `node scripts/tests/test_0457_local_orbstack_de_actor_contract.mjs`
+  - `git diff --check`
+- Result: expected RED recorded and reviewed; actor/schema GREEN may begin from the RED commit.
+
 ## Docs Review Checklist
 
 - [x] `CLAUDE.md` runtime baseline reviewed/updated
