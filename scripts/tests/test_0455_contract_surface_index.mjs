@@ -241,14 +241,41 @@ async function test_contract_manifest_separates_authority_surfaces_and_open_find
     contract.open_findings.map((finding) => [finding.id, finding.class])
   )));
   assert.deepEqual(findingClasses, {
-    'F-01': 'requires_user_confirmation',
-    'F-04': 'requires_user_confirmation',
-    'F-05': 'requires_user_confirmation',
+    'F-01': 'decision_recorded_implementation_pending',
+    'F-04': 'decision_recorded_source_correction_pending',
+    'F-05': 'decision_recorded_implementation_pending',
     'F-06': 'requires_user_confirmation',
     'F-07': 'requires_user_confirmation',
-    'F-08': 'requires_user_confirmation',
-    'F-09': 'tooling_gap',
+    'F-08': 'decision_recorded_implementation_pending',
   });
+
+  const contractsById = new Map(manifest.contracts.map((contract) => [contract.contract_id, contract]));
+  assert.equal(
+    contractsById.get('feishu_message_api.input_version').status,
+    'decision_recorded_implementation_pending',
+  );
+  assert.equal(
+    contractsById.get('model.relationship.naming_and_numeric_subtable').status,
+    'decision_recorded_source_correction_pending',
+  );
+  assert.equal(
+    contractsById.get('feishu_message_api.resource_data_ui_task_handlers').status,
+    'decision_recorded_implementation_pending',
+  );
+  for (const contractId of [
+    'model.relationship.naming_and_numeric_subtable',
+    'feishu_message_api.input_version',
+    'feishu_message_api.resource_data_ui_task_handlers',
+  ]) {
+    assert.ok(
+      contractsById.get(contractId).decision_files.includes('docs/ssot/feishu_alignment_decisions_v0.md'),
+      `${contractId} must route recorded user decisions to the formal alignment decision surface`,
+    );
+  }
+  const watcher = contractsById.get('feishu_source_watch.focused_docs');
+  assert.equal(watcher.status, 'aligned');
+  assert.deepEqual(watcher.open_findings, []);
+  assert.ok(watcher.owner_iterations.includes('0456-feishu-watcher-tls-preflight'));
 }
 
 async function test_human_and_llm_entries_share_one_contract_and_authority_model() {
@@ -273,6 +300,14 @@ async function test_human_and_llm_entries_share_one_contract_and_authority_model
   assert.match(alignment, /feishu-message-api/u);
   assert.match(alignment, /supporting-source-1/u);
   assert.match(alignment, /supporting-source-2/u);
+  assert.match(alignment, /0456 已裁决但尚未实施的方向/u);
+  assert.match(alignment, /F-01.*pin_payload\.v2.*decision_recorded_implementation_pending/su);
+  assert.match(alignment, /F-04.*来源笔误.*no alias.*decision_recorded_source_correction_pending/su);
+  assert.match(alignment, /F-05.*ModelTable.*projection-only.*decision_recorded_implementation_pending/su);
+  assert.match(alignment, /F-08.*真实 PIN 消息.*decision_recorded_implementation_pending/su);
+  assert.match(alignment, /F-06.*F-07.*requires_user_confirmation/su);
+  assert.match(alignment, /当前 executable behavior 不变/u);
+  assert.match(alignment, /Feishu 写入仍需单独授权/u);
   assert.match(workflow, /Feishu consensus adoption/u);
   assert.match(workflow, /heading diff.*requires_user_confirmation.*Approved iteration.*repo SSOT/su);
   assert.match(docsIndex, /current executable contract/su);
@@ -322,16 +357,16 @@ async function test_contract_index_is_byte_stable_and_matches_generated_index_me
   assert.equal(index.contract_count, manifest.contracts.length);
 }
 
-async function test_feishu_backlog_preserves_0454_open_items() {
+async function test_feishu_backlog_tracks_decided_unresolved_and_completed_items() {
   const backlog = readFileSync(backlogPath, 'utf8');
   const expectedClasses = {
-    'F-01': 'requires_user_confirmation',
-    'F-04': 'requires_user_confirmation',
-    'F-05': 'requires_user_confirmation',
+    'F-01': 'decision_recorded_implementation_pending',
+    'F-04': 'decision_recorded_source_correction_pending',
+    'F-05': 'decision_recorded_implementation_pending',
     'F-06': 'requires_user_confirmation',
     'F-07': 'requires_user_confirmation',
-    'F-08': 'requires_user_confirmation',
-    'F-09': 'tooling_gap',
+    'F-08': 'decision_recorded_implementation_pending',
+    'F-09': 'completed',
   };
   for (const [findingId, decisionClass] of Object.entries(expectedClasses)) {
     assert.match(
@@ -340,6 +375,17 @@ async function test_feishu_backlog_preserves_0454_open_items() {
       `${findingId} must retain its approved decision class`,
     );
   }
+  const awaiting = backlog.split('## Awaiting User Confirmation')[1]?.split('\n## ')[0] || '';
+  assert.match(awaiting, /F-06/u);
+  assert.match(awaiting, /F-07/u);
+  assert.doesNotMatch(awaiting, /F-01|F-04|F-05|F-08|F-09/u);
+  const decided = backlog.split('## Decisions Recorded — Follow-up Pending')[1]?.split('\n## ')[0] || '';
+  assert.match(decided, /F-01/u);
+  assert.match(decided, /F-04/u);
+  assert.match(decided, /F-05/u);
+  assert.match(decided, /F-08/u);
+  const completed = backlog.split('## Completed Items')[1]?.split('\n## ')[0] || '';
+  assert.match(completed, /F-09/u);
   assert.match(backlog, /还有什么要做/u, 'backlog must document the future query rule');
 }
 
@@ -359,7 +405,7 @@ for (const test of [
   test_contract_manifest_is_complete_and_anchored,
   test_contract_summary_is_generated_from_manifest,
   test_contract_index_is_byte_stable_and_matches_generated_index_metadata,
-  test_feishu_backlog_preserves_0454_open_items,
+  test_feishu_backlog_tracks_decided_unresolved_and_completed_items,
 ]) {
   await test();
 }

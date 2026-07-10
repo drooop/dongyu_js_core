@@ -39,7 +39,7 @@
     },
     {
       "contract_id": "model.relationship.naming_and_numeric_subtable",
-      "status": "requires_user_confirmation",
+      "status": "decision_recorded_source_correction_pending",
       "risk_level": "high",
       "source_refs": ["feishu-model2"],
       "ssot_files": [
@@ -47,7 +47,10 @@
         "docs/ssot/runtime_semantics_modeltable_driven.md",
         "docs/ssot/principal_scoped_subtable_namespace_v1.md"
       ],
-      "decision_files": ["docs/ssot/feishu_contract_backlog.md"],
+      "decision_files": [
+        "docs/ssot/feishu_alignment_decisions_v0.md",
+        "docs/ssot/feishu_contract_backlog.md"
+      ],
       "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
       "implementation_files": [
         "packages/worker-base/src/runtime.mjs",
@@ -66,9 +69,9 @@
         "node scripts/tests/test_0442_feishu_current_contract_alignment.mjs",
         "node scripts/tests/test_0432_subtable_connection_runtime_contract.mjs"
       ],
-      "owner_iterations": ["0432-subtable-connection-impl", "0442-feishu-current-contract-alignment", "0454-feishu-focused-current-diff"],
-      "open_findings": [{"id": "F-04", "class": "requires_user_confirmation"}],
-      "notes": "Numeric subtable references are implemented; model.submtconnect remains a suspected source typo and no alias is approved."
+      "owner_iterations": ["0432-subtable-connection-impl", "0442-feishu-current-contract-alignment", "0454-feishu-focused-current-diff", "0456-feishu-watcher-tls-preflight"],
+      "open_findings": [{"id": "F-04", "class": "decision_recorded_source_correction_pending"}],
+      "notes": "Numeric subtable references are implemented; model.submtconnect is confirmed as a Feishu source typo, no runtime alias is allowed, and source correction still needs separate Feishu write authorization."
     },
     {
       "contract_id": "pin_payload.formal_v2",
@@ -106,14 +109,17 @@
     },
     {
       "contract_id": "feishu_message_api.input_version",
-      "status": "requires_user_confirmation",
+      "status": "decision_recorded_implementation_pending",
       "risk_level": "high",
       "source_refs": ["feishu-message-api"],
       "ssot_files": [
         "docs/ssot/runtime_semantics_modeltable_driven.md",
         "docs/ssot/feishu_model_label_alignment_v1.md"
       ],
-      "decision_files": ["docs/ssot/feishu_contract_backlog.md"],
+      "decision_files": [
+        "docs/ssot/feishu_alignment_decisions_v0.md",
+        "docs/ssot/feishu_contract_backlog.md"
+      ],
       "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
       "implementation_files": [
         "scripts/lib/feishu_message_api_v1.mjs",
@@ -127,9 +133,9 @@
         "test_files": ["test_feishu_pin_payload_v1_child_table_payload_is_parsed"]
       },
       "verification_commands": ["node scripts/tests/test_0442_feishu_current_contract_alignment.mjs"],
-      "owner_iterations": ["0442-feishu-current-contract-alignment", "0454-feishu-focused-current-diff"],
-      "open_findings": [{"id": "F-01", "class": "requires_user_confirmation"}],
-      "notes": "Feishu input remains v1 in code while formal response transport is v2; the upstream wording needs confirmation."
+      "owner_iterations": ["0442-feishu-current-contract-alignment", "0454-feishu-focused-current-diff", "0456-feishu-watcher-tls-preflight"],
+      "open_findings": [{"id": "F-01", "class": "decision_recorded_implementation_pending"}],
+      "notes": "The whole Feishu Message API input envelope is approved to move to pin_payload.v2, but current parser/runtime input remains v1 until a later implementation iteration."
     },
     {
       "contract_id": "feishu_message_api.response_outbox",
@@ -199,11 +205,14 @@
     },
     {
       "contract_id": "feishu_message_api.resource_data_ui_task_handlers",
-      "status": "requires_user_confirmation",
+      "status": "decision_recorded_implementation_pending",
       "risk_level": "high",
       "source_refs": ["feishu-message-api"],
       "ssot_files": ["docs/ssot/runtime_semantics_modeltable_driven.md"],
-      "decision_files": ["docs/ssot/feishu_contract_backlog.md"],
+      "decision_files": [
+        "docs/ssot/feishu_alignment_decisions_v0.md",
+        "docs/ssot/feishu_contract_backlog.md"
+      ],
       "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
       "implementation_files": [
         "scripts/lib/feishu_message_api_v1.mjs",
@@ -229,16 +238,16 @@
         "node scripts/tests/test_0446_feishu_data_api_processor.mjs",
         "node scripts/tests/test_0447_feishu_ui_api_processor.mjs"
       ],
-      "owner_iterations": ["0443-feishu-message-api-business-dispatch", "0444-feishu-task-manager-processor", "0445-feishu-resource-api-processor", "0446-feishu-data-api-processor", "0447-feishu-ui-api-processor", "0454-feishu-focused-current-diff"],
+      "owner_iterations": ["0443-feishu-message-api-business-dispatch", "0444-feishu-task-manager-processor", "0445-feishu-resource-api-processor", "0446-feishu-data-api-processor", "0447-feishu-ui-api-processor", "0454-feishu-focused-current-diff", "0456-feishu-watcher-tls-preflight"],
       "open_findings": [
-        {"id": "F-05", "class": "requires_user_confirmation"},
-        {"id": "F-08", "class": "requires_user_confirmation"}
+        {"id": "F-05", "class": "decision_recorded_implementation_pending"},
+        {"id": "F-08", "class": "decision_recorded_implementation_pending"}
       ],
-      "notes": "Public handlers exist; ui.refresh_data mutation and add_task_return message semantics remain open."
+      "notes": "Direction is approved but unimplemented: ui.refresh_data must use authorized ModelTable writes while frontend stays projection-only, and add_task_return must become a real PIN message."
     },
     {
       "contract_id": "feishu_source_watch.focused_docs",
-      "status": "tooling_gap",
+      "status": "aligned",
       "risk_level": "medium",
       "source_refs": ["feishu-model2", "feishu-message-api"],
       "ssot_files": ["docs/ssot/feishu_source_watch_manifest.json"],
@@ -248,16 +257,16 @@
       "test_files": ["scripts/tests/test_0441_feishu_source_watch_contract.mjs"],
       "anchor_terms": {
         "ssot_files": ["feishu_source_watch_manifest.v2"],
-        "implementation_files": ["BASELINE_CREATED"],
-        "test_files": ["test_manifest_records_no_secret_feishu_sources_and_confirmation_policy"]
+        "implementation_files": ["BASELINE_CREATED", "tlsPreflight"],
+        "test_files": ["test_manifest_records_no_secret_feishu_sources_and_confirmation_policy", "test_tls_disabled_blocks_before_manifest_event_or_state_processing"]
       },
       "verification_commands": [
         "node scripts/tests/test_0441_feishu_source_watch_contract.mjs",
         "node --check scripts/ops/feishu_source_watch.mjs"
       ],
-      "owner_iterations": ["0441-feishu-source-watch", "0454-feishu-focused-current-diff"],
-      "open_findings": [{"id": "F-09", "class": "tooling_gap"}],
-      "notes": "Focused source watching is implemented; TLS-disabled environment preflight remains open."
+      "owner_iterations": ["0441-feishu-source-watch", "0454-feishu-focused-current-diff", "0456-feishu-watcher-tls-preflight"],
+      "open_findings": [],
+      "notes": "Focused source watching is implemented and now blocks TLS-disabled runs unless an explicit fixture or exact-loopback local-debug override is present."
     },
     {
       "contract_id": "feishu_message_api.route_autofill_permission",
