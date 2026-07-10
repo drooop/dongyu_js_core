@@ -117,7 +117,8 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
                   other ordinary Cells inside the matrix default effectively to model.single unless explicitly overridden.
                   matrix absolute origin may differ from global (0,0,0); spec must define relative→absolute mapping.
 
-  model.table    table root Cell. the model root (0,0,0) MUST be explicitly labeled model.table.
+  model.table    ordinary/non-worker table root Cell. an ordinary/non-worker model root
+                  (0,0,0) MUST be explicitly labeled model.table.
                   other ordinary Cells inside the table default effectively to model.single unless explicitly overridden.
                   (0323) (0,0,0) MUST contain 3 default func.js infrastructure programs:
                     mt_write         — accepts write requests, executes addLabel/rmLabel on any Cell within this model.table
@@ -127,6 +128,12 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
                   user programs MUST NOT override or delete these func.js labels.
                   replaces (0,1,0) helper executor for model.table only (DEPRECATED here);
                   model.single scenario retains helper scaffold — see runtime_semantics §5.2f.
+
+  model.v1n      software worker host-table root declaration. it is valid only on
+                  host Model 0 (0,0,0), and uses the same table execution semantics
+                  as model.table. worker identity and role remain separate in
+                  sys_worker_id:worker.id and sys_worker_role:worker.role.
+                  ordinary/non-worker ModelTable roots MUST continue to use model.table.
 
   model.subtable child ModelTable root declaration. written on the child ModelTable's
                   own Model 0 (0,0,0). it states that this table is a child ModelTable,
@@ -148,9 +155,9 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
 
   model_type label encodes two dimensions:
     label.t = form / relationship type
-              (model.single | model.matrix | model.table | model.subtable | model.submt |
+              (model.single | model.matrix | model.table | model.v1n | model.subtable | model.submt |
                model.subtableconnection | model.submtconnection)
-    label.v = type (Code.JS | Data.Array.One | Flow | Doc.Markdown | ...) for model.single/model.matrix/model.table/model.subtable/model.submt
+    label.v = type (Code.JS | Data.Array.One | Flow | Doc.Markdown | ...) for model.single/model.matrix/model.table/model.v1n/model.subtable/model.submt
               child table ref for model.subtableconnection
               child model id for model.submtconnection
     invalid form×type combinations MUST be rejected at registration.
@@ -366,7 +373,7 @@ two tiers. clearly separated. do not mix.
 tier 1: runtime base (基座运行能力)
   = the interpreter. only changes via iteration + code review.
   what it provides:
-  - model form enforcement: model.single / model.matrix / model.table constraints
+  - model form enforcement: model.single / model.matrix / model.table / model.v1n constraints
   - label type interpretation: _applyBuiltins dispatches on label.t
     0363 target recognized types after implementation migration:
       pin.in, pin.out,
@@ -431,7 +438,8 @@ allocation rules (authoritative):
 
   Model 0        system root / intermediate layer. worker root bus boundary pins and root-side routing live here.
                  the only model with system boundary ports. never holds user business logic.
-                 Model 0 (0,0,0) MUST explicitly carry model.table.
+                 A software worker host-table Model 0 (0,0,0) MUST explicitly carry model.v1n.
+                 An ordinary/non-worker ModelTable root MUST explicitly carry model.table.
 
   Model -1       system capability layer: legacy/compat bus-event mailbox + status surface.
                  Cell(0,0,1) remains reserved for compat/status observation only; it is NOT the current frontend/server first ingress.
@@ -589,7 +597,7 @@ PERMISSION_MODEL
 
 MODEL_TYPE_REGISTRY
 
-  form (label.t): model.single | model.matrix | model.table
+  form (label.t): model.single | model.matrix | model.table | model.v1n | model.subtable | model.submt
   type (label.v): {Category}.{SubType} or {Category}
 
   registered types (initial set):
