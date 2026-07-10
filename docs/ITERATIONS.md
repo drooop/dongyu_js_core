@@ -355,7 +355,7 @@ source: ai
 | 0452-feishu-response-e2e-smoke | 2026-07-09 | 用本地 mock transport 验证 Feishu 消息处理、response outbox 发布和入站 materialization 能串成完整闭环 | 3 | dropx/dev_0452-feishu-response-e2e-smoke | Completed | ./docs/iterations/0452-feishu-response-e2e-smoke/ |
 | 0453-feishu-stack-final-review | 2026-07-09 | 对 0441-0452 Feishu 文档追踪与消息合同实现链做提交/合并前最终 review、验证证据汇总和风险结论 | 2 | dropx/dev_0453-feishu-stack-final-review | Completed | ./docs/iterations/0453-feishu-stack-final-review/ |
 | 0454-feishu-focused-current-diff | 2026-07-09 | 重新读取两篇重点 Feishu 文档当前版本，对照仓库 SSOT 与实现找出新差异，并规划大型代码库可持续理解机制 | 4 | dropx/dev_0454-feishu-focused-current-diff | Completed | ./docs/iterations/0454-feishu-focused-current-diff/ |
-| 0455-contract-surface-index | 2026-07-09 | 建立 Feishu/SSOT/实现/测试合同索引与专项 backlog，让后续变更按合同卡片定位并防止摘要漂移 | 5 | dropx/dev_0455-contract-surface-index | Approved | ./docs/iterations/0455-contract-surface-index/ |
+| 0455-contract-surface-index | 2026-07-09 | 建立 Feishu/SSOT/实现/测试合同索引与专项 backlog，让后续变更按合同卡片定位并防止摘要漂移 | 5 | dropx/dev_0455-contract-surface-index | In Progress | ./docs/iterations/0455-contract-surface-index/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

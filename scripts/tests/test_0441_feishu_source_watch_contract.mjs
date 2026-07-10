@@ -85,13 +85,28 @@ function runWatchWithEnvAsync({ stateDir, reportPath, env, extraArgs = [] }) {
 
 function test_manifest_records_no_secret_feishu_sources_and_confirmation_policy() {
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  assert.equal(manifest.schema, 'feishu_source_watch_manifest.v1');
+  assert.equal(manifest.schema, 'feishu_source_watch_manifest.v2');
   assert.match(
     manifest.confirmation_policy.reject_defer_rule,
     /Do not make final reject\/defer decisions automatically/u,
     'manifest must encode user confirmation rule for reject/defer cases',
   );
   assert.equal(manifest.documents.length, 6, 'manifest must track the four maintained Feishu documents plus two focused source docs');
+  assert.equal(
+    manifest.documents.filter((doc) => doc.authority_class === 'UpstreamConsensus').length,
+    2,
+    'manifest must identify exactly two upstream consensus documents',
+  );
+  assert.equal(
+    manifest.documents.filter((doc) => doc.authority_class === 'DerivedView').length,
+    4,
+    'manifest must identify exactly four derived views',
+  );
+  assert.equal(
+    manifest.supporting_source_slots.length,
+    2,
+    'manifest must retain two non-fetchable supporting-source slots until identity is confirmed',
+  );
   assert.equal(
     manifest.documents.every((doc) => doc.source_type === 'wiki' && doc.wiki_node_token && !doc.app_secret),
     true,
