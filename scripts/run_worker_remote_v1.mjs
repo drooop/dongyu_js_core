@@ -4,7 +4,7 @@
  * Minimal bootstrap: load patches → startMqttLoop → apply patch-configured subscriptions.
  * No WorkerEngineV0. No manual business dispatch logic. Subscription topics remain patch-driven.
  *
- * Chain: startMqttLoop → mqttIncoming → IN label → cell_connection → CELL_CONNECT → AsyncFunction
+ * Chain: startMqttLoop → mqttIncoming → Model 0 bus ingress → parent connection → child function
  *
  * Usage:
  *   bun scripts/run_worker_remote_v1.mjs <patch_dir>
@@ -14,8 +14,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { ACTOR_ATTESTATION_MARKER, buildDeActorAttestation } from './lib/de_actor_attestation.mjs';
 import { loadSystemPatch } from './worker_engine_v0.mjs';
-import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../packages/worker-base/src/persisted_asset_loader.mjs';
+import {
+  applyPersistedAssetEntries,
+  readPersistedAssetManifest,
+  resolvePersistedAssetRoot,
+  selectPersistedAssetEntries,
+} from '../packages/worker-base/src/persisted_asset_loader.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
@@ -30,6 +36,17 @@ const PATCH_DIR = process.argv[2] || process.env.DY_ROLE_PATCH_DIR || '';
 const ASSET_ROOT = resolvePersistedAssetRoot();
 const WORKER_SCOPE = process.env.DY_WORKER_SCOPE || 'remote-worker';
 const LOG_PREFIX = process.env.DY_WORKER_LOG_PREFIX || WORKER_SCOPE;
+const REPO_ROOT = path.resolve(import.meta.dirname, '..');
+const sourceFiles = ASSET_ROOT
+  ? selectPersistedAssetEntries(readPersistedAssetManifest(ASSET_ROOT), {
+    scope: WORKER_SCOPE,
+    authority: 'authoritative',
+    kind: 'patch',
+    phases: ['00-system-base', '20-role-negative', '40-role-positive'],
+  })
+    .filter((entry) => fs.existsSync(path.join(ASSET_ROOT, String(entry.path || ''))))
+    .map((entry) => String(entry.path))
+  : ['packages/worker-base/system-models/system_models.json'];
 
 if (!ASSET_ROOT && !PATCH_DIR) {
   process.stderr.write('Usage: bun scripts/run_worker_remote_v1.mjs <patch_dir>\n');
@@ -94,11 +111,16 @@ if (ASSET_ROOT) {
     const filePath = path.join(patchDirAbs, file);
     const patch = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
+    sourceFiles.push(path.relative(REPO_ROOT, filePath));
     process.stdout.write(`[${LOG_PREFIX}] Loaded ${file}: applied=${result.applied}, rejected=${result.rejected}\n`);
   }
 }
 rt.setRuntimeMode('edit');
 process.stdout.write(`[${LOG_PREFIX}] runtime_mode=${rt.getRuntimeMode()}\n`);
+
+const actorAttestation = buildDeActorAttestation({ runtime: rt, sourceFiles });
+process.stdout.write(`${ACTOR_ATTESTATION_MARKER} ${JSON.stringify(actorAttestation)}\n`);
+if (process.env.DY_ACTOR_ATTEST_ONLY === '1') process.exit(0);
 
 const sysModel = rt.getModel(-10);
 const remoteSubConfig = sysModel ? rt.getLabelValue(sysModel, 0, 0, 0, 'remote_subscriptions') : null;
@@ -151,4 +173,4 @@ const heartbeatTimer = setInterval(() => {
 }, 30000);
 heartbeatTimer.unref();
 
-process.stdout.write(`[${LOG_PREFIX}] Ready. Runtime handles: mqttIncoming -> IN -> cell_connection -> CELL_CONNECT -> function\n`);
+process.stdout.write(`[${LOG_PREFIX}] Ready. Runtime handles: mqttIncoming -> Model 0 bus ingress -> parent connection -> child function\n`);

@@ -3449,104 +3449,125 @@ class ModelTableRuntime {
     return true;
   }
 
+  _rejectMqttIncoming(topic, payload, {
+    mode = 'pin_payload_v1',
+    reason = 'invalid_mqtt_inbound',
+    code = reason,
+    pin = '',
+    ingressPin = '',
+  } = {}) {
+    this.mqttTrace.record('inbound_rejected', {
+      topic,
+      payload,
+      mode,
+      reason,
+    });
+    const model0 = this.getModel(0);
+    if (model0) {
+      const detail = {
+        topic: typeof topic === 'string' ? topic : '',
+      };
+      if (typeof pin === 'string' && pin) detail.pin = pin;
+      if (typeof ingressPin === 'string') detail.ingress_pin = ingressPin;
+      this._writeVisibleErrorLabel(model0, 0, 0, 0, 'mqtt_inbound_error', code, detail);
+    }
+    return false;
+  }
+
   mqttIncoming(topic, payload) {
-    if (!this.isRuntimeRunning()) return false;
+    if (!this.isRuntimeRunning()) {
+      return this._rejectMqttIncoming(topic, payload, {
+        mode: 'disabled',
+        reason: 'runtime_not_running',
+      });
+    }
     const config = this._getConfigFromPage0();
     const mode = this._topicMode(config);
     const payloadMode = this._payloadMode(config);
-    if (!payload) return false;
+    if (!payload) {
+      return this._rejectMqttIncoming(topic, payload, {
+        mode: mode || 'disabled',
+        reason: 'invalid_packet',
+      });
+    }
     if (mode !== 'uiput_mm_v1' || payloadMode !== 'pin_payload_v1') {
-      this.mqttTrace.record('inbound_rejected', { topic, payload, mode: mode || 'disabled', reason: 'unified_topic_and_pin_payload_required' });
-      return false;
+      return this._rejectMqttIncoming(topic, payload, {
+        mode: mode || 'disabled',
+        reason: 'unified_topic_and_pin_payload_required',
+      });
     }
     const packetCheck = this._strictPinPayloadPacketCheck(payload);
     if (!packetCheck.ok) {
-      this.mqttTrace.record('inbound_rejected', { topic, payload, mode: 'pin_payload_v1', reason: packetCheck.code });
-      return false;
+      return this._rejectMqttIncoming(topic, payload, {
+        reason: packetCheck.code,
+      });
     }
 
     if (mode === 'uiput_mm_v1') {
       const base = config.topic_base || '';
       if (!this._isValidUnifiedTopicBase(base)) {
-        this.mqttTrace.record('inbound_rejected', {
-          topic,
-          payload,
+        return this._rejectMqttIncoming(topic, payload, {
           mode: 'uiput_mm_v1',
           reason: 'invalid_unified_topic_base',
         });
-        return false;
       }
       const prefix = `${base}/`;
       if (!topic || typeof topic !== 'string' || !topic.startsWith(prefix)) {
-        return false;
+        return this._rejectMqttIncoming(topic, payload, {
+          mode: 'uiput_mm_v1',
+          reason: 'invalid_unified_endpoint_topic',
+        });
       }
       const rest = topic.slice(prefix.length);
       const parts = rest.split('/');
       let modelId = null;
       let pinName = '';
       if (parts.length === 6 && parts[0] === 'worker' && parts[2] === 'model' && parts[4] === 'pin') {
-        this.mqttTrace.record('inbound_rejected', {
-          topic,
-          payload,
+        return this._rejectMqttIncoming(topic, payload, {
           mode: 'uiput_mm_v1',
           reason: 'worker_model_pin_topic_removed',
         });
-        return false;
       }
       if (parts.length === 3) {
         const workerId = parts[0] || '';
         const modelSegment = parts[1] || '';
         pinName = parts[2] || '';
         if (!this._isSafePinRouteSegment(workerId) || !this._isCanonicalPositiveIntSegment(modelSegment)) {
-          this.mqttTrace.record('inbound_rejected', {
-            topic,
-            payload,
+          return this._rejectMqttIncoming(topic, payload, {
             mode: 'uiput_mm_v1',
             reason: 'invalid_unified_endpoint_topic',
           });
-          return false;
         }
         modelId = Number(modelSegment);
         const configuredWorkerId = typeof config.worker_id === 'string' ? config.worker_id : '';
         if (configuredWorkerId && !this._isSafePinRouteSegment(configuredWorkerId)) {
-          this.mqttTrace.record('inbound_rejected', {
-            topic,
-            payload,
+          return this._rejectMqttIncoming(topic, payload, {
             mode: 'uiput_mm_v1',
             reason: 'invalid_configured_worker_id',
+            pin: pinName,
           });
-          return false;
         }
         if (configuredWorkerId && workerId !== configuredWorkerId) {
-          this.mqttTrace.record('inbound_rejected', {
-            topic,
-            payload,
+          return this._rejectMqttIncoming(topic, payload, {
             mode: 'uiput_mm_v1',
             reason: 'worker_id_mismatch',
+            pin: pinName,
           });
-          return false;
         }
       } else {
-        this.mqttTrace.record('inbound_rejected', {
-          topic,
-          payload,
+        return this._rejectMqttIncoming(topic, payload, {
           mode: 'uiput_mm_v1',
           reason: 'invalid_unified_endpoint_topic',
         });
-        return false;
       }
       if (!Number.isInteger(modelId) || modelId <= 0 || !this._isSafePinRouteSegment(pinName)) {
-        this.mqttTrace.record('inbound_rejected', {
-          topic,
-          payload,
+        return this._rejectMqttIncoming(topic, payload, {
           mode: 'uiput_mm_v1',
           reason: 'invalid_unified_endpoint_topic',
+          pin: pinName,
         });
-        return false;
       }
-      const model = this.getModel(modelId);
-      if (!model) return false;
-
+      const ingressPin = typeof config.ingress_pin === 'string' ? config.ingress_pin.trim() : '';
       const parsed = this._parsePinPayloadValue(payload.payload, {
         expectedEndpoint: {
           worker_id: typeof config.worker_id === 'string' && config.worker_id ? config.worker_id : parts[0],
@@ -3555,42 +3576,43 @@ class ModelTableRuntime {
         },
       });
       if (!parsed.ok) {
-        this.mqttTrace.record('inbound_rejected', {
-          topic,
-          payload,
-          mode: 'pin_payload_v1',
+        return this._rejectMqttIncoming(topic, payload, {
           reason: parsed.code === 'endpoint_mismatch' ? 'endpoint_mismatch' : 'invalid_pin_payload_records',
-        });
-        this._writeVisibleErrorLabel(model, 0, 0, 0, 'mqtt_inbound_error', parsed.code || 'invalid_pin_payload_records', {
-          topic,
+          code: parsed.code || 'invalid_pin_payload_records',
           pin: pinName,
+          ingressPin,
         });
-        return false;
       }
       if (parsed.messageRole === 'response') {
         return this._materializePinPayloadResponse(topic, payload, parsed, config);
       }
-      const ingressPin = typeof config.ingress_pin === 'string' ? config.ingress_pin.trim() : '';
-      if (ingressPin) {
-        const model0 = this.getModel(0);
-        const model0Root = model0 ? this.getCell(model0, 0, 0, 0) : null;
-        const ingressLabel = model0Root ? model0Root.labels.get(ingressPin) : null;
-        const ingressType = ingressLabel ? this._resolveLabelType(ingressLabel.t) : null;
-        if (!model0 || !this._isSafePinRouteSegment(ingressPin) || (ingressType !== 'pin.bus.cb.in' && ingressType !== 'pin.bus.mb.in')) {
-          this.mqttTrace.record('inbound_rejected', {
-            topic,
-            payload,
-            mode: 'pin_payload_v1',
-            reason: 'invalid_mqtt_ingress_pin',
-          });
-          return false;
-        }
-        this.addLabel(model0, 0, 0, 0, { k: ingressPin, t: ingressLabel.t, v: this._pinPayloadDeliveryValue(payload) });
-        this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1', ingress_pin: ingressPin });
-        return true;
+      if (!ingressPin) {
+        return this._rejectMqttIncoming(topic, payload, {
+          reason: 'missing_mqtt_ingress_pin',
+          pin: pinName,
+          ingressPin,
+        });
       }
-      this.addLabel(model, 0, 0, 0, { k: pinName, t: 'pin.in', v: this._pinPayloadDeliveryValue(payload) });
-      this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1' });
+      const model0 = this.getModel(0);
+      const model0Root = model0 ? this.getCell(model0, 0, 0, 0) : null;
+      const ingressLabel = model0Root ? model0Root.labels.get(ingressPin) : null;
+      const ingressType = ingressLabel ? this._resolveLabelType(ingressLabel.t) : null;
+      if (!model0 || !this._isSafePinRouteSegment(ingressPin) || (ingressType !== 'pin.bus.cb.in' && ingressType !== 'pin.bus.mb.in')) {
+        return this._rejectMqttIncoming(topic, payload, {
+          reason: 'invalid_mqtt_ingress_pin',
+          pin: pinName,
+          ingressPin,
+        });
+      }
+      const ingressResult = this.addLabel(model0, 0, 0, 0, { k: ingressPin, t: ingressLabel.t, v: this._pinPayloadDeliveryValue(payload) });
+      if (!ingressResult || !ingressResult.applied) {
+        return this._rejectMqttIncoming(topic, payload, {
+          reason: 'mqtt_ingress_write_failed',
+          pin: pinName,
+          ingressPin,
+        });
+      }
+      this.mqttTrace.record('inbound', { topic, payload, mode: 'pin_payload_v1', ingress_pin: ingressPin });
       return true;
     }
     return false;

@@ -19,61 +19,33 @@ function readJson(pathname) {
   return JSON.parse(fs.readFileSync(pathname, 'utf8'));
 }
 
-function mt(k, t, v) {
-  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+function mt(k, t, v, id = 0) {
+  return { id, p: 0, r: 0, c: 0, k, t, v };
 }
 
-function payloadRecord(records, key) {
-  return Array.isArray(records) ? records.find((record) => record && record.k === key) || null : null;
+function payloadRecord(records, key, id = 0) {
+  return Array.isArray(records)
+    ? records.find((record) => record && record.id === id && record.k === key) || null
+    : null;
 }
 
-function payloadString(records, key) {
-  const record = payloadRecord(records, key);
+function payloadString(records, key, id = 0) {
+  const record = payloadRecord(records, key, id);
   return record && record.t === 'str' ? record.v : '';
 }
 
-function payloadInt(records, key) {
-  const record = payloadRecord(records, key);
+function payloadInt(records, key, id = 0) {
+  const record = payloadRecord(records, key, id);
   return record && record.t === 'int' ? record.v : null;
 }
 
-function payloadJson(records, key) {
-  const record = payloadRecord(records, key);
-  return record && record.t === 'json' ? record.v : null;
-}
-
-function pinPayloadPacket({ opId, endpoint, origin, replyTarget, payload, messageRole = 'response', topic = 'UIPUT/ws/dam/pic/de/R1/3000/submit1', responseTopic = null, routeKind = 'control' }) {
-  const routeResponseTopic = responseTopic || `UIPUT/ws/dam/pic/de/${replyTarget.worker_id}/${replyTarget.model_id}/${replyTarget.pin}`;
-  const records = [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', opId),
-    mt('op_id', 'str', opId),
-    mt('message_role', 'str', messageRole),
-    mt('topic', 'str', topic),
-    mt('response_topic', 'str', routeResponseTopic),
-    mt('endpoint_worker_id', 'str', endpoint.worker_id),
-    mt('endpoint_model_id', 'int', endpoint.model_id),
-    mt('endpoint_pin', 'str', endpoint.pin),
-    mt('origin_worker_id', 'str', origin.worker_id),
-    mt('origin_model_id', 'int', origin.model_id),
-    mt('origin_pin', 'str', origin.pin),
-    mt('reply_target_worker_id', 'str', replyTarget.worker_id),
-    mt('reply_target_model_id', 'int', replyTarget.model_id),
-    mt('reply_target_pin', 'str', replyTarget.pin),
-    mt('payload', 'json', payload),
-    mt('timestamp', 'int', 1700000000000),
-  ];
-  if (routeKind !== null) records.splice(5, 0, mt('route_kind', 'str', routeKind));
-  return {
-    version: 'v1',
-    type: 'pin_payload',
-    payload: records,
-  };
+function externalPacket(records) {
+  return { version: 'v1', type: 'pin_payload', payload: records };
 }
 
 function tempPayload(text = 'hello control first') {
   return [
-    mt('model_type', 'model.single', 'Data.MinimalSubmit'),
+    mt('model_type', 'model.table', 'Data.MinimalSubmit'),
     mt('text', 'str', text),
   ];
 }
@@ -83,61 +55,139 @@ function providerBundleResponsePayload() {
     mt('__mt_payload_kind', 'str', 'slide_app_bundle_response.v1'),
     mt('__mt_request_id', 'str', 'req_0389_provider_bundle'),
     mt('asset_id', 'str', 'r1-minimal-submit'),
-    mt('bundle_payload', 'json', [
-      mt('app_name', 'str', '最小 Submit 双总线示例'),
-      mt('slide_capable', 'bool', true),
-      mt('model_type', 'model.table', 'UI.MinimalSubmitDualBusZip'),
-      { id: 0, p: 2, r: 3, c: 0, k: 'ui_component', t: 'str', v: 'Button' },
-      {
-        id: 0,
-        p: 2,
-        r: 3,
-        c: 0,
-        k: 'ui_bind_json',
-        t: 'json',
-        v: {
-          write: {
-            pin: 'click_event',
-            value_t: 'modeltable',
-            commit_policy: 'immediate',
-          },
+    mt('bundle_record_id_offset', 'int', 100),
+  ];
+}
+
+function providerBundleResponseExtraRecords() {
+  return [
+    mt('app_name', 'str', '最小 Submit 双总线示例', 100),
+    mt('slide_capable', 'bool', true, 100),
+    mt('model_type', 'model.table', 'UI.MinimalSubmitDualBusZip', 100),
+    { id: 100, p: 2, r: 3, c: 0, k: 'ui_component', t: 'str', v: 'Button' },
+    {
+      id: 100,
+      p: 2,
+      r: 3,
+      c: 0,
+      k: 'ui_bind_json',
+      t: 'json',
+      v: {
+        write: {
+          bus_event_v2: true,
+          bus_in_key: 'submit_request',
+          value_t: 'modeltable',
+          commit_policy: 'immediate',
         },
       },
-    ]),
+    },
   ];
 }
 
 function pinPayloadRecords({
   opId = '0376_control_first',
-  topic = 'UIPUT/ws/dam/pic/de/R2/999/submit',
-  responseTopic = 'UIPUT/ws/dam/pic/de/U1/2000/result',
-  routeKind,
+  topic = null,
+  responseTopic = null,
+  routeKind = 'control',
+  bus = routeKind,
   endpointWorkerId = 'R1',
   endpointModelId = 3000,
   endpointPin = 'submit1',
+  endpointTableId = 'host',
+  originWorkerId = 'U1',
+  originModelId = 2000,
+  originPin = 'submit1',
+  originTableId = 'app:0376:control-first',
+  replyTargetWorkerId = 'U1',
+  replyTargetModelId = 0,
+  replyTargetPin = 'result',
+  replyTargetTableId = 'app:0376:control-first',
   messageRole = 'request',
+  payload = tempPayload(),
+  payloadModelId = 1,
+  extraRecords = [],
+  isNeedResponse = true,
 } = {}) {
+  const routeTopic = topic === null
+    ? `UIPUT/ws/dam/pic/de/${endpointWorkerId}/${endpointModelId}/${endpointPin}`
+    : topic;
+  const routeResponseTopic = responseTopic === null
+    ? `UIPUT/ws/dam/pic/de/${replyTargetWorkerId}/${replyTargetTableId === 'host' ? replyTargetModelId : 1051}/${replyTargetPin}`
+    : responseTopic;
   const records = [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_payload_kind', 'str', 'pin_payload.v2'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
-    mt('topic', 'str', topic),
-    mt('response_topic', 'str', responseTopic),
+    mt('topic', 'str', routeTopic),
+    mt('response_topic', 'str', routeResponseTopic),
+    ...(routeKind === null ? [] : [mt('route_kind', 'str', routeKind)]),
+    ...(bus === null ? [] : [mt('bus', 'str', bus)]),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_table_id', 'str', endpointTableId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
-    mt('origin_worker_id', 'str', 'U1'),
-    mt('origin_model_id', 'int', 2000),
-    mt('origin_pin', 'str', 'submit1'),
-    mt('reply_target_worker_id', 'str', 'U1'),
-    mt('reply_target_model_id', 'int', 2000),
-    mt('reply_target_pin', 'str', 'result'),
-    mt('payload', 'json', tempPayload()),
+    mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_table_id', 'str', originTableId),
+    mt('origin_model_id', 'int', originModelId),
+    mt('origin_pin', 'str', originPin),
+    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_table_id', 'str', replyTargetTableId),
+    mt('reply_target_model_id', 'int', replyTargetModelId),
+    mt('reply_target_pin', 'str', replyTargetPin),
+    mt('payload_model_id', 'int', payloadModelId),
     mt('timestamp', 'int', 1700000000000),
+    mt('is_need_response', 'bool', isNeedResponse),
+    ...payload.map((record) => ({ ...record, id: payloadModelId })),
+    ...extraRecords,
   ];
-  if (routeKind !== undefined) records.push(mt('route_kind', 'str', routeKind));
   return records;
+}
+
+function pinPayloadPacket(options) {
+  const {
+    endpoint,
+    origin,
+    replyTarget,
+    payload,
+    messageRole = 'response',
+    ...rest
+  } = options;
+  return externalPacket(pinPayloadRecords({
+    ...rest,
+    messageRole,
+    endpointWorkerId: endpoint.worker_id,
+    endpointTableId: endpoint.table_id,
+    endpointModelId: endpoint.model_id,
+    endpointPin: endpoint.pin,
+    originWorkerId: origin.worker_id,
+    originTableId: origin.table_id,
+    originModelId: origin.model_id,
+    originPin: origin.pin,
+    replyTargetWorkerId: replyTarget.worker_id,
+    replyTargetTableId: replyTarget.table_id,
+    replyTargetModelId: replyTarget.model_id,
+    replyTargetPin: replyTarget.pin,
+    payload,
+  }));
+}
+
+function mbrResponseRecords(options = {}) {
+  const topic = 'UIPUT/ws/dam/pic/de/U1/2000/result';
+  return pinPayloadRecords({
+    messageRole: 'response',
+    topic,
+    responseTopic: topic,
+    endpointWorkerId: 'U1',
+    endpointTableId: 'host',
+    endpointModelId: 2000,
+    endpointPin: 'result',
+    originWorkerId: 'R1',
+    originTableId: 'host',
+    originModelId: 3100,
+    originPin: 'bundle_request',
+    ...options,
+  });
 }
 
 function withoutRecords(records, keys) {
@@ -334,6 +384,11 @@ function lastRejectedReason(rt) {
   return rejected.length ? rejected[rejected.length - 1].reason : '';
 }
 
+function lastMbrControlIngressError(rt) {
+  return rt.getCell(rt.getModel(-10), 0, 0, 0).labels.get('mbr_mqtt_error')?.v?.detail
+    || lastRejectedReason(rt);
+}
+
 function test_worker_engine_publishes_cb_out_to_payload_topic_without_endpoint_fallback() {
   {
     const rt = loadMbrRuntime();
@@ -396,77 +451,125 @@ function test_worker_engine_rejects_unsafe_payload_topics() {
   return { key: 'worker_engine_rejects_unsafe_payload_topics', status: 'PASS' };
 }
 
-async function test_mbr_cb_dispatch_defaults_to_control_and_routes_by_topic() {
+async function test_mbr_control_ingress_uses_model_zero_to_minus10_pin_chain_and_routes_by_topic() {
   const rt = loadMbrRuntime();
   const model0Root = rt.getCell(rt.getModel(0), 0, 0, 0).labels;
   assert.equal(model0Root.get('mbr_cb_in')?.t, 'pin.bus.cb.in', 'MBR must declare a control-bus ingress pin on Model 0');
-  const wiring = model0Root.get('mbr_cb_in_wiring');
-  assert.equal(wiring?.t, 'pin.connect.label', 'MBR control-bus ingress must wire to dispatch function');
-  assert.deepEqual(wiring?.v, [{ from: 'mbr_cb_in', to: ['mbr_cb_dispatch:in'] }], 'MBR control-bus ingress must trigger mbr_cb_dispatch');
+  const infrastructureFunctions = new Set(['mt_write', 'mt_bus_receive', 'mt_bus_send']);
+  assert.equal(
+    Array.from(model0Root.entries()).some(([key, label]) => label?.t === 'func.js' && !infrastructureFunctions.has(key)),
+    false,
+    'MBR Model 0 must remain a structural bus boundary without business functions',
+  );
+  const mount = rt.getCell(rt.getModel(0), 1, 0, 0).labels;
+  assert.equal(mount.get('model_type')?.t, 'model.submtconnection', 'MBR Model 0 must mount Model -10 through a connection Cell');
+  assert.equal(mount.get('model_type')?.v, -10, 'MBR connection Cell must target Model -10');
+  assert.equal(mount.get('mbr_cb_ingress')?.t, 'pin.in', 'MBR connection Cell must expose control ingress pin');
+  assert.equal(mount.get('mbr_cb_egress')?.t, 'pin.out', 'MBR connection Cell must expose control egress pin');
+  const routes = model0Root.get('mbr_bus_routes');
+  assert.equal(routes?.t, 'pin.connect.cell', 'MBR Model 0 bus pins must route structurally through the connection Cell');
+  assert.equal(
+    routes.v.some((route) => JSON.stringify(route) === JSON.stringify({
+      from: [0, 0, 0, 'mbr_cb_in'],
+      to: [[1, 0, 0, 'mbr_cb_ingress']],
+    })),
+    true,
+    'MBR control ingress must route from Model 0 to Model -10 boundary',
+  );
+  assert.equal(
+    routes.v.some((route) => JSON.stringify(route) === JSON.stringify({
+      from: [1, 0, 0, 'mbr_cb_egress'],
+      to: [[0, 0, 0, 'mbr_cb_out']],
+    })),
+    true,
+    'MBR control egress must route from Model -10 back to Model 0',
+  );
+  const systemRoot = rt.getCell(rt.getModel(-10), 0, 0, 0).labels;
+  assert.equal(systemRoot.get('mbr_cb_ingress')?.t, 'pin.in', 'Model -10 must declare the child-side control ingress pin');
+  assert.equal(systemRoot.get('mbr_mqtt_to_mgmt')?.t, 'func.js', 'Model -10 must own the MQTT response routing function');
+  assert.deepEqual(
+    systemRoot.get('mbr_dispatch_wiring')?.v?.find((route) => route.from === 'mbr_cb_ingress'),
+    { from: 'mbr_cb_ingress', to: ['mbr_mqtt_to_mgmt:in'] },
+    'Model -10 control ingress pin must trigger its declared response router',
+  );
+  const topic = 'UIPUT/ws/dam/pic/de/U1/2000/result';
   rt.addLabel(rt.getModel(0), 0, 0, 0, {
     k: 'mbr_cb_in',
     t: 'pin.bus.cb.in',
     v: pinPayloadRecords({
-      opId: '0376_mbr_default_control',
-      topic: 'UIPUT/ws/dam/pic/de/R2/999/submit',
-      endpointWorkerId: 'R2',
-      endpointModelId: 999,
-      endpointPin: 'submit',
+      opId: '0376_mbr_control_response',
+      topic,
+      responseTopic: topic,
+      routeKind: 'control',
+      messageRole: 'response',
+      endpointWorkerId: 'U1',
+      endpointModelId: 2000,
+      endpointPin: 'result',
+      originWorkerId: 'R1',
+      originTableId: 'host',
+      originModelId: 3100,
+      originPin: 'bundle_request',
     }),
   });
-  const expectedTopic = 'UIPUT/ws/dam/pic/de/R2/999/submit';
   const cbOut = await waitUntil(() => {
     const label = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_cb_out');
-    return payloadString(label?.v, 'topic') === expectedTopic ? label : null;
+    return payloadString(label?.v, 'op_id') === '0376_mbr_control_response' ? label : null;
   });
-  assert.equal(cbOut?.t, 'pin.bus.cb.out', 'default route_kind must write control bus out');
-  assert.equal(payloadString(cbOut?.v, 'topic'), expectedTopic, 'MBR must preserve payload topic as route truth');
-  assert.equal(payloadString(cbOut?.v, 'route_kind'), '', 'missing route_kind remains omitted while dispatch treats it as control');
+  assert.equal(cbOut?.t, 'pin.bus.cb.out', 'control response must traverse Model -10 and write Model 0 control bus out');
+  assert.equal(payloadString(cbOut?.v, 'topic'), topic, 'MBR must preserve payload topic as route truth');
+  assert.equal(payloadString(cbOut?.v, 'route_kind'), 'control', 'v2 control response must preserve explicit route_kind');
   const { mqttPublished } = drainWorkerEngine(rt);
-  assert.equal(mqttPublished[0]?.topic, 'UIPUT/ws/dam/pic/de/R2/999/submit', 'MBR control output must publish to payload topic');
-  return { key: 'mbr_cb_dispatch_defaults_to_control_and_routes_by_topic', status: 'PASS' };
+  assert.equal(mqttPublished[0]?.topic, topic, 'MBR control output must publish to payload topic');
+  return { key: 'mbr_control_ingress_uses_model_zero_to_minus10_pin_chain_and_routes_by_topic', status: 'PASS' };
 }
 
-async function test_mbr_cb_dispatch_routes_explicit_management_and_rejects_invalid_route_fields() {
+async function test_mbr_control_ingress_routes_management_response_and_rejects_invalid_v2_fields() {
   {
     const rt = loadMbrRuntime();
+    const topic = 'UIPUT/ws/dam/pic/de/U1/2000/result';
     rt.addLabel(rt.getModel(0), 0, 0, 0, {
       k: 'mbr_cb_in',
       t: 'pin.bus.cb.in',
       v: pinPayloadRecords({
-        opId: '0376_mbr_management',
+        opId: '0376_mbr_management_response',
         routeKind: 'management',
-        topic: 'UIPUT/ws/dam/pic/de/R2/999/submit',
-        endpointWorkerId: 'R2',
-        endpointModelId: 999,
-        endpointPin: 'submit',
+        topic,
+        responseTopic: topic,
+        messageRole: 'response',
+        endpointWorkerId: 'U1',
+        endpointModelId: 2000,
+        endpointPin: 'result',
+        originWorkerId: 'R1',
+        originTableId: 'host',
+        originModelId: 3100,
+        originPin: 'bundle_request',
       }),
     });
     const root = rt.getCell(rt.getModel(0), 0, 0, 0).labels;
     const mbOut = await waitUntil(() => {
       const label = root.get('mbr_mb_out');
-      return payloadString(label?.v, 'route_kind') === 'management' ? label : null;
+      return payloadString(label?.v, 'op_id') === '0376_mbr_management_response' ? label : null;
     });
-    assert.equal(mbOut?.t, 'pin.bus.mb.out', 'explicit management route_kind must write management bus out');
-    assert.equal(root.get('mbr_cb_out')?.v ?? null, null, 'explicit management route_kind must not also write control bus out');
+    assert.equal(mbOut?.t, 'pin.bus.mb.out', 'management response must traverse Model -10 and write management bus out');
+    assert.equal(root.get('mbr_cb_out')?.v ?? null, null, 'management response must not also write control bus out');
     assert.equal(payloadString(mbOut?.v, 'route_kind'), 'management', 'management output must preserve route_kind');
-    assert.equal(drainWorkerEngine(rt).mqttPublished.length, 0, 'explicit management route must not publish to MQTT control bus');
+    assert.equal(drainWorkerEngine(rt).mqttPublished.length, 0, 'management response must not publish to MQTT control bus');
   }
 
   for (const [name, records, detail] of [
-    ['missing_topic', withoutRecords(pinPayloadRecords({ opId: '0376_missing_topic' }), ['topic']), 'bus_in_invalid_topic'],
-    ['invalid_route_kind', pinPayloadRecords({ opId: '0376_invalid_route_kind', routeKind: 'legacy' }), 'bus_in_invalid_route_kind'],
-    ['legacy_return_topic', [...pinPayloadRecords({ opId: '0376_legacy_return_topic' }), mt('return_topic', 'str', 'UIPUT/ws/dam/pic/de/R2/999/submit')], 'legacy_pin_payload_metadata_removed'],
-    ['legacy_route_reply_to', [...pinPayloadRecords({ opId: '0376_legacy_route_reply_to' }), mt('route.reply_to', 'str', 'UIPUT/ws/dam/pic/de/R2/999/result')], 'legacy_pin_payload_metadata_removed'],
-    ['legacy_result_topic', [...pinPayloadRecords({ opId: '0376_legacy_result_topic' }), mt('result_topic', 'str', 'UIPUT/ws/dam/pic/de/R2/999/result')], 'legacy_pin_payload_metadata_removed'],
-    ['unsafe_empty_topic', pinPayloadRecords({ opId: '0376_unsafe_empty_topic', topic: '' }), 'bus_in_invalid_topic'],
-    ['unsafe_plus_topic', pinPayloadRecords({ opId: '0376_unsafe_plus_topic', topic: 'UIPUT/ws/dam/pic/de/R2/999/+' }), 'bus_in_invalid_topic'],
-    ['unsafe_hash_topic', pinPayloadRecords({ opId: '0376_unsafe_hash_topic', topic: 'UIPUT/ws/dam/pic/de/R2/999/#' }), 'bus_in_invalid_topic'],
-    ['unsafe_empty_segment_topic', pinPayloadRecords({ opId: '0376_unsafe_empty_segment_topic', topic: 'UIPUT/ws/dam/pic/de//999/submit' }), 'bus_in_invalid_topic'],
-    ['unsafe_leading_slash_topic', pinPayloadRecords({ opId: '0376_unsafe_leading_slash_topic', topic: '/UIPUT/ws/dam/pic/de/R2/999/submit' }), 'bus_in_invalid_topic'],
-    ['unsafe_trailing_slash_topic', pinPayloadRecords({ opId: '0376_unsafe_trailing_slash_topic', topic: 'UIPUT/ws/dam/pic/de/R2/999/submit/' }), 'bus_in_invalid_topic'],
-    ['unsafe_zero_model_topic', pinPayloadRecords({ opId: '0376_unsafe_zero_model_topic', topic: 'UIPUT/ws/dam/pic/de/R2/0/submit' }), 'bus_in_invalid_topic'],
-    ['unsafe_leading_zero_model_topic', pinPayloadRecords({ opId: '0376_unsafe_leading_zero_model_topic', topic: 'UIPUT/ws/dam/pic/de/R2/0999/submit' }), 'bus_in_invalid_topic'],
+    ['missing_topic', withoutRecords(mbrResponseRecords({ opId: '0376_missing_topic' }), ['topic']), 'bus_in_invalid_topic'],
+    ['invalid_route_kind', mbrResponseRecords({ opId: '0376_invalid_route_kind', routeKind: 'legacy' }), 'bus_in_invalid_route_kind'],
+    ['legacy_return_topic', [...mbrResponseRecords({ opId: '0376_legacy_return_topic' }), mt('return_topic', 'str', 'UIPUT/ws/dam/pic/de/U1/2000/result')], 'legacy_pin_payload_metadata_removed'],
+    ['legacy_route_reply_to', [...mbrResponseRecords({ opId: '0376_legacy_route_reply_to' }), mt('route.reply_to', 'str', 'UIPUT/ws/dam/pic/de/U1/2000/result')], 'legacy_pin_payload_metadata_removed'],
+    ['legacy_result_topic', [...mbrResponseRecords({ opId: '0376_legacy_result_topic' }), mt('result_topic', 'str', 'UIPUT/ws/dam/pic/de/U1/2000/result')], 'legacy_pin_payload_metadata_removed'],
+    ['unsafe_empty_topic', mbrResponseRecords({ opId: '0376_unsafe_empty_topic', topic: '' }), 'bus_in_invalid_topic'],
+    ['unsafe_plus_topic', mbrResponseRecords({ opId: '0376_unsafe_plus_topic', topic: 'UIPUT/ws/dam/pic/de/U1/2000/+' }), 'bus_in_invalid_topic'],
+    ['unsafe_hash_topic', mbrResponseRecords({ opId: '0376_unsafe_hash_topic', topic: 'UIPUT/ws/dam/pic/de/U1/2000/#' }), 'bus_in_invalid_topic'],
+    ['unsafe_empty_segment_topic', mbrResponseRecords({ opId: '0376_unsafe_empty_segment_topic', topic: 'UIPUT/ws/dam/pic/de//2000/result' }), 'bus_in_invalid_topic'],
+    ['unsafe_leading_slash_topic', mbrResponseRecords({ opId: '0376_unsafe_leading_slash_topic', topic: '/UIPUT/ws/dam/pic/de/U1/2000/result' }), 'bus_in_invalid_topic'],
+    ['unsafe_trailing_slash_topic', mbrResponseRecords({ opId: '0376_unsafe_trailing_slash_topic', topic: 'UIPUT/ws/dam/pic/de/U1/2000/result/' }), 'bus_in_invalid_topic'],
+    ['unsafe_zero_model_topic', mbrResponseRecords({ opId: '0376_unsafe_zero_model_topic', topic: 'UIPUT/ws/dam/pic/de/U1/0/result' }), 'bus_in_invalid_topic'],
+    ['unsafe_leading_zero_model_topic', mbrResponseRecords({ opId: '0376_unsafe_leading_zero_model_topic', topic: 'UIPUT/ws/dam/pic/de/U1/02000/result' }), 'bus_in_invalid_topic'],
   ]) {
     const rt = loadMbrRuntime();
     const model0 = rt.getModel(0);
@@ -475,36 +578,34 @@ async function test_mbr_cb_dispatch_routes_explicit_management_and_rejects_inval
       t: 'pin.bus.cb.in',
       v: records,
     });
-    await waitUntil(() => rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_error') || lastRejectedReason(rt));
+    await waitUntil(() => lastMbrControlIngressError(rt));
     const root = rt.getCell(model0, 0, 0, 0).labels;
     assert.equal(root.get('mbr_cb_out')?.v ?? null, null, `${name} must not write control bus out`);
     assert.equal(root.get('mbr_mb_out')?.v ?? null, null, `${name} must not write management bus out`);
     const drained = drainWorkerEngine(rt);
     assert.equal(drained.mqttPublished.length, 0, `${name} must not publish to MQTT`);
     assert.equal(drained.mgmtPublished.length, 0, `${name} must not publish to management bus`);
-    const explicitDetail = root.get('mbr_cb_error')?.v?.detail || lastRejectedReason(rt);
+    const explicitDetail = lastMbrControlIngressError(rt);
     assert.equal(explicitDetail, detail, `${name} must be rejected explicitly`);
   }
-  return { key: 'mbr_cb_dispatch_routes_explicit_management_and_rejects_invalid_route_fields', status: 'PASS' };
+  return { key: 'mbr_control_ingress_routes_management_response_and_rejects_invalid_v2_fields', status: 'PASS' };
 }
 
-async function test_mbr_cb_dispatch_accepts_provider_bundle_response_modeltable_payload() {
+async function test_mbr_pin_chain_accepts_provider_bundle_response_modeltable_payload() {
   const rt = loadMbrRuntime();
   const model0 = rt.getModel(0);
   const topic = 'UIPUT/ws/dam/pic/de/U1/2000/result';
   rt.addLabel(model0, 0, 0, 0, {
     k: 'mbr_cb_in',
     t: 'pin.bus.cb.in',
-      v: pinPayloadRecords({
+      v: mbrResponseRecords({
         opId: 'req_0389_provider_bundle_response',
         topic,
         responseTopic: topic,
         routeKind: 'control',
-        endpointWorkerId: 'U1',
-        endpointModelId: 2000,
-        endpointPin: 'result',
-        messageRole: 'response',
-      }).map((record) => record.k === 'payload' ? { ...record, v: providerBundleResponsePayload() } : record),
+        payload: providerBundleResponsePayload(),
+        extraRecords: providerBundleResponseExtraRecords(),
+      }),
   });
   const cbOut = await waitUntil(() => {
     const label = rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_out');
@@ -512,43 +613,37 @@ async function test_mbr_cb_dispatch_accepts_provider_bundle_response_modeltable_
   });
   assert.equal(cbOut?.t, 'pin.bus.cb.out', 'valid provider bundle response must be forwarded by MBR');
   assert.equal(payloadString(cbOut?.v, 'topic'), topic, 'provider bundle response must publish on response_topic');
-  assert.equal(rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_error')?.v ?? null, null, 'valid provider bundle response must not be rejected as legacy metadata');
-  return { key: 'mbr_cb_dispatch_accepts_provider_bundle_response_modeltable_payload', status: 'PASS' };
+  assert.equal(lastMbrControlIngressError(rt), '', 'valid provider bundle response must not be rejected as legacy metadata');
+  assert.equal(payloadString(cbOut?.v, '__mt_payload_kind'), 'pin_payload.v2', 'forwarded provider response must retain v2 envelope kind');
+  assert.equal(payloadString(cbOut?.v, '__mt_payload_kind', 1), 'slide_app_bundle_response.v1', 'provider business kind must be an inline payload-model record');
+  assert.equal(payloadString(cbOut?.v, 'app_name', 100), '最小 Submit 双总线示例', 'provider bundle records must remain non-nested and offset-addressable');
+  return { key: 'mbr_pin_chain_accepts_provider_bundle_response_modeltable_payload', status: 'PASS' };
 }
 
-async function test_mbr_cb_dispatch_rejects_legacy_label_inside_provider_bundle_payload() {
+async function test_mbr_pin_chain_rejects_legacy_label_inside_provider_bundle_payload() {
   const rt = loadMbrRuntime();
   const model0 = rt.getModel(0);
   const topic = 'UIPUT/ws/dam/pic/de/U1/2000/result';
-  const payload = providerBundleResponsePayload().map((record) => {
-    if (record.k !== 'bundle_payload') return record;
-    return {
-      ...record,
-      v: [
-        mt('app_name', 'str', 'must_not_forward_legacy_bundle_label'),
-        mt('source_model_id', 'int', 100),
-      ],
-    };
-  });
+  const bundleRecords = providerBundleResponseExtraRecords().concat([
+    mt('source_model_id', 'int', 100, 100),
+  ]);
   rt.addLabel(model0, 0, 0, 0, {
     k: 'mbr_cb_in',
     t: 'pin.bus.cb.in',
-      v: pinPayloadRecords({
+      v: mbrResponseRecords({
         opId: 'req_0389_provider_bundle_legacy_label',
         topic,
         responseTopic: topic,
         routeKind: 'control',
-        endpointWorkerId: 'U1',
-        endpointModelId: 2000,
-        endpointPin: 'result',
-        messageRole: 'response',
-      }).map((record) => record.k === 'payload' ? { ...record, v: payload } : record),
+        payload: providerBundleResponsePayload(),
+        extraRecords: bundleRecords,
+      }),
   });
-  await waitUntil(() => rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_error') || lastRejectedReason(rt));
+  await waitUntil(() => lastMbrControlIngressError(rt));
   const root = rt.getCell(model0, 0, 0, 0).labels;
   assert.equal(root.get('mbr_cb_out')?.v ?? null, null, 'provider bundle response with legacy bundle label must not be forwarded');
-  assert.equal(root.get('mbr_cb_error')?.v?.detail || lastRejectedReason(rt), 'legacy_pin_payload_metadata_removed', 'legacy bundle label key must be rejected explicitly');
-  return { key: 'mbr_cb_dispatch_rejects_legacy_label_inside_provider_bundle_payload', status: 'PASS' };
+  assert.equal(lastMbrControlIngressError(rt), 'legacy_pin_payload_metadata_removed', 'legacy bundle label key must be rejected explicitly');
+  return { key: 'mbr_pin_chain_rejects_legacy_label_inside_provider_bundle_payload', status: 'PASS' };
 }
 
 async function test_split_bus_dedup_distinguishes_request_and_response_for_same_op_id() {
@@ -576,15 +671,13 @@ async function test_split_bus_dedup_distinguishes_request_and_response_for_same_
   rt.addLabel(model0, 0, 0, 0, {
     k: 'mbr_cb_out',
     t: 'pin.bus.cb.out',
-    v: pinPayloadRecords({
+    v: mbrResponseRecords({
       opId: '0376_same_op_request_response',
       topic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
       responseTopic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
-      endpointWorkerId: 'U1',
-      endpointModelId: 2000,
-      endpointPin: 'result',
-      messageRole: 'response',
-    }).map((record) => record.k === 'payload' ? { ...record, v: providerBundleResponsePayload() } : record),
+      payload: providerBundleResponsePayload(),
+      extraRecords: providerBundleResponseExtraRecords(),
+    }),
   });
   engine.tick();
   assert.equal(mqttPublished.length, 2, 'request and response with the same op_id must both be published');
@@ -599,14 +692,26 @@ async function test_imported_slide_app_default_binding_is_control_bus() {
     cacheMinimalZip(state, 'mxc://localhost/0376-valid');
     const importResult = state.runtime.hostApi.slideImportAppFromMxc('mxc://localhost/0376-valid');
     assert.equal(importResult.ok, true, 'valid provider zip must import');
+    const importedTableId = importResult.data?.table_id;
     const importedId = importResult.data?.model_id;
     assert.equal(Number.isInteger(importedId), true, 'import must allocate local model id');
+    assert.equal(typeof importedTableId === 'string' && importedTableId.length > 0, true, 'import must return the child table id');
+    assert.notEqual(importedTableId, 'host', 'slide app import must be isolated in a child table');
+    const importedRef = { table_id: importedTableId, model_id: importedId };
+    assert.deepEqual(importResult.data?.model_ref, importedRef, 'import result must expose one table-qualified model identity');
 
-    const rootLabels = state.runtime.getCell(state.runtime.getModel(importedId), 0, 0, 0).labels;
+    const importedModel = state.runtime.getModel(importedRef);
+    assert.ok(importedModel, 'table-qualified imported root model must exist');
+    const rootLabels = state.runtime.getCell(importedModel, 0, 0, 0).labels;
     const binding = Array.from(rootLabels.values()).find((label) => label && label.t === 'ui.egress.binding.v1');
     assert.equal(binding?.v?.bus, 'control', 'imported app host egress binding must default to control bus');
     assert.equal(binding?.v?.host_pin_type, 'pin.bus.cb.out', 'imported app host egress must default to control bus out');
-    assert.equal(binding?.v?.host_pin_key, `imported_submit1_${importedId}_bus`, 'host pin key must stay deterministic');
+    const tableSuffix = importedTableId
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || 'app';
+    assert.equal(binding?.v?.host_pin_key, `imported_submit1_${tableSuffix}_${importedId}_bus`, 'host pin key must stay deterministic and table-qualified');
 
     const hostPin = state.runtime.getCell(model0, 0, 0, 0).labels.get(binding.v.host_pin_key);
     assert.equal(hostPin?.t, 'pin.bus.cb.out', 'generated host egress pin must be pin.bus.cb.out');
@@ -614,7 +719,7 @@ async function test_imported_slide_app_default_binding_is_control_bus() {
     const ingressKey = ingressLabels.find((key) => key && key.includes('_submit_'));
     assert.equal(state.runtime.getCell(model0, 0, 0, 0).labels.get(ingressKey)?.t, 'pin.bus.cb.in', 'generated host ingress must default to control bus in');
 
-    state.runtime.addLabel(state.runtime.getModel(importedId), 0, 0, 0, {
+    state.runtime.addLabel(importedModel, 0, 0, 0, {
       k: 'submit1',
       t: 'pin.out',
       v: tempPayload('runtime egress payload'),
@@ -626,11 +731,17 @@ async function test_imported_slide_app_default_binding_is_control_bus() {
     assert.equal(payloadString(emittedHostPin?.v, 'route_kind'), 'control', 'runtime egress payload must carry route_kind control');
     assert.equal(payloadString(emittedHostPin?.v, 'topic'), 'UIPUT/ws/dam/pic/de/R1/3000/submit1', 'runtime egress payload must carry full topic record');
     assert.equal(payloadString(emittedHostPin?.v, 'bus'), 'control', 'runtime egress payload must carry bus control');
-    const emittedBusinessPayload = payloadJson(emittedHostPin?.v, 'payload');
-    assert.equal(payloadString(emittedBusinessPayload, 'text'), 'runtime egress payload', 'runtime egress must carry the business payload emitted by this submit1 write');
+    assert.equal(payloadString(emittedHostPin?.v, '__mt_payload_kind'), 'pin_payload.v2', 'runtime egress must use pin_payload.v2');
+    const payloadModelId = payloadInt(emittedHostPin?.v, 'payload_model_id');
+    assert.equal(payloadString(emittedHostPin?.v, 'text', payloadModelId), 'runtime egress payload', 'runtime egress must carry non-nested business records emitted by this submit1 write');
     assert.equal(payloadString(emittedHostPin?.v, 'endpoint_worker_id'), 'R1', 'runtime egress must preserve remote endpoint metadata for remote worker dispatch');
+    assert.equal(payloadString(emittedHostPin?.v, 'endpoint_table_id'), 'host', 'remote transport endpoint must stay in the host table');
     assert.equal(payloadInt(emittedHostPin?.v, 'endpoint_model_id'), 3000, 'runtime egress must preserve remote endpoint model id');
     assert.equal(payloadString(emittedHostPin?.v, 'endpoint_pin'), 'submit1', 'runtime egress must preserve remote endpoint pin');
+    assert.equal(payloadString(emittedHostPin?.v, 'origin_table_id'), importedTableId, 'runtime egress must preserve imported child table origin');
+    assert.equal(payloadInt(emittedHostPin?.v, 'origin_model_id'), importedId, 'runtime egress must preserve imported child model origin');
+    assert.equal(payloadString(emittedHostPin?.v, 'reply_target_table_id'), importedTableId, 'runtime egress must preserve table-qualified reply target');
+    assert.equal(payloadInt(emittedHostPin?.v, 'reply_target_model_id'), importedId, 'runtime egress must preserve reply target model id');
     return { key: 'imported_slide_app_default_binding_is_control_bus', status: 'PASS' };
   });
 }
@@ -640,28 +751,41 @@ async function test_ui_server_control_bus_response_materializes_reply_target() {
     cacheMinimalZip(state, 'mxc://localhost/0376-control-return');
     const importResult = state.runtime.hostApi.slideImportAppFromMxc('mxc://localhost/0376-control-return');
     assert.equal(importResult.ok, true, 'valid provider zip must import');
+    const importedTableId = importResult.data?.table_id;
     const importedId = importResult.data?.model_id;
-    const responseTopic = `UIPUT/ws/dam/pic/de/ui-server-0376/${importedId}/result`;
-    const handled = await state.programEngine.handleControlBusPacket(
+    const importedRef = { table_id: importedTableId, model_id: importedId };
+    assert.deepEqual(importResult.data?.model_ref, importedRef, 'response target must use the imported table-qualified identity');
+    const responseTopic = 'UIPUT/ws/dam/pic/de/ui-server-0376/1051/result';
+    const packet = pinPayloadPacket({
+      opId: '0376_control_return_materialize',
+      topic: responseTopic,
       responseTopic,
-      pinPayloadPacket({
-        opId: '0376_control_return_materialize',
-        topic: responseTopic,
-        responseTopic,
-        endpoint: { worker_id: 'ui-server-0376', model_id: importedId, pin: 'result' },
-        origin: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
-        replyTarget: { worker_id: 'ui-server-0376', model_id: importedId, pin: 'result' },
-        payload: [
-          mt('display_text', 'str', 'Submitted: control bus return'),
-          mt('remote_status', 'str', 'remote_processed'),
-          mt('submit_inflight', 'bool', false),
-        ],
-      }),
-    );
+      endpoint: { worker_id: 'ui-server-0376', table_id: 'host', model_id: 1051, pin: 'result' },
+      origin: { worker_id: 'R1', table_id: 'host', model_id: 3000, pin: 'submit1' },
+      replyTarget: { worker_id: 'ui-server-0376', table_id: importedTableId, model_id: importedId, pin: 'result' },
+      payload: [
+        mt('display_text', 'str', 'Submitted: control bus return'),
+        mt('remote_status', 'str', 'remote_processed'),
+        mt('submit_inflight', 'bool', false),
+      ],
+    });
+    const { parsePinPayloadRecordEnvelope } = await import(new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url));
+    const parsed = parsePinPayloadRecordEnvelope(packet);
+    assert.equal(parsed.ok, true, `table-qualified response packet must parse: ${parsed.code || 'unknown'}`);
+    assert.deepEqual(parsed.replyTarget, {
+      worker_id: 'ui-server-0376',
+      table_id: importedTableId,
+      table_id_present: true,
+      model_id: importedId,
+      pin: 'result',
+    }, 'parsed response must preserve the table-qualified reply target');
+    const handled = await state.programEngine.handleControlBusPacket(responseTopic, packet);
     assert.equal(handled, true, 'UI server must accept control-bus response packets for its reply target');
     await wait();
-    const root = state.clientSnap().models[String(importedId)]?.cells?.['0,0,0']?.labels || {};
-    assert.equal(root.display_text?.v, 'Submitted: control bus return', 'control-bus response must materialize into the local UI model');
+    const importedRoot = state.runtime.getCell(state.runtime.getModel(importedRef), 0, 0, 0).labels;
+    assert.equal(importedRoot.get('display_text')?.v, 'Submitted: control bus return', 'control-bus response must materialize into the table-qualified UI model');
+    const snapshotRoot = state.clientSnap().tables?.[importedTableId]?.models?.[String(importedId)]?.cells?.['0,0,0']?.labels || {};
+    assert.equal(snapshotRoot.display_text?.v, 'Submitted: control bus return', 'client projection must retain the imported table identity');
     return { key: 'ui_server_control_bus_response_materializes_reply_target', status: 'PASS' };
   });
 }
@@ -671,13 +795,16 @@ async function test_ui_server_control_bus_response_rejects_non_strict_packets() 
     cacheMinimalZip(state, 'mxc://localhost/0376-control-return-strict');
     const importResult = state.runtime.hostApi.slideImportAppFromMxc('mxc://localhost/0376-control-return-strict');
     assert.equal(importResult.ok, true, 'valid provider zip must import');
+    const importedTableId = importResult.data?.table_id;
     const importedId = importResult.data?.model_id;
-    const topic = `UIPUT/ws/dam/pic/de/ui-server-0376/${importedId}/result`;
+    const importedRef = { table_id: importedTableId, model_id: importedId };
+    assert.deepEqual(importResult.data?.model_ref, importedRef, 'strict response cases must target the imported child table');
+    const topic = 'UIPUT/ws/dam/pic/de/ui-server-0376/1051/result';
     const basePacket = (overrides = {}) => pinPayloadPacket({
       opId: overrides.opId || '0376_control_return_reject',
-      endpoint: { worker_id: 'ui-server-0376', model_id: importedId, pin: 'result' },
-      origin: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
-      replyTarget: { worker_id: 'ui-server-0376', model_id: importedId, pin: 'result' },
+      endpoint: { worker_id: 'ui-server-0376', table_id: 'host', model_id: 1051, pin: 'result' },
+      origin: { worker_id: 'R1', table_id: 'host', model_id: 3000, pin: 'submit1' },
+      replyTarget: { worker_id: 'ui-server-0376', table_id: importedTableId, model_id: importedId, pin: 'result' },
       payload: [
         mt('display_text', 'str', overrides.text || 'Submitted: should not apply'),
         mt('remote_status', 'str', 'remote_processed'),
@@ -707,8 +834,8 @@ async function test_ui_server_control_bus_response_rejects_non_strict_packets() 
       assert.equal(handled, false, `${name} must be rejected by the UI server control-bus return path`);
     }
     await wait();
-    const root = state.clientSnap().models[String(importedId)]?.cells?.['0,0,0']?.labels || {};
-    assert.notEqual(root.display_text?.v, 'Submitted: should not apply', 'rejected control-bus packets must not materialize into the local UI model');
+    const root = state.runtime.getCell(state.runtime.getModel(importedRef), 0, 0, 0).labels;
+    assert.notEqual(root.get('display_text')?.v, 'Submitted: should not apply', 'rejected control-bus packets must not materialize into the table-qualified UI model');
     return { key: 'ui_server_control_bus_response_rejects_non_strict_packets', status: 'PASS' };
   });
 }
@@ -757,10 +884,10 @@ function test_deploy_bootstrap_writes_ui_server_control_bus_config() {
 const tests = [
   test_worker_engine_publishes_cb_out_to_payload_topic_without_endpoint_fallback,
   test_worker_engine_rejects_unsafe_payload_topics,
-  test_mbr_cb_dispatch_defaults_to_control_and_routes_by_topic,
-  test_mbr_cb_dispatch_routes_explicit_management_and_rejects_invalid_route_fields,
-  test_mbr_cb_dispatch_accepts_provider_bundle_response_modeltable_payload,
-  test_mbr_cb_dispatch_rejects_legacy_label_inside_provider_bundle_payload,
+  test_mbr_control_ingress_uses_model_zero_to_minus10_pin_chain_and_routes_by_topic,
+  test_mbr_control_ingress_routes_management_response_and_rejects_invalid_v2_fields,
+  test_mbr_pin_chain_accepts_provider_bundle_response_modeltable_payload,
+  test_mbr_pin_chain_rejects_legacy_label_inside_provider_bundle_payload,
   test_split_bus_dedup_distinguishes_request_and_response_for_same_op_id,
   test_imported_slide_app_default_binding_is_control_bus,
   test_ui_server_cb_out_publishes_control_bus_not_matrix,

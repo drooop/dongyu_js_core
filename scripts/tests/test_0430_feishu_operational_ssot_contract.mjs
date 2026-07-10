@@ -163,8 +163,13 @@ function validBusSendV2Input(overrides = {}) {
 function test_removed_feishu_label_types_are_rejected(RuntimeClass) {
   const rt = createRuntime(RuntimeClass);
   const root = rt.getModel(0);
+  const workerRoot = rt.addLabel(root, 0, 0, 0, {
+    k: 'model_type',
+    t: 'model.v1n',
+    v: '',
+  });
+  assert.equal(workerRoot.applied, true, 'model.v1n is the current software-worker host root declaration');
   const cases = [
-    ['removed_model_v1n', 'model.v1n'],
     ['removed_pin_connect_model', 'pin.connect.model'],
   ];
 

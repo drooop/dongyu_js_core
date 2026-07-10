@@ -33,7 +33,7 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /adapter\.subscribe\(\(event\)\s*=>\s*\{[\s\S]*if\s*\(!rt\.isRuntimeRunning\(\)\)\s*\{[\s\S]*return;[\s\S]*\}[\s\S]*rt\.addLabel\(sys,\s*0,\s*0,\s*0,\s*\{\s*k:\s*matrixInboxLabel/s,
+  /adapter\.subscribe\(\(event\)\s*=>\s*\{[\s\S]*if\s*\(!rt\.isRuntimeRunning\(\)\)\s*\{[\s\S]*return;[\s\S]*\}[\s\S]*rt\.addLabel\(model0,\s*0,\s*0,\s*0,\s*\{\s*k:\s*'mbr_mb_in',\s*t:\s*'pin\.bus\.mb\.in',\s*v:\s*event\.payload/s,
   'Matrix management-bus events must still be dropped before runtime enters running',
 );
 

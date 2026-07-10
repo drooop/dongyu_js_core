@@ -1,241 +1,240 @@
 /**
  * IT-0143 E2E Integration Test
  *
- * Verifies the full legacy PIN deletion migration:
- * 1. Model 100 loads with new cell_connection + CELL_CONNECT format (no PIN_IN/PIN_OUT)
- * 2. mqttIncoming writes IN to root cell (0,0,0)
- * 3. cell_connection routes IN from (0,0,0) to processing cell (1,0,0)
- * 4. CELL_CONNECT wiring triggers on_model100_event_in function
- * 5. Function output propagates via CELL_CONNECT function output → cell_connection → (0,0,0)
- * 6. bg_color is updated by the function
- * 7. No legacy PIN symbols remain (pinInSet, pinOutSet, pinInBindings deleted)
+ * Verifies the current R1 declared-PIN architecture:
+ * 1. Legacy PIN registries and helpers remain deleted.
+ * 2. Real R1 patches declare pin.connect.cell and pin.connect.label wiring.
+ * 3. Model -10 dispatcher and Model 100 are mounted under the Model 0 worker root.
+ * 4. A flat, table-qualified pin_payload.v2 request follows
+ *    MQTT -> Model 0 r1_cb_in -> Model -10 dispatcher -> mounted Model 100 submit.
+ * 5. Model 100 completes its business behavior and emits a flat pin_payload.v2 response.
  */
 
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import assert from 'node:assert';
+import {
+  externalPacket,
+  mt,
+  payloadRecords,
+  payloadValue,
+  pinPayloadV2Records,
+} from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, '..', '..');
+const remoteWorkerPatchDir = path.join(repoRoot, 'deploy/sys-v1ns/remote-worker/patches');
 
-function loadJson(p) {
-  return JSON.parse(fs.readFileSync(p, 'utf8'));
+function loadJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-function getLabel(rt, modelId, p, r, c, k) {
-  const m = rt.getModel(modelId);
-  if (!m) return null;
-  return rt.getCell(m, p, r, c).labels.get(k) || null;
+function loadPatches(rt, patchDir) {
+  const files = fs.readdirSync(patchDir).filter((file) => file.endsWith('.json')).sort();
+  for (const file of files) {
+    rt.applyPatch(loadJson(path.join(patchDir, file)), {
+      allowCreateModel: true,
+      trustedBootstrap: true,
+    });
+  }
 }
 
-function mt(k, t, v) {
-  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+function createConfiguredRuntime() {
+  const rt = new ModelTableRuntime();
+  rt.applyPatch(loadJson(path.join(repoRoot, 'packages/worker-base/system-models/system_models.json')), {
+    allowCreateModel: true,
+    trustedBootstrap: true,
+  });
+  loadPatches(rt, remoteWorkerPatchDir);
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+  return rt;
 }
 
-function pinPayloadRecords({
-  opId,
-  endpointWorkerId = 'R1',
-  endpointModelId = 100,
-  endpointPin = 'submit',
-  originWorkerId = 'ui-server-test',
-  originModelId = 100,
-  originPin = 'submit',
-  replyTargetWorkerId = 'ui-server-test',
-  replyTargetModelId = 100,
-  replyTargetPin = 'result',
-  messageRole = 'request',
-  payload,
-  timestamp = 1700000000000,
-}) {
-  return [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', opId),
-    mt('op_id', 'str', opId),
-    mt('message_role', 'str', messageRole),
-    mt('endpoint_worker_id', 'str', endpointWorkerId),
-    mt('endpoint_model_id', 'int', endpointModelId),
-    mt('endpoint_pin', 'str', endpointPin),
-    mt('origin_worker_id', 'str', originWorkerId),
-    mt('origin_model_id', 'int', originModelId),
-    mt('origin_pin', 'str', originPin),
-    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
-    mt('reply_target_model_id', 'int', replyTargetModelId),
-    mt('reply_target_pin', 'str', replyTargetPin),
-    mt('payload', 'json', payload),
-    mt('timestamp', 'int', timestamp),
-  ];
+function getLabel(rt, modelId, p, r, c, key) {
+  const model = rt.getModel(modelId);
+  return model ? rt.getCell(model, p, r, c).labels.get(key) || null : null;
 }
 
-function externalPacket(records) {
-  return { version: 'v1', type: 'pin_payload', payload: records };
+function createModel100Request() {
+  const records = pinPayloadV2Records({
+    opId: 'test_0143_submit_001',
+    endpointWorkerId: 'R1',
+    endpointTableId: 'host',
+    endpointModelId: 100,
+    endpointPin: 'submit',
+    originWorkerId: 'ui-server-test',
+    originTableId: 'host',
+    originModelId: 100,
+    originPin: 'submit',
+    replyTargetWorkerId: 'ui-server-test',
+    replyTargetTableId: 'host',
+    replyTargetModelId: 100,
+    replyTargetPin: 'result',
+    payloadModelId: 1,
+    payloadRecords: [
+      mt('model_type', 'model.table', 'Data.RemoteSubmit'),
+      mt('input_value', 'str', 'hello-0143'),
+    ],
+    timestamp: 1700000000143,
+  });
+  return { records, packet: externalPacket(records) };
 }
 
-// --- Test 1: Legacy PIN symbols removed ---
+async function waitUntil(predicate, timeoutMs = 1500) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail('timed out waiting for declared PIN propagation');
+}
+
 function test_no_legacy_pin_symbols() {
   const rt = new ModelTableRuntime();
-  assert(rt.pinInSet === undefined, 'pinInSet must not exist');
-  assert(rt.pinOutSet === undefined, 'pinOutSet must not exist');
-  assert(rt.pinInBindings === undefined, 'pinInBindings must not exist');
-  assert(typeof rt._pinKey !== 'function', '_pinKey must not exist');
-  assert(typeof rt._parsePinKey !== 'function', '_parsePinKey must not exist');
-  assert(typeof rt.resolvePinInRoute !== 'function', 'resolvePinInRoute must not exist');
-  assert(typeof rt.findPinInBindingsForDelivery !== 'function', 'findPinInBindingsForDelivery must not exist');
-  assert(typeof rt._pinRegistryCellFor !== 'function', '_pinRegistryCellFor must not exist');
-  assert(typeof rt._pinMailboxCellFor !== 'function', '_pinMailboxCellFor must not exist');
-  assert(typeof rt._applyPinDeclarations !== 'function', '_applyPinDeclarations must not exist');
-  assert(typeof rt._applyMailboxTriggers !== 'function', '_applyMailboxTriggers must not exist');
+  assert.equal(rt.pinInSet, undefined, 'pinInSet must not exist');
+  assert.equal(rt.pinOutSet, undefined, 'pinOutSet must not exist');
+  assert.equal(rt.pinInBindings, undefined, 'pinInBindings must not exist');
+  assert.notEqual(typeof rt._pinKey, 'function', '_pinKey must not exist');
+  assert.notEqual(typeof rt._parsePinKey, 'function', '_parsePinKey must not exist');
+  assert.notEqual(typeof rt.resolvePinInRoute, 'function', 'resolvePinInRoute must not exist');
+  assert.notEqual(typeof rt.findPinInBindingsForDelivery, 'function', 'findPinInBindingsForDelivery must not exist');
+  assert.notEqual(typeof rt._pinRegistryCellFor, 'function', '_pinRegistryCellFor must not exist');
+  assert.notEqual(typeof rt._pinMailboxCellFor, 'function', '_pinMailboxCellFor must not exist');
+  assert.notEqual(typeof rt._applyPinDeclarations, 'function', '_applyPinDeclarations must not exist');
+  assert.notEqual(typeof rt._applyMailboxTriggers, 'function', '_applyMailboxTriggers must not exist');
   return { key: 'no_legacy_pin_symbols', status: 'PASS' };
 }
 
-// --- Test 2: New architecture symbols present ---
-function test_new_arch_symbols() {
-  const rt = new ModelTableRuntime();
-  assert(rt.busInPorts instanceof Map, 'busInPorts must be a Map');
-  assert(rt.busOutPorts instanceof Map, 'busOutPorts must be a Map');
-  assert(rt.cellConnectGraph instanceof Map, 'cellConnectGraph must be a Map');
-  assert(rt.cellConnectionRoutes instanceof Map, 'cellConnectionRoutes must be a Map');
-  assert(rt.parentChildMap instanceof Map, 'parentChildMap must be a Map');
-  assert(typeof rt._routeViaCellConnection === 'function', '_routeViaCellConnection must exist');
-  assert(typeof rt._propagateCellConnect === 'function', '_propagateCellConnect must exist');
-  assert(typeof rt._executeFuncViaCellConnect === 'function', '_executeFuncViaCellConnect must exist');
-  assert(typeof rt._handleBusInMessage === 'function', '_handleBusInMessage must exist');
-  return { key: 'new_arch_symbols', status: 'PASS' };
+function test_real_r1_uses_current_pin_connect_types() {
+  const rt = createConfiguredRuntime();
+  assert(rt.cellConnectionRoutes instanceof Map, 'pin.connect.cell routes must be registered');
+  assert(rt.cellConnectGraph instanceof Map, 'pin.connect.label graph must be registered');
+
+  const ingressRoutes = getLabel(rt, 0, 0, 0, 0, 'r1_dispatch_routes');
+  assert.equal(ingressRoutes?.t, 'pin.connect.cell', 'Model 0 ingress must use pin.connect.cell');
+  assert.equal(
+    ingressRoutes.v.some((route) => JSON.stringify(route.from) === JSON.stringify([0, 0, 0, 'r1_cb_in'])),
+    true,
+    'Model 0 pin.connect.cell must start at r1_cb_in',
+  );
+
+  const dispatcherWiring = getLabel(rt, -10, 0, 0, 0, 'r1_dispatch_wiring');
+  assert.equal(dispatcherWiring?.t, 'pin.connect.label', 'Model -10 dispatcher must use pin.connect.label');
+  const model100Wiring = getLabel(rt, 100, 0, 0, 0, 'root_routes');
+  assert.equal(model100Wiring?.t, 'pin.connect.label', 'Model 100 handler must use pin.connect.label');
+  return { key: 'real_r1_uses_current_pin_connect_types', status: 'PASS' };
 }
 
-// --- Test 3: Model 100 loads with new format ---
-function test_model100_new_format_load() {
-  const rt = new ModelTableRuntime();
-  const patchPath = path.resolve(__dirname, '../../packages/worker-base/system-models/test_model_100_full.json');
-  const patch = loadJson(patchPath);
-  const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
-  assert(result.applied > 0, 'patch should apply records');
+function test_real_r1_mounts_dispatcher_and_model100() {
+  const rt = createConfiguredRuntime();
+  assert.equal(getLabel(rt, 0, 0, 0, 0, 'model_type')?.t, 'model.v1n', 'R1 root must be model.v1n');
+  assert.equal(getLabel(rt, -10, 0, 0, 0, 'model_type')?.t, 'model.submt', 'dispatcher must be model.submt');
+  assert.equal(getLabel(rt, 100, 0, 0, 0, 'model_type')?.t, 'model.submt', 'Model 100 must be model.submt');
 
-  const cellKey = '100|0|0|0';
-  assert(rt.cellConnectGraph.has(cellKey), 'CELL_CONNECT graph for root cell must be registered');
-  const graph = rt.cellConnectGraph.get(cellKey);
-  assert(graph.has('self:submit'), 'root graph must expose self:submit');
-  assert(graph.has('func:on_model100_submit_in:out'), 'root graph must expose function out endpoint');
+  const dispatcherMount = rt.parentChildMap.get('host|-10');
+  assert.deepEqual(dispatcherMount?.parent, { table_id: 'host', model_id: 0 });
+  assert.deepEqual(dispatcherMount?.child, { table_id: 'host', model_id: -10 });
+  assert.deepEqual(dispatcherMount?.hostingCell, { p: 1, r: 0, c: 1 });
 
-  return { key: 'model100_new_format_load', status: 'PASS' };
+  const model100Mount = rt.parentChildMap.get('host|100');
+  assert.deepEqual(model100Mount?.parent, { table_id: 'host', model_id: 0 });
+  assert.deepEqual(model100Mount?.child, { table_id: 'host', model_id: 100 });
+  assert.deepEqual(model100Mount?.hostingCell, { p: 1, r: 0, c: 0 });
+  assert.equal(
+    rt.cellConnectionRoutes.has('host|0|1|0|1|r1_dispatch_100_submit'),
+    true,
+    'dispatcher output must have a declared route to the mounted Model 100 pin',
+  );
+  return { key: 'real_r1_mounts_dispatcher_and_model100', status: 'PASS' };
 }
 
-// --- Test 4: IN label triggers cell_connection routing ---
-function test_in_triggers_cell_connection() {
-  const rt = new ModelTableRuntime();
-  rt.setRuntimeMode('edit');
-  const model = rt.createModel({ id: 50, name: 'test', type: 'test' });
-  rt.applyPatch({
-    version: 'mt.v0',
-    records: [{
-      op: 'add_label',
-      model_id: model.id,
-      p: 0,
-      r: 0,
-      c: 0,
-      k: 'routing',
-      t: 'pin.connect.cell',
-      v: [{ from: [0, 0, 0, 'cmd'], to: [[1, 0, 0, 'input']] }],
-    }],
-  }, { trustedBootstrap: true });
-  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: null });
-  rt.addLabel(model, 1, 0, 0, { k: 'input', t: 'pin.in', v: null });
-
-  rt.setRuntimeMode('running');
-  // Write IN to (0,0,0) — should route to (1,0,0) via cell_connection
-  const payload = [{ id: 0, p: 0, r: 0, c: 0, k: 'message', t: 'str', v: 'hello' }];
-  rt.addLabel(model, 0, 0, 0, { k: 'cmd', t: 'pin.in', v: payload });
-
-  const target = rt.getCell(model, 1, 0, 0);
-  const label = target.labels.get('input');
-  assert(label, 'IN should route via cell_connection to target cell');
-  assert.strictEqual(label.t, 'pin.in');
-  assert.deepStrictEqual(label.v, payload);
-  return { key: 'in_triggers_cell_connection', status: 'PASS' };
+function test_request_is_flat_numeric_table_qualified_v2() {
+  const { records } = createModel100Request();
+  assert.equal(payloadValue(records, '__mt_payload_kind'), 'pin_payload.v2');
+  assert.equal(records.every((record) => ['id', 'p', 'r', 'c'].every((key) => Number.isInteger(record[key]))), true);
+  assert.equal(records.every((record) => Object.keys(record).sort().join(',') === 'c,id,k,p,r,t,v'), true);
+  assert.equal(records.some((record) => record.k === 'payload'), false, 'nested payload record must not exist');
+  assert.equal(records.some((record) => typeof record.id === 'string' && record.id.includes('.')), false, 'dotted ids must not exist');
+  assert.equal(payloadValue(records, 'endpoint_table_id'), 'host');
+  assert.equal(payloadValue(records, 'origin_table_id'), 'host');
+  assert.equal(payloadValue(records, 'reply_target_table_id'), 'host');
+  assert.equal(payloadValue(records, 'payload_model_id'), 1);
+  assert.equal(payloadValue(records, 'model_type', 1), 'Data.RemoteSubmit');
+  return { key: 'request_is_flat_numeric_table_qualified_v2', status: 'PASS' };
 }
 
-// --- Test 5: Full Model 100 async flow ---
-async function test_model100_full_flow() {
-  const rt = new ModelTableRuntime();
-  const sysPatchPath = path.resolve(__dirname, '../../packages/worker-base/system-models/system_models.json');
-  const modelPatchPath = path.resolve(__dirname, '../../packages/worker-base/system-models/test_model_100_full.json');
+async function test_mqtt_to_model100_declared_pin_chain() {
+  const rt = createConfiguredRuntime();
+  const { records, packet } = createModel100Request();
+  const handled = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/100/submit', packet);
+  assert.equal(handled, true, 'MQTT request must be accepted by the declared R1 ingress');
 
-  rt.applyPatch(loadJson(sysPatchPath), { allowCreateModel: true, trustedBootstrap: true });
-  if (!rt.getModel(-10)) rt.createModel({ id: -10, name: 'system', type: 'system' });
-  rt.applyPatch(loadJson(modelPatchPath), { allowCreateModel: true, trustedBootstrap: true });
+  await waitUntil(() => (
+    getLabel(rt, 100, 0, 0, 0, 'status')?.v === 'processed'
+    && payloadValue(getLabel(rt, 100, 0, 0, 0, 'result')?.v, '__mt_payload_kind') === 'pin_payload.v2'
+  ));
 
-  // Configure MQTT topic mode
-  const model0 = rt.getModel(0);
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: 'UIPUT/ws/dam/pic/de' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'R1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
-  rt.setRuntimeMode('edit');
-  rt.setRuntimeMode('running');
+  const chain = [
+    [0, 0, 0, 0, 'r1_cb_in', 'pin.bus.cb.in'],
+    [0, 1, 0, 1, 'r1_dispatch_in', 'pin.in'],
+    [-10, 0, 0, 0, 'r1_dispatch_in', 'pin.in'],
+    [-10, 0, 0, 0, 'r1_dispatch_100_submit', 'pin.out'],
+    [0, 1, 0, 1, 'r1_dispatch_100_submit', 'pin.out'],
+    [0, 1, 0, 0, 'submit', 'pin.in'],
+    [100, 0, 0, 0, 'submit', 'pin.in'],
+  ];
+  for (const [modelId, p, r, c, key, type] of chain) {
+    const label = getLabel(rt, modelId, p, r, c, key);
+    assert.equal(label?.t, type, `${modelId}:${p},${r},${c}:${key} must carry the declared PIN type`);
+    assert.deepEqual(label.v, records, `${modelId}:${p},${r},${c}:${key} must carry the unchanged v2 request`);
+  }
 
-  const topic = 'UIPUT/ws/dam/pic/de/R1/100/submit';
-  const payload = externalPacket(pinPayloadRecords({
-    opId: 'test_0143_submit_001',
-    payload: [
-      mt('model_type', 'model.single', 'Data.RemoteSubmit'),
-      mt('input_value', 'str', 'hello'),
-    ],
-  }));
+  assert.equal(getLabel(rt, 100, 0, 0, 0, 'status')?.v, 'processed');
+  const bgColor = getLabel(rt, 100, 0, 0, 0, 'bg_color');
+  assert.match(bgColor?.v || '', /^#[0-9a-fA-F]{6}$/, 'Model 100 must complete its color update');
 
-  const handled = rt.mqttIncoming(topic, payload);
-  assert(handled, 'mqttIncoming must handle the message');
+  const result = getLabel(rt, 100, 0, 0, 0, 'result');
+  assert.equal(result?.t, 'pin.out', 'Model 100 must emit its declared result pin');
+  assert.equal(payloadValue(result.v, '__mt_payload_kind'), 'pin_payload.v2');
+  assert.equal(payloadValue(result.v, 'message_role'), 'response');
+  assert.equal(payloadValue(result.v, 'endpoint_table_id'), 'host');
+  assert.equal(result.v.some((record) => record.k === 'payload'), false, 'response must remain flat');
+  const businessResult = payloadRecords(result.v);
+  assert.equal(businessResult.some((record) => record.k === 'status' && record.v === 'processed'), true);
+  assert.equal(businessResult.some((record) => record.k === 'bg_color' && record.v === bgColor.v), true);
 
-  // Verify IN at root cell
-  const rootIn = getLabel(rt, 100, 0, 0, 0, 'submit');
-  assert(rootIn && rootIn.t === 'pin.in', 'IN label should be at cell(0,0,0)');
-
-  // Wait for async CELL_CONNECT function execution
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  const patchOut = getLabel(rt, 100, 0, 0, 0, 'result');
-  assert(patchOut && patchOut.t === 'pin.out', 'function output should be at root as pin.out');
-
-  // Verify bg_color updated
-  const bg = getLabel(rt, 100, 0, 0, 0, 'bg_color');
-  assert(bg && typeof bg.v === 'string' && /^#[0-9a-fA-F]{6}$/.test(bg.v), 'bg_color must be updated');
-
-  return { key: 'model100_full_flow', status: 'PASS' };
+  const busOut = getLabel(rt, 0, 0, 0, 0, 'remote_result_bus');
+  assert.equal(busOut?.t, 'pin.bus.cb.out', 'result must return through the declared Model 0 control bus');
+  assert.deepEqual(busOut.v, result.v);
+  return { key: 'mqtt_to_model100_declared_pin_chain', status: 'PASS' };
 }
 
-// --- Run all tests ---
-const syncTests = [
+const tests = [
   test_no_legacy_pin_symbols,
-  test_new_arch_symbols,
-  test_model100_new_format_load,
-  test_in_triggers_cell_connection,
+  test_real_r1_uses_current_pin_connect_types,
+  test_real_r1_mounts_dispatcher_and_model100,
+  test_request_is_flat_numeric_table_qualified_v2,
+  test_mqtt_to_model100_declared_pin_chain,
 ];
 
 let passed = 0;
 let failed = 0;
-
-for (const t of syncTests) {
+for (const test of tests) {
   try {
-    const r = t();
-    process.stdout.write(`[${r.status}] ${r.key}\n`);
+    const result = await test();
+    process.stdout.write(`[${result.status}] ${result.key}\n`);
     passed += 1;
-  } catch (err) {
-    process.stdout.write(`[FAIL] ${t.name}: ${err.message}\n`);
+  } catch (error) {
+    process.stdout.write(`[FAIL] ${test.name}: ${error.message}\n`);
     failed += 1;
   }
 }
 
-// Async test
-try {
-  const r = await test_model100_full_flow();
-  process.stdout.write(`[${r.status}] ${r.key}\n`);
-  passed += 1;
-} catch (err) {
-  process.stdout.write(`[FAIL] test_model100_full_flow: ${err.message}\n`);
-  failed += 1;
-}
-
-process.stdout.write(`\n${passed} passed, ${failed} failed out of ${passed + failed}\n`);
+process.stdout.write(`\n${passed} passed, ${failed} failed out of ${tests.length}\n`);
 process.exit(failed > 0 ? 1 : 0);

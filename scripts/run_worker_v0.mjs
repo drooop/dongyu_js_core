@@ -4,8 +4,7 @@
  * Loads system patch + role patches from a directory, applies optional
  * bootstrap patch from MODELTABLE_PATCH_JSON, reads connection
  * parameters from Model 0, initializes adapters (Matrix / MQTT),
- * routes inbound events into configured inbox labels, executes
- * configured role functions by name, and runs the engine tick loop.
+ * routes inbound events into Model 0 bus pins and runs the engine tick loop.
  *
  * Usage:
  *   bun scripts/run_worker_v0.mjs <patch_dir>
@@ -17,8 +16,17 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
+import {
+  ACTOR_ATTESTATION_MARKER,
+  buildDeActorAttestation,
+} from './lib/de_actor_attestation.mjs';
 import { readMatrixBootstrapConfig, readMqttBootstrapConfig } from '../packages/worker-base/src/bootstrap_config.mjs';
-import { applyPersistedAssetEntries, resolvePersistedAssetRoot } from '../packages/worker-base/src/persisted_asset_loader.mjs';
+import {
+  applyPersistedAssetEntries,
+  readPersistedAssetManifest,
+  resolvePersistedAssetRoot,
+  selectPersistedAssetEntries,
+} from '../packages/worker-base/src/persisted_asset_loader.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
@@ -94,6 +102,10 @@ function isCanonicalPositiveIntSegment(value) {
   return typeof value === 'string' && /^[1-9][0-9]*$/.test(value);
 }
 
+function isValidTableQualifiedModelId(tableId, modelId) {
+  return Number.isInteger(modelId) && (tableId === 'host' ? modelId > 0 : modelId >= 0);
+}
+
 function isValidUnifiedTopicBase(value) {
   if (typeof value !== 'string' || value.trim() !== value || value.length === 0) return false;
   const parts = value.split('/');
@@ -145,8 +157,11 @@ function validatePinPayloadTopicContract({ messageRole, topic, responseTopic, en
   const responseTopicParts = payloadTopicParts(responseTopic);
   if (!responseTopicParts) return 'invalid_response_topic';
   if (responseTopicParts.base !== topicParts.base) return 'response_topic_mismatch';
-  const expectedResponseTopic = endpointTopicFromBase(topicParts.base, replyTarget);
-  if (!expectedResponseTopic || responseTopic !== expectedResponseTopic) return 'response_topic_mismatch';
+  const replyTargetIsHost = !replyTarget || !replyTarget.table_id || replyTarget.table_id === 'host';
+  if (replyTargetIsHost) {
+    const expectedResponseTopic = endpointTopicFromBase(topicParts.base, replyTarget);
+    if (!expectedResponseTopic || responseTopic !== expectedResponseTopic) return 'response_topic_mismatch';
+  }
   if (messageRole === 'request') {
     if (topic === responseTopic) return 'response_topic_mismatch';
     if (!endpointMatches(topicParts.endpoint, endpoint)) return 'endpoint_mismatch';
@@ -154,8 +169,8 @@ function validatePinPayloadTopicContract({ messageRole, topic, responseTopic, en
   }
   if (messageRole === 'response') {
     if (topic !== responseTopic) return 'response_topic_mismatch';
-    if (!endpointMatches(endpoint, replyTarget)) return 'endpoint_mismatch';
-    if (!endpointMatches(topicParts.endpoint, replyTarget)) return 'endpoint_mismatch';
+    if (!endpointMatches(topicParts.endpoint, endpoint)) return 'endpoint_mismatch';
+    if (replyTargetIsHost && !endpointMatches(endpoint, replyTarget)) return 'endpoint_mismatch';
     return null;
   }
   return 'invalid_message_role';
@@ -360,18 +375,17 @@ function validatePinPayloadRecordEnvelope(payload) {
   if (
     !isSafeTopicSegment(endpointWorkerId)
     || !isSafeTopicSegment(endpointTableId)
+    || endpointTableId !== 'host'
     || !Number.isInteger(endpointModelId)
     || endpointModelId <= 0
     || !isSafeTopicSegment(endpointPin)
     || !isSafeTopicSegment(originWorkerId)
     || !isSafeTopicSegment(originTableId)
-    || !Number.isInteger(originModelId)
-    || originModelId <= 0
+    || !isValidTableQualifiedModelId(originTableId, originModelId)
     || !isSafeTopicSegment(originPin)
     || !isSafeTopicSegment(replyTargetWorkerId)
     || !isSafeTopicSegment(replyTargetTableId)
-    || !Number.isInteger(replyTargetModelId)
-    || replyTargetModelId <= 0
+    || !isValidTableQualifiedModelId(replyTargetTableId, replyTargetModelId)
     || !isSafeTopicSegment(replyTargetPin)
     || !Number.isInteger(payloadModelId)
     || payloadModelId <= 0
@@ -442,10 +456,63 @@ function packetOpId(payload) {
   return record && typeof record.v === 'string' ? record.v : '';
 }
 
+export function writeMbrIngressError(rt, model0, channel, reason) {
+  if (!rt || !model0) return { applied: false };
+  const normalizedChannel = channel === 'matrix' ? 'matrix' : 'mqtt';
+  const normalizedReason = typeof reason === 'string' && reason ? reason : 'unknown';
+  return rt.addLabel(model0, 0, 0, 0, {
+    k: `mbr_${normalizedChannel}_inbound_error`,
+    t: 'json',
+    v: {
+      code: `invalid_mbr_${normalizedChannel}_ingress`,
+      reason: normalizedReason,
+    },
+  });
+}
+
+function bootstrapActorOverrideKey(rt, patch) {
+  const root = rt.getCell(rt.getModel(0), 0, 0, 0);
+  const protectedRootKeys = new Set([
+    'model_type',
+    'sys_worker_id',
+    'sys_worker_role',
+    'mqtt_worker_id',
+    'workspace_manager_worker_id',
+    'mqtt_topic_base',
+  ]);
+  for (const label of root.labels.values()) {
+    if (label && typeof label.t === 'string' && label.t.startsWith('pin.bus.')) {
+      protectedRootKeys.add(label.k);
+    }
+  }
+  const protectedMounts = new Map();
+  for (const model of rt.models.values()) {
+    for (const cell of model.cells.values()) {
+      for (const label of cell.labels.values()) {
+        if (!label || label.t !== 'model.submtconnection') continue;
+        const location = `${model.id}|${cell.p}|${cell.r}|${cell.c}|${label.k}`;
+        protectedMounts.set(location, label.k);
+      }
+    }
+  }
+  const records = patch && Array.isArray(patch.records) ? patch.records : [];
+  for (const record of records) {
+    if (!record || (record.op !== 'add_label' && record.op !== 'rm_label')) continue;
+    if (record.t === 'model.submtconnection') return String(record.k || 'model_type');
+    const location = `${record.model_id}|${record.p}|${record.r}|${record.c}|${record.k}`;
+    if (protectedMounts.has(location)) return protectedMounts.get(location);
+    if (record.model_id !== 0 || record.p !== 0 || record.r !== 0 || record.c !== 0) continue;
+    if (protectedRootKeys.has(record.k)) return record.k;
+    if (typeof record.t === 'string' && record.t.startsWith('pin.bus.')) return record.k;
+  }
+  return '';
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 function main() {
   const assetRoot = resolvePersistedAssetRoot();
+  const repoRoot = path.resolve(import.meta.dirname, '..');
   // 1. Determine patch directory
   const patchDir = process.argv[2] || process.env.DY_ROLE_PATCH_DIR || '';
   if (!assetRoot && !patchDir) {
@@ -462,6 +529,16 @@ function main() {
 
   // 2. Create runtime + load system patch
   const rt = new ModelTableRuntime();
+  const sourceFiles = assetRoot
+    ? selectPersistedAssetEntries(readPersistedAssetManifest(assetRoot), {
+      scope: 'mbr-worker',
+      authority: 'authoritative',
+      kind: 'patch',
+      phases: ['00-system-base', '20-role-negative', '40-role-positive'],
+    })
+      .filter((entry) => fs.existsSync(path.join(assetRoot, String(entry.path || ''))))
+      .map((entry) => String(entry.path))
+    : ['packages/worker-base/system-models/system_models.json'];
   loadSystemPatch(rt, { assetRoot, scope: 'mbr-worker' });
   if (!rt.getModel(-10)) rt.createModel({ id: -10, name: 'system', type: 'system' });
 
@@ -484,24 +561,33 @@ function main() {
       const fullPath = path.join(resolvedDir, f);
       const patch = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
       const result = rt.applyPatch(patch, { allowCreateModel: true, trustedBootstrap: true });
+      sourceFiles.push(path.relative(repoRoot, fullPath).split(path.sep).join('/'));
       log(`loaded patch: ${f} (applied=${result.applied} rejected=${result.rejected})`);
     }
   }
 
   const bootstrapPatch = readBootstrapPatchFromEnv();
   if (bootstrapPatch) {
+    const overriddenKey = bootstrapActorOverrideKey(rt, bootstrapPatch);
+    if (overriddenKey) {
+      throw new Error(`bootstrap_patch_overrides_attested_actor:${overriddenKey}`);
+    }
     const result = rt.applyPatch(bootstrapPatch, { allowCreateModel: true, trustedBootstrap: true });
+    sourceFiles.push('env:MODELTABLE_PATCH_JSON');
     log(`loaded bootstrap patch from MODELTABLE_PATCH_JSON (applied=${result.applied} rejected=${result.rejected})`);
   }
 
-  const sys = rt.getModel(-10);
-  if (!sys) {
+  if (!rt.getModel(-10)) {
     logErr('System model (-10) not found after loading patches');
     process.exitCode = 1;
     return;
   }
   rt.setRuntimeMode('edit');
   log(`runtime_mode=${rt.getRuntimeMode()}`);
+
+  const actorAttestation = buildDeActorAttestation({ runtime: rt, sourceFiles });
+  process.stdout.write(`${ACTOR_ATTESTATION_MARKER} ${JSON.stringify(actorAttestation)}\n`);
+  if (process.env.DY_ACTOR_ATTEST_ONLY === '1') return;
 
   // 4. Read connection parameters from Model 0 bootstrap labels.
   const matrixConfig = readMatrixBootstrapConfig(rt);
@@ -519,23 +605,14 @@ function main() {
 
   // 5. Read wiring config from labels
   const matrixEventFilter = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_event_filter') || 'pin_payload');
-  const matrixInboxLabel = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_inbox_label') || 'mbr_mgmt_inbox');
-  const matrixFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_matrix_func') || '').trim();
-  const mqttInboxLabel = String(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_inbox_label') || 'mbr_mqtt_inbox');
-  const mqttFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_mqtt_func') || '').trim();
   const readyFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_ready_func') || '').trim();
   const heartbeatFunc = String(getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_func') || '').trim();
 
   const heartbeatRaw = getLabel(rt, -10, 0, 0, 0, 'mbr_heartbeat_interval_ms');
   const heartbeatMs = Number.isInteger(heartbeatRaw) ? heartbeatRaw : 30000;
 
-  if (!mqttInboxLabel || !mqttFunc || !readyFunc || !heartbeatFunc) {
-    logErr('missing MBR function/inbox config labels');
-    process.exitCode = 1;
-    return;
-  }
-  if (matrixRoomId && (!matrixInboxLabel || !matrixFunc)) {
-    logErr('missing mbr_matrix_inbox_label / mbr_matrix_func config labels');
+  if (!readyFunc || !heartbeatFunc) {
+    logErr('missing MBR readiness function config labels');
     process.exitCode = 1;
     return;
   }
@@ -567,6 +644,12 @@ function main() {
 
   // 8. Create engine
   const engine = new WorkerEngineV0({ runtime: rt, mgmtAdapter: null, mqttPublish });
+  const model0 = rt.getModel(0);
+  if (!model0) {
+    logErr('Model 0 not found after loading patches');
+    process.exitCode = 1;
+    return;
+  }
 
   let mqttReady = false;
   let runtimeActivated = false;
@@ -604,18 +687,23 @@ function main() {
         adapter.subscribe((event) => {
           const validation = validateUnifiedMatrixEventPacket(event);
           if (!validation.ok) {
+            writeMbrIngressError(rt, model0, 'matrix', validation.reason || 'invalid');
             log(`drop invalid mgmt event reason=${validation.reason || 'invalid'}`);
             return;
           }
           if (!filterTypes.includes(event.type)) return;
           if (!rt.isRuntimeRunning()) {
+            writeMbrIngressError(rt, model0, 'matrix', 'runtime_not_running');
             log(`drop pre-running mgmt ${event.type} op_id=${event.op_id || ''}`);
             return;
           }
           log(`recv mgmt ${event.type} op_id=${event.op_id}`);
-          rt.addLabel(sys, 0, 0, 0, { k: matrixInboxLabel, t: 'json', v: event });
-          engine.executeFunction(matrixFunc);
-          engine.tick();
+          const ingressResult = rt.addLabel(model0, 0, 0, 0, { k: 'mbr_mb_in', t: 'pin.bus.mb.in', v: event.payload });
+          if (!ingressResult || !ingressResult.applied) {
+            writeMbrIngressError(rt, model0, 'matrix', 'bus_write_rejected');
+            return;
+          }
+          setTimeout(() => engine.tick(), 0);
         });
 
         log(`mgmt READY room_id=${adapter.room_id}`);
@@ -641,26 +729,35 @@ function main() {
 
   mqttClient.on('message', (topic, buf) => {
     if (!subscribeTopics.some((subscription) => topicMatchesSubscription(subscription, topic))) return;
-    let payload = null;
     try {
-      payload = JSON.parse(buf.toString('utf8'));
-    } catch (_) {
-      return;
+      const packet = JSON.parse(buf.toString('utf8'));
+      const validation = validateUnifiedEndpointTopicPacket(topic, packet, base);
+      if (!validation.ok) {
+        writeMbrIngressError(rt, model0, 'mqtt', validation.reason || 'invalid');
+        log(`drop invalid mqtt topic=${topic} reason=${validation.reason}`);
+        return;
+      }
+      const opId = packetOpId(packet);
+      if (!rt.isRuntimeRunning()) {
+        writeMbrIngressError(rt, model0, 'mqtt', 'runtime_not_running');
+        log(`drop pre-running mqtt topic=${topic} op_id=${opId}`);
+        return;
+      }
+      log(`recv mqtt topic=${topic} op_id=${opId}`);
+      const ingressResult = rt.addLabel(model0, 0, 0, 0, { k: 'mbr_cb_in', t: 'pin.bus.cb.in', v: packet.payload });
+      if (!ingressResult || !ingressResult.applied) {
+        writeMbrIngressError(rt, model0, 'mqtt', 'bus_write_rejected');
+        return;
+      }
+      setTimeout(() => engine.tick(), 0);
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        writeMbrIngressError(rt, model0, 'mqtt', 'invalid_json');
+        return;
+      }
+      writeMbrIngressError(rt, model0, 'mqtt', 'unexpected_error');
+      throw error;
     }
-    const validation = validateUnifiedEndpointTopicPacket(topic, payload, base);
-    if (!validation.ok) {
-      log(`drop invalid mqtt topic=${topic} reason=${validation.reason}`);
-      return;
-    }
-    const opId = packetOpId(payload);
-    if (!rt.isRuntimeRunning()) {
-      log(`drop pre-running mqtt topic=${topic} op_id=${opId}`);
-      return;
-    }
-    log(`recv mqtt topic=${topic} op_id=${opId}`);
-    rt.addLabel(sys, 0, 0, 0, { k: mqttInboxLabel, t: 'json', v: { topic, payload } });
-    engine.executeFunction(mqttFunc);
-    engine.tick();
   });
 
   // 11. Graceful shutdown

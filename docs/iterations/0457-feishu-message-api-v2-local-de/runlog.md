@@ -234,6 +234,45 @@ phase: phase3
 - Final independent review: `Approved`; no findings, questions, or verification gaps.
 - Result: PASS for the versioned baseline contract. Live OrbStack deployment/acceptance remains pending the later rollback-backed E2E stage.
 
+### Step 2B — Real MBR/R1/WM1 Actor and Declared-PIN GREEN
+
+- Implementation:
+  - Refilled the versioned MBR, R1, and WM1 role patches with loaded `model.v1n` roots, exact SSOT worker identities/roles, legal split bus pins, and explicit submodel mounts.
+  - MBR Matrix and MQTT adapters now write only the Model 0 management/control bus inputs; Model `-10` owns bridge functions and returns through declared parent/child PIN chains.
+  - R1 MQTT requests now enter `r1_cb_in`, traverse the mounted Model `-10` route-table dispatcher, and reach every subscribed positive endpoint through its parent connection Cell.
+  - Added non-secret actor attestations derived from the applied runtime plus versioned source provenance. MBR bootstrap records cannot replace attested root fields, bus pins, topic identity, or loaded submodel mounts.
+  - Migrated affected 0143/0144/0177/0184/0375/0376/0379/0384 contracts to flat numeric, table-qualified `pin_payload.v2` and the real actor route graph.
+- Earlier actor review: `Change Requested`.
+  - Invalid MBR/R1 adapter input was not consistently written to ModelTable.
+  - MBR bootstrap provenance and protected actor-field behavior were incomplete.
+  - Remediation added Model 0 visible errors, safe source markers, and pre-attestation bootstrap checks.
+- Final actor review round 1: `Change Requested` despite all existing tests passing.
+  - Missing `mqtt_ingress_pin` still allowed a legal request to fall through directly to a positive model.
+  - Early MQTT packet/topic/config rejection paths wrote trace only, not a ModelTable-visible error.
+  - A bootstrap `rm_label` record could delete an already loaded `model.submtconnection` before attestation.
+- TDD remediation:
+  - Added three failing behavior groups; observed `3 failed / 11 passed` before the fix.
+  - Added one Model 0 rejection path for all MQTT failures, removed the request direct-positive fallback, and required every inbound request to have a legal Model 0 ingress. Outbound-only MQTT startup remains valid, and generic table-qualified response materialization remains unchanged.
+  - Derived protected mount coordinates from the loaded runtime and rejected both `add_label` and `rm_label` mutation before applying bootstrap data or emitting attestation.
+  - Migrated the remaining stale tests that expected direct positive-model delivery or positive-model transport errors.
+- Commands:
+  - `node scripts/tests/test_0143_e2e.mjs`
+  - `node scripts/tests/test_0457_local_orbstack_de_actor_contract.mjs`
+  - `node scripts/tests/test_0375_unified_worker_model_topic_contract.mjs`
+  - `node scripts/tests/test_0384_provider_owned_slide_app_install_flow.mjs`
+  - All current tests containing direct `mqttIncoming(...)` calls.
+  - MBR/R1/WM1 regression set: 0144, 0177, 0184, 0196, 0197, 0328, 0362, 0364, 0376, 0377, 0379, 0419, 0430, and 0450.
+  - Runtime/runner syntax checks, docs gate, and `git diff --check`.
+- Key output:
+  - 0143 real R1 E2E: `5 passed / 0 failed`.
+  - 0457 actor boundary: `14 passed / 0 failed`.
+  - 0375 unified transport: `74 passed / 0 failed`.
+  - 0384 provider install flow: `10 passed / 0 failed`.
+  - 0450 generic response materialization: `4 passed / 0 failed`.
+  - All listed actor/runtime regressions, syntax checks, docs gate, and diff check: PASS.
+- Final independent review round 2: `Approved`; no findings, questions, or verification gaps.
+- Result: PASS for the versioned real-actor/runtime slice. Live OrbStack deployment/acceptance remains pending after F-01 Model 3200 implementation.
+
 ## Docs Review Checklist
 
 - [x] `CLAUDE.md` runtime baseline reviewed/updated

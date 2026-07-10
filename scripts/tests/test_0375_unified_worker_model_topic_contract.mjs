@@ -273,20 +273,24 @@ async function test_runtime_mqtt_incoming_accepts_unified_endpoint_topic_without
   const rt = new ModelTableRuntime();
   await rt.setRuntimeMode('edit');
   configureUnifiedMqtt(rt, 'R1');
+  const model0 = root(rt);
+  rt.addLabel(model0, 0, 0, 0, { k: 'runtime_cb_in', t: 'pin.bus.cb.in', v: null });
+  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_ingress_pin', t: 'str', v: 'runtime_cb_in' });
   const model = rt.createModel({ id: 3000, name: 'it0375_remote_model', type: 'test' });
   rt.addLabel(model, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'RemoteApp' });
   await rt.setRuntimeMode('running');
 
   const records = pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' });
   const accepted = rt.mqttIncoming('UIPUT/ws/dam/pic/de/R1/3000/submit', externalPacket(records));
-  const stored = model.getCell(0, 0, 0).labels.get('submit');
+  const stored = model0.getCell(0, 0, 0).labels.get('runtime_cb_in');
 
   assert.equal(accepted, true, 'unified 9-segment endpoint topic must be accepted');
-  assert.equal(stored?.t, 'pin.in', 'endpoint pin must be written as pin.in');
+  assert.equal(stored?.t, 'pin.bus.cb.in', 'external MQTT must first write the declared Model 0 control-bus ingress');
   assert.deepEqual(stored?.v, records, 'incoming value must remain Temporary ModelTable records');
   assert.equal(getPayloadLabel(stored.v, 'endpoint_worker_id')?.v, 'R1');
   assert.equal(getPayloadLabel(stored.v, 'endpoint_model_id')?.v, 3000);
   assert.equal(getPayloadLabel(stored.v, 'endpoint_pin')?.v, 'submit');
+  assert.equal(model.getCell(0, 0, 0).labels.get('submit'), undefined, 'runtime transport must not fall through to a positive model');
   return { key: 'runtime_mqtt_incoming_accepts_unified_endpoint_topic_without_loose_pin', status: 'PASS' };
 }
 

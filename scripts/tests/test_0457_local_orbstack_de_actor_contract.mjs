@@ -315,6 +315,99 @@ async function test_r1_malformed_ingress_never_writes_positive_model_error() {
   );
 }
 
+async function test_r1_missing_or_invalid_mqtt_ingress_fails_closed_on_model_zero() {
+  const endpoint = actors.r1.subscribedEndpoints.find((entry) => entry.model_id === 100 && entry.pin === 'submit');
+  assert.ok(endpoint, 'R1 Model 100 submit endpoint must exist');
+  const records = dispatcherProbe(endpoint);
+  const packet = { version: 'v1', type: 'pin_payload', payload: records };
+
+  for (const variant of [
+    { name: 'missing', value: null, expectedCode: 'missing_mqtt_ingress_pin' },
+    { name: 'invalid', value: 'undeclared_cb_in', expectedCode: 'invalid_mqtt_ingress_pin' },
+  ]) {
+    const r1 = loadSsotDeActor('r1');
+    const model0 = r1.runtime.getModel(0);
+    if (variant.value === null) {
+      r1.runtime.rmLabel(model0, 0, 0, 0, 'mqtt_ingress_pin');
+    } else {
+      const updated = r1.runtime.addLabel(model0, 0, 0, 0, {
+        k: 'mqtt_ingress_pin',
+        t: 'str',
+        v: variant.value,
+      });
+      assert.equal(updated.applied, true, `${variant.name}: test setup must update mqtt_ingress_pin`);
+    }
+    r1.runtime.setRuntimeMode('edit');
+    r1.runtime.setRuntimeMode('running');
+    const before = positiveModelSnapshot(r1.runtime);
+    const handled = r1.runtime.mqttIncoming(endpoint.topic, packet);
+    assert.equal(handled, false, `${variant.name}: request must fail closed before any positive model`);
+    assert.deepEqual(
+      positiveModelSnapshot(r1.runtime),
+      before,
+      `${variant.name}: request must leave every positive model unchanged`,
+    );
+    const error = r1.runtime.getCell(model0, 0, 0, 0).labels.get('mqtt_inbound_error');
+    assert.equal(error?.t, 'json', `${variant.name}: rejection must be visible on Model 0`);
+    assert.equal(error?.v?.code, variant.expectedCode, `${variant.name}: exact rejection code`);
+    assert.equal(error?.v?.topic, endpoint.topic, `${variant.name}: rejected topic must be visible`);
+  }
+}
+
+async function test_r1_early_mqtt_rejections_are_modeltable_visible() {
+  const endpoint = actors.r1.subscribedEndpoints.find((entry) => entry.model_id === 100 && entry.pin === 'submit');
+  assert.ok(endpoint, 'R1 Model 100 submit endpoint must exist');
+  const validPacket = { version: 'v1', type: 'pin_payload', payload: dispatcherProbe(endpoint) };
+  const cases = [
+    {
+      name: 'loose_outer_packet',
+      topic: endpoint.topic,
+      packet: { ...validPacket, extra: true },
+      expectedCode: 'loose_pin_payload_fields_removed',
+    },
+    {
+      name: 'invalid_topic',
+      topic: 'OTHER/ws/dam/pic/de/R1/100/submit',
+      packet: validPacket,
+      expectedCode: 'invalid_unified_endpoint_topic',
+    },
+    {
+      name: 'invalid_topic_base_config',
+      topic: endpoint.topic,
+      packet: validPacket,
+      expectedCode: 'invalid_unified_topic_base',
+      configure(runtime, model0) {
+        const updated = runtime.addLabel(model0, 0, 0, 0, {
+          k: 'mqtt_topic_base',
+          t: 'str',
+          v: 'UIPUT',
+        });
+        assert.equal(updated.applied, true, 'invalid config test setup must apply');
+      },
+    },
+  ];
+
+  for (const testCase of cases) {
+    const r1 = loadSsotDeActor('r1');
+    const model0 = r1.runtime.getModel(0);
+    if (testCase.configure) testCase.configure(r1.runtime, model0);
+    r1.runtime.setRuntimeMode('edit');
+    r1.runtime.setRuntimeMode('running');
+    const before = positiveModelSnapshot(r1.runtime);
+    const handled = r1.runtime.mqttIncoming(testCase.topic, testCase.packet);
+    assert.equal(handled, false, `${testCase.name}: malformed input must fail closed`);
+    assert.deepEqual(
+      positiveModelSnapshot(r1.runtime),
+      before,
+      `${testCase.name}: malformed input must not mutate positive models`,
+    );
+    const error = r1.runtime.getCell(model0, 0, 0, 0).labels.get('mqtt_inbound_error');
+    assert.equal(error?.t, 'json', `${testCase.name}: rejection must be visible on Model 0`);
+    assert.equal(error?.v?.code, testCase.expectedCode, `${testCase.name}: exact rejection code`);
+    assert.equal(error?.v?.topic, testCase.topic, `${testCase.name}: rejected topic must be visible`);
+  }
+}
+
 async function test_exported_attestation_builder_is_pure_and_loaded_state_derived() {
   const imported = await importActorAttestationModule();
   assert.equal(imported.error, null, `attestation module contract missing: ${imported.error}`);
@@ -331,7 +424,7 @@ async function test_exported_attestation_builder_is_pure_and_loaded_state_derive
   }
 }
 
-function runAttestationOnly(actor) {
+function runAttestationOnly(actor, { bootstrapPatch = '' } = {}) {
   return spawnSync(process.execPath, [resolve(repoRoot, actor.runnerPath), resolve(repoRoot, actor.patchDir)], {
     cwd: repoRoot,
     env: {
@@ -341,13 +434,18 @@ function runAttestationOnly(actor) {
       DY_ROLE_PATCH_DIR: resolve(repoRoot, actor.patchDir),
       DY_WORKER_SCOPE: actor.workerScope,
       DY_WORKER_LOG_PREFIX: `0457-${actor.name}`,
-      MODELTABLE_PATCH_JSON: '',
+      MODELTABLE_PATCH_JSON: bootstrapPatch ? JSON.stringify(bootstrapPatch) : '',
     },
     encoding: 'utf8',
     timeout: 5000,
     killSignal: 'SIGKILL',
     maxBuffer: 2 * 1024 * 1024,
   });
+}
+
+function attestationLine(result) {
+  return String(result.stdout || '').split(/\r?\n/u)
+    .find((line) => line.startsWith(`${ACTOR_ATTESTATION_MARKER} `)) || '';
 }
 
 function test_actor_runners_call_and_output_loaded_attestation() {
@@ -368,6 +466,114 @@ function test_actor_runners_call_and_output_loaded_attestation() {
   }
 }
 
+function test_mbr_bootstrap_cannot_override_attested_contract_and_has_safe_provenance() {
+  const actor = actors.mbr;
+  const benignSecret = '0457-benign-bootstrap-secret-must-not-leak';
+  const benignPatch = {
+    version: 'mt.v0',
+    op_id: '0457_benign_bootstrap_provenance',
+    records: [{
+      op: 'add_label',
+      model_id: 0,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: '0457_bootstrap_probe',
+      t: 'str',
+      v: benignSecret,
+    }],
+  };
+  const benignResult = runAttestationOnly(actor, { bootstrapPatch: benignPatch });
+  assert.equal(benignResult.status, 0, `benign bootstrap must remain loadable: ${benignResult.stderr}`);
+  assert.equal(String(benignResult.stdout).includes(benignSecret), false, 'attestation output must not contain bootstrap values');
+  const benignLine = attestationLine(benignResult);
+  assert.ok(benignLine, 'benign bootstrap must still emit an attestation');
+  const benignAttestation = JSON.parse(benignLine.slice(ACTOR_ATTESTATION_MARKER.length + 1));
+  assert.deepEqual(benignAttestation, {
+    ...expectedActorAttestation(actor),
+    source_files: [...actor.sourceFiles, 'env:MODELTABLE_PATCH_JSON'],
+  }, 'attestation must mark the non-secret bootstrap source without copying its content');
+
+  const protectedRecords = [
+    { k: 'sys_worker_id', t: 'worker.id', v: '0457-secret-worker-id' },
+    { k: 'sys_worker_role', t: 'worker.role', v: '0457-secret-worker-role' },
+    { k: 'model_type', t: 'model.v1n', v: '0457-secret-root-form' },
+    { k: 'mbr_cb_in', t: 'pin.bus.cb.out', v: null },
+    { k: 'mqtt_topic_base', t: 'str', v: '0457-secret-topic-base' },
+  ];
+  for (const [index, protectedRecord] of protectedRecords.entries()) {
+    const bootstrapPatch = {
+      version: 'mt.v0',
+      op_id: `0457_forbidden_bootstrap_${index}`,
+      records: [{
+        op: 'add_label',
+        model_id: 0,
+        p: 0,
+        r: 0,
+        c: 0,
+        ...protectedRecord,
+      }],
+    };
+    const result = runAttestationOnly(actor, { bootstrapPatch });
+    assert.notEqual(result.status, 0, `${protectedRecord.k}: bootstrap override must fail before attestation`);
+    assert.equal(attestationLine(result), '', `${protectedRecord.k}: rejected override must not emit attestation`);
+    assert.match(
+      String(result.stderr || ''),
+      new RegExp(`bootstrap_patch_overrides_attested_actor:${protectedRecord.k}`),
+      `${protectedRecord.k}: rejection must name only the protected field`,
+    );
+    if (typeof protectedRecord.v === 'string') {
+      assert.equal(`${result.stdout}\n${result.stderr}`.includes(protectedRecord.v), false, `${protectedRecord.k}: rejected value must not leak`);
+    }
+  }
+
+  for (const [mountIndex, mount] of actor.mounts.entries()) {
+    const mountMutations = [
+      {
+        op: 'add_label',
+        model_id: mount.model_id,
+        p: mount.p,
+        r: mount.r,
+        c: mount.c,
+        k: mount.key,
+        t: 'str',
+        v: `0457-secret-mount-replacement-${mountIndex}`,
+      },
+      {
+        op: 'rm_label',
+        model_id: mount.model_id,
+        p: mount.p,
+        r: mount.r,
+        c: mount.c,
+        k: mount.key,
+      },
+    ];
+    for (const [mutationIndex, mutation] of mountMutations.entries()) {
+      const result = runAttestationOnly(actor, {
+        bootstrapPatch: {
+          version: 'mt.v0',
+          op_id: `0457_forbidden_mount_${mountIndex}_${mutationIndex}`,
+          records: [mutation],
+        },
+      });
+      assert.notEqual(result.status, 0, `${mutation.op}: attested mount mutation must fail before attestation`);
+      assert.equal(attestationLine(result), '', `${mutation.op}: rejected mount mutation must not emit attestation`);
+      assert.match(
+        String(result.stderr || ''),
+        new RegExp(`bootstrap_patch_overrides_attested_actor:${mount.key}`),
+        `${mutation.op}: rejection must identify the protected mount key`,
+      );
+      if (typeof mutation.v === 'string') {
+        assert.equal(
+          `${result.stdout}\n${result.stderr}`.includes(mutation.v),
+          false,
+          `${mutation.op}: rejected mount value must not leak`,
+        );
+      }
+    }
+  }
+}
+
 const tests = [
   test_actor_facts_come_from_applied_versioned_patches,
   test_worker_roots_declare_loaded_model_v1n,
@@ -378,8 +584,11 @@ const tests = [
   test_r1_model_minus10_dispatcher_chain_is_structural,
   test_r1_dispatcher_reaches_every_subscribed_mounted_endpoint,
   test_r1_malformed_ingress_never_writes_positive_model_error,
+  test_r1_missing_or_invalid_mqtt_ingress_fails_closed_on_model_zero,
+  test_r1_early_mqtt_rejections_are_modeltable_visible,
   test_exported_attestation_builder_is_pure_and_loaded_state_derived,
   test_actor_runners_call_and_output_loaded_attestation,
+  test_mbr_bootstrap_cannot_override_attested_contract_and_has_safe_provenance,
 ];
 
 let failed = 0;
