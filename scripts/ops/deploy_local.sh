@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy full stack to local K8s cluster (OrbStack / Docker Desktop).
+# Deploy full stack to the local OrbStack Kubernetes cluster.
 # Usage: bash scripts/ops/deploy_local.sh
 # Requires: deploy/env/local.env (copy from local.env.example)
 set -euo pipefail
@@ -49,45 +49,49 @@ echo ""
 echo "=== Step 1: Pre-flight checks ==="
 
 CURRENT_CONTEXT="$(kubectl config current-context 2>/dev/null || true)"
-TARGET_CONTEXT="${K8S_CONTEXT:-${CURRENT_CONTEXT:-}}"
-
-declare -a CONTEXT_CANDIDATES=()
-append_context_candidate() {
-  local candidate="$1"
-  [ -z "${candidate:-}" ] && return 0
-  for existing in "${CONTEXT_CANDIDATES[@]-}"; do
-    if [ "$existing" = "$candidate" ]; then
-      return 0
-    fi
-  done
-  CONTEXT_CANDIDATES+=("$candidate")
-}
-
-append_context_candidate "${K8S_CONTEXT:-}"
-append_context_candidate "$CURRENT_CONTEXT"
-while IFS= read -r ctx; do
-  append_context_candidate "$ctx"
-done < <(kubectl config get-contexts -o name 2>/dev/null || true)
-
-if [ "${#CONTEXT_CANDIDATES[@]}" -eq 0 ]; then
-  echo "ERROR: cannot determine kubectl context. Set K8S_CONTEXT or configure kubectl contexts." >&2
+DOCKER_CONTEXT="$(docker context show 2>/dev/null || true)"
+if [ "$CURRENT_CONTEXT" != "orbstack" ]; then
+  echo "ERROR: kubectl context must be orbstack (got ${CURRENT_CONTEXT:-unknown})." >&2
   exit 1
 fi
-
-TARGET_CONTEXT=""
-for ctx in "${CONTEXT_CANDIDATES[@]}"; do
-  if kubectl config use-context "$ctx" >/dev/null 2>&1 && kubectl get nodes >/dev/null 2>&1; then
-    TARGET_CONTEXT="$ctx"
-    break
+if [ "$DOCKER_CONTEXT" != "orbstack" ]; then
+  echo "ERROR: docker context must be orbstack (got ${DOCKER_CONTEXT:-unknown})." >&2
+  exit 1
+fi
+if [ "${K8S_CONTEXT:-}" != "orbstack" ]; then
+  echo "ERROR: deploy/env/local.env must set K8S_CONTEXT=orbstack." >&2
+  exit 1
+fi
+if [ "${NAMESPACE:-}" != "dongyu" ]; then
+  echo "ERROR: deploy/env/local.env must set NAMESPACE=dongyu." >&2
+  exit 1
+fi
+if [ "$(matrix_homeserver_url)" != "http://synapse.dongyu.svc.cluster.local:8008" ]; then
+  echo "ERROR: local Matrix must use the in-cluster Synapse service." >&2
+  exit 1
+fi
+if [ "${SYNAPSE_SERVER_NAME:-}" != "localhost" ]; then
+  echo "ERROR: local Synapse server_name must be localhost." >&2
+  exit 1
+fi
+if [ "${MQTT_HOST:-}" != "mosquitto.dongyu.svc.cluster.local" ] || [ "${MQTT_PORT:-}" != "1883" ]; then
+  echo "ERROR: local MQTT must use mosquitto.dongyu.svc.cluster.local:1883." >&2
+  exit 1
+fi
+if [ "${DY_AUTH:-}" != "0" ] || [ "${DY_DEV_FAKE_LOGIN:-}" != "0" ]; then
+  echo "ERROR: local acceptance requires DY_AUTH=0 and DY_DEV_FAKE_LOGIN=0." >&2
+  exit 1
+fi
+for oidc_key in DY_OIDC_ISSUER DY_OIDC_CLIENT_ID DY_OIDC_CLIENT_SECRET DY_OIDC_REDIRECT_URI DY_OIDC_SCOPE DY_OIDC_PROXY_URL DY_OIDC_STATE_SECRET; do
+  oidc_value="$(printenv "$oidc_key" 2>/dev/null || true)"
+  if [ -n "$oidc_value" ]; then
+    echo "ERROR: local acceptance requires $oidc_key to be empty." >&2
+    exit 1
   fi
 done
 
-if [ -z "$TARGET_CONTEXT" ]; then
-  echo "ERROR: no reachable kubectl context found from candidates: ${CONTEXT_CANDIDATES[*]}" >&2
-  exit 1
-fi
-
-echo "  kubectl context: $TARGET_CONTEXT"
+echo "  kubectl context: orbstack"
+echo "  docker context: orbstack"
 echo "  kubectl: OK"
 
 if ! docker info >/dev/null 2>&1; then
@@ -114,13 +118,9 @@ echo ""
 echo "=== Step 3: Deploy infrastructure ==="
 kubectl apply -f "$REPO_DIR/k8s/local/namespace.yaml"
 kubectl apply -f "$REPO_DIR/k8s/local/mosquitto.yaml"
-if is_remote_matrix_homeserver; then
-  echo "  Skipping local Synapse: Matrix transport uses $(matrix_homeserver_url)"
-else
-  kubectl apply -f "$REPO_DIR/k8s/local/synapse.yaml"
-  echo "  Waiting for Synapse rollout..."
-  kubectl -n "$NAMESPACE" rollout status deployment/synapse --timeout=180s
-fi
+kubectl apply -f "$REPO_DIR/k8s/local/synapse.yaml"
+echo "  Waiting for Synapse rollout..."
+kubectl -n "$NAMESPACE" rollout status deployment/synapse --timeout=180s
 kubectl -n "$NAMESPACE" rollout status deployment/mosquitto --timeout=60s
 echo "  Infrastructure: OK"
 echo ""
@@ -158,11 +158,7 @@ if [ "$SKIP_MATRIX_BOOTSTRAP" = "1" ]; then
   echo "  Server token: ${SERVER_TOKEN:0:10}..."
   echo "  MBR token: ${MBR_TOKEN:0:10}..."
 else
-  if is_remote_matrix_homeserver; then
-    echo "  Using remote Matrix homeserver: $(matrix_homeserver_url)"
-  else
-    register_synapse_users
-  fi
+  register_synapse_users
 
   echo "  Getting access token for @${SERVER_USER}..."
   SERVER_TOKEN=$(get_matrix_token "$SERVER_USER" "$SERVER_PASSWORD")
@@ -230,11 +226,7 @@ echo ""
 
 # ── Wait for rollout ─────────────────────────────────────
 echo "=== Step 10: Wait for rollout ==="
-if is_remote_matrix_homeserver; then
-  wait_for_rollout mosquitto remote-worker workspace-manager mbr-worker ui-server
-else
-  wait_for_rollout mosquitto synapse remote-worker workspace-manager mbr-worker ui-server
-fi
+wait_for_rollout mosquitto synapse remote-worker workspace-manager mbr-worker ui-server
 echo "  Waiting for old app pods to terminate..."
 wait_for_no_terminating_pods remote-worker workspace-manager mbr-worker ui-server
 echo ""

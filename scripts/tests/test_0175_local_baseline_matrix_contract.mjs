@@ -58,6 +58,11 @@ const mqttHost = scenario === 'remote_mqtt'
   ? 'mqtt.dongyudigital.com'
   : 'mosquitto.dongyu.svc.cluster.local';
 const oidcIssuer = scenario === 'remote_oidc' ? 'https://sso.dongyudigital.com' : '';
+const oidcRedirectUri = scenario === 'remote_oidc_redirect'
+  ? 'https://app.dongyudigital.com/auth/sso/callback'
+  : '';
+const oidcScope = scenario === 'stale_oidc_scope' ? 'openid profile email' : '';
+const oidcStateSecret = scenario === 'stale_oidc_state' ? 'stale-local-state-secret' : '';
 const encode = (value) => Buffer.from(String(value), 'utf8').toString('base64');
 const record = (k, t, v) => ({ op: 'add_label', model_id: 0, p: 0, r: 0, c: 0, k, t, v });
 
@@ -89,7 +94,10 @@ function secretData(name) {
       DY_OIDC_ISSUER: encode(oidcIssuer),
       DY_OIDC_CLIENT_ID: encode(''),
       DY_OIDC_CLIENT_SECRET: encode(''),
+      DY_OIDC_REDIRECT_URI: encode(oidcRedirectUri),
+      DY_OIDC_SCOPE: encode(oidcScope),
       DY_OIDC_PROXY_URL: encode(''),
+      DY_OIDC_STATE_SECRET: encode(oidcStateSecret),
       MATRIX_HOMESERVER_URL: encode(matrixUrl),
       SYNAPSE_SERVER_NAME: encode('localhost'),
     });
@@ -202,7 +210,9 @@ if (verb === 'get') {
   }
   if (kind === 'configmap' || kind === 'configmaps' || kind === 'cm') {
     const data = name === 'synapse-config'
-      ? { 'homeserver.yaml': 'server_name: "localhost"\n' }
+      ? { 'homeserver.yaml': scenario === 'prefixed_synapse_server_name'
+        ? 'server_name: "localhost.evil"\n'
+        : 'server_name: "localhost"\n' }
       : { MQTT_HOST: mqttHost, MQTT_PORT: '1883' };
     outputValue({ apiVersion: 'v1', kind: 'ConfigMap', metadata: { name }, data }, outputSpec);
     process.exit(0);
@@ -246,18 +256,18 @@ process.exit(2);
 
 writeExecutable(join(fakeBin, 'docker'), String.raw`#!/usr/bin/env bash
 set -euo pipefail
-if [ "\${1:-}" = "context" ] && [ "\${2:-}" = "show" ]; then
-  if [ "\${DY_TEST_BASELINE_SCENARIO:-}" = "wrong_docker_context" ]; then echo docker-desktop; else echo orbstack; fi
+if [ "$1" = "context" ] && [ "$2" = "show" ]; then
+  if [ "$DY_TEST_BASELINE_SCENARIO" = "wrong_docker_context" ]; then echo docker-desktop; else echo orbstack; fi
   exit 0
 fi
-if [ "\${1:-}" = "info" ]; then exit 0; fi
+if [ "$1" = "info" ]; then exit 0; fi
 echo "unsupported fake docker args: $*" >&2
 exit 2
 `);
 
 writeExecutable(join(fakeBin, 'orb'), String.raw`#!/usr/bin/env bash
 set -euo pipefail
-if [ "\${1:-}" = "status" ]; then echo Running; exit 0; fi
+if [ "$1" = "status" ]; then echo Running; exit 0; fi
 echo "unsupported fake orb args: $*" >&2
 exit 2
 `);
@@ -300,7 +310,7 @@ exit 0
 `);
   writeExecutable(join(opsDir, 'deploy_local.sh'), String.raw`#!/usr/bin/env bash
 set -euo pipefail
-echo "deploy:\${SKIP_IMAGE_BUILD:-unset}" >> "$DY_TEST_CALL_LOG"
+echo "deploy:$SKIP_IMAGE_BUILD" >> "$DY_TEST_CALL_LOG"
 exit 0
 `);
   const result = spawnSync('bash', [join(opsDir, 'ensure_runtime_baseline.sh'), '--force-rebuild'], {
@@ -465,6 +475,50 @@ const plannedAllLocalCases = [
         result.status,
         0,
         `checker must reject a remote DY_OIDC_ISSUER even when DY_AUTH=0; stdout=${result.stdout} stderr=${result.stderr}`,
+      );
+    },
+  ],
+  [
+    'checker rejects remote OIDC redirect residue',
+    () => {
+      const result = runBaselineChecker('remote_oidc_redirect');
+      assert.notEqual(
+        result.status,
+        0,
+        `checker must reject a non-empty DY_OIDC_REDIRECT_URI when DY_AUTH=0; stdout=${result.stdout} stderr=${result.stderr}`,
+      );
+    },
+  ],
+  [
+    'checker rejects stale OIDC scope residue',
+    () => {
+      const result = runBaselineChecker('stale_oidc_scope');
+      assert.notEqual(
+        result.status,
+        0,
+        `checker must reject a non-empty DY_OIDC_SCOPE when DY_AUTH=0; stdout=${result.stdout} stderr=${result.stderr}`,
+      );
+    },
+  ],
+  [
+    'checker rejects stale OIDC state residue',
+    () => {
+      const result = runBaselineChecker('stale_oidc_state');
+      assert.notEqual(
+        result.status,
+        0,
+        `checker must reject a non-empty DY_OIDC_STATE_SECRET when DY_AUTH=0; stdout=${result.stdout} stderr=${result.stderr}`,
+      );
+    },
+  ],
+  [
+    'checker requires exact localhost Synapse server_name',
+    () => {
+      const result = runBaselineChecker('prefixed_synapse_server_name');
+      assert.notEqual(
+        result.status,
+        0,
+        `checker must reject server_name values that merely start with localhost; stdout=${result.stdout} stderr=${result.stderr}`,
       );
     },
   ],

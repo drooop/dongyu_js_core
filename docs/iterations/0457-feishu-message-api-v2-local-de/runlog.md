@@ -2,7 +2,7 @@
 title: "Iteration 0457 Feishu Message API v2 + Local DE Runlog"
 doc_type: iteration-runlog
 status: active
-updated: 2026-07-10
+updated: 2026-07-11
 source: ai
 iteration_id: 0457-feishu-message-api-v2-local-de
 id: 0457-feishu-message-api-v2-local-de
@@ -204,10 +204,40 @@ phase: phase3
 - Verification gaps: none.
 - Decision: Step 1 behavior RED may be committed; production GREEN may begin from that commit.
 
+### Step 2A — Worker Root Authority and Local OrbStack Baseline GREEN
+
+- Implementation:
+  - Clarified the highest contract so software-worker host Model 0 roots use `model.v1n`, while ordinary/non-worker ModelTable roots continue to use `model.table`.
+  - Changed the local deployment contract to require exact Kubernetes and Docker context `orbstack`, namespace `dongyu`, local Synapse and Mosquitto services, `DY_AUTH=0`, no fake login, no remote OIDC, and no TLS-verification bypass.
+  - Kept Feishu HTTPS access outside the remote-service deny checks; local test infrastructure is local, but Feishu remains connectable.
+  - Changed `ensure_runtime_baseline.sh --force-rebuild` to execute exactly one image-enabled local deployment followed by the canonical checker.
+  - Added executable fake-`kubectl`/`docker`/`orb` behavior coverage and shared local/cloud Secret-writer coverage.
+- Initial independent review: `Change Requested`.
+  - Local `DY_OIDC_SCOPE=` was expanded to the remote default by `${DY_OIDC_SCOPE:-...}`, causing the generated local Secret to violate its own checker.
+  - The `CLAUDE.md` Tier 1 model-form enumeration still omitted `model.v1n`.
+- TDD remediation:
+  - Added a real `update_k8s_secrets` harness that first reproduced the local non-empty scope failure.
+  - Changed the shared writer to preserve an explicitly empty local scope while retaining explicit cloud values and the default only when the variable is unset.
+  - Added `model.v1n` to the Tier 1 model-form enumeration.
+- Commands:
+  - `node scripts/tests/test_0175_local_baseline_matrix_contract.mjs`
+  - `node scripts/tests/test_0403_deploy_sso_env_contract.mjs`
+  - `node scripts/tests/test_0364_system_refill_contract.mjs`
+  - `bash -n scripts/ops/_deploy_common.sh scripts/ops/check_runtime_baseline.sh scripts/ops/deploy_local.sh scripts/ops/ensure_runtime_baseline.sh`
+  - `node scripts/ops/validate_obsidian_docs_gate.mjs`
+  - `git diff --check`
+- Key output:
+  - Local baseline behavior contract: PASS.
+  - Local empty OIDC values, explicit cloud OIDC values, and unset default semantics: PASS.
+  - System refill/root-form contract: `10 passed / 0 failed`.
+  - Shell syntax, docs gate, and diff check: PASS.
+- Final independent review: `Approved`; no findings, questions, or verification gaps.
+- Result: PASS for the versioned baseline contract. Live OrbStack deployment/acceptance remains pending the later rollback-backed E2E stage.
+
 ## Docs Review Checklist
 
-- [ ] `CLAUDE.md` runtime baseline reviewed/updated
-- [ ] `docs/architecture_mantanet_and_workers.md` reviewed
+- [x] `CLAUDE.md` runtime baseline reviewed/updated
+- [x] `docs/architecture_mantanet_and_workers.md` reviewed
 - [ ] `docs/ssot/runtime_semantics_modeltable_driven.md` updated
 - [ ] `docs/ssot/label_type_registry.md` reviewed
 - [ ] `docs/ssot/tier_boundary_and_conformance_testing.md` reviewed

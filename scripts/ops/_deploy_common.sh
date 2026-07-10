@@ -420,7 +420,7 @@ PY
     --from-literal="DY_OIDC_CLIENT_ID=${DY_OIDC_CLIENT_ID:-}" \
     --from-literal="DY_OIDC_CLIENT_SECRET=${DY_OIDC_CLIENT_SECRET:-}" \
     --from-literal="DY_OIDC_REDIRECT_URI=${DY_OIDC_REDIRECT_URI:-}" \
-    --from-literal="DY_OIDC_SCOPE=${DY_OIDC_SCOPE:-openid profile email urn:zitadel:iam:org:project:id:zitadel:aud urn:zitadel:iam:org:projects:roles}" \
+    --from-literal="DY_OIDC_SCOPE=${DY_OIDC_SCOPE-openid profile email urn:zitadel:iam:org:project:id:zitadel:aud urn:zitadel:iam:org:projects:roles}" \
     --from-literal="DY_OIDC_PROXY_URL=${DY_OIDC_PROXY_URL:-}" \
     --from-literal="DY_OIDC_FETCH_TIMEOUT_MS=${DY_OIDC_FETCH_TIMEOUT_MS:-10000}" \
     --from-literal="DY_OIDC_STATE_SECRET=${DY_OIDC_STATE_SECRET:-}" \
