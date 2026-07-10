@@ -357,6 +357,7 @@ source: ai
 | 0454-feishu-focused-current-diff | 2026-07-09 | 重新读取两篇重点 Feishu 文档当前版本，对照仓库 SSOT 与实现找出新差异，并规划大型代码库可持续理解机制 | 4 | dropx/dev_0454-feishu-focused-current-diff | Completed | ./docs/iterations/0454-feishu-focused-current-diff/ |
 | 0455-contract-surface-index | 2026-07-09 | 建立 Feishu/SSOT/实现/测试合同索引与专项 backlog，让后续变更按合同卡片定位并防止摘要漂移 | 5 | dropx/dev_0455-contract-surface-index | Completed | ./docs/iterations/0455-contract-surface-index/ |
 | 0456-feishu-watcher-tls-preflight | 2026-07-10 | 为 Feishu source watcher 增加 fail-closed TLS preflight，并记录已确认与仍待确认的合同差异 | 4 | dropx/dev_0456-feishu-watcher-tls-preflight | Completed | ./docs/iterations/0456-feishu-watcher-tls-preflight/ |
+| 0457-feishu-message-api-v2-local-de | 2026-07-10 | 将 Feishu Message API 输入整体升级到 `pin_payload.v2`，并用 OrbStack 中按 SSOT 调表启动的真实 DE 软件工人完成双总线验收 | 8 | dropx/dev_0457-feishu-message-api-v2-local-de | Approved | ./docs/iterations/0457-feishu-message-api-v2-local-de/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
