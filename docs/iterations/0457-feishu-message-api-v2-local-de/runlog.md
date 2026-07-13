@@ -386,6 +386,37 @@ phase: phase3
 - No Feishu state was written and no OrbStack deployment was performed in this slice.
 - Result: PASS for the Model 3200 resource family. Data/UI/response migration and live acceptance remain pending.
 
+### Step 3E — F-01 Model 3200 Data Family RED/GREEN
+
+- Replaced the 0446 Tier 1/v1 data test with real R1 requests through local mock MQTT, Model 0, Model `-10`, Model 3200 `data`, Model 3200-owned store/result state, generic `result`, Model 0 return bus, and MQTT publish.
+- The reviewed RED locks:
+  - the same data `op_id` must traverse Model 0, Model `-10`, and Model 3200;
+  - save/load ModelTable use the `modeltable.saved` / `modeltable.loaded` slots with a `Data` payload root;
+  - save/load Flow use the `flow.saved` / `flow.loaded` slots with a `Flow` payload root;
+  - actual payload records at non-root page/row coordinates are preserved while root metadata is excluded;
+  - every action rejects an empty payload and the opposite payload-root type without changing store, `result`, Model 0 return bus, or MQTT publish;
+  - load actions use explicit `is_need_response=false` and still update the Model 3200 loaded slot;
+  - dynamic non-default payload IDs are read from v2 `payload_model_id`, and store/result/handler output must not retain old `payload_table_id` naming.
+- Initial RED: `11 failed / 0 passed`; resource remained `13/13`, task `37/37`, and actor/schema `8/8`.
+- Initial RED review: `Change Requested` because every fixture used payload ID `1` and did not forbid old `payload_table_id` output, allowing a hard-coded or v1-named implementation to pass.
+- RED remediation:
+  - the main save path now uses `payload_model_id=7`, and a rejection path uses `payload_model_id=9`;
+  - store, last result, and handler response all require `payload_model_id` and explicitly reject `payload_table_id`.
+- Strengthened RED re-review: `Approved`; no findings, questions, or verification gaps.
+- GREEN implementation:
+  - added `feishu_data_manager` after resource handling and before the generic response contract;
+  - the manager dynamically reads the declared payload model, validates Data/Flow against the action, strips only root metadata, and stores the remaining records in the correct Model 3200 saved/loaded slot;
+  - valid results use v2 `payload_model_id`; invalid business input writes Model 3200-visible rejection and emits no response;
+  - no data business hook was added to the runtime kernel.
+- Final verification:
+  - data family: `11 passed / 0 failed`;
+  - resource `13/13`, task `37/37`, Model 3200 actor/schema `8/8`;
+  - DE actor `14/14`, unified transport `74/74`, control-first routing `14/14`, generic response materialization `4/4`, 0430, and existing UI/response 0447-0452 regressions: PASS;
+  - JSON/syntax, docs gate, and `git diff --check`: PASS.
+- Independent GREEN review: `Approved`; no findings, questions, or verification gaps.
+- No Feishu state was written and no OrbStack deployment was performed in this slice.
+- Result: PASS for the Model 3200 data family. UI/response migration and live acceptance remain pending.
+
 ## Docs Review Checklist
 
 - [x] `CLAUDE.md` runtime baseline reviewed/updated
