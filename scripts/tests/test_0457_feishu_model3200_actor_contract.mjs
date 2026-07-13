@@ -204,7 +204,7 @@ function test_generic_v2_requires_exact_transport_envelope() {
     ['missing_timestamp', valid.filter((record) => record.k !== 'timestamp'), 'missing_timestamp'],
     ['invalid_timestamp', replaceRecord(valid, 'timestamp', { t: 'str', v: '1700000003200' }), 'invalid_timestamp'],
     ['removed_manage_route', replaceRecord(valid, 'route_kind', { v: 'manage' }), 'invalid_route_kind'],
-    ['same_response_topic', replaceRecord(valid, 'response_topic', { v: `${DEFAULT_TOPIC_BASE}/R1/${model3200Id}/resource` }), 'response_topic_mismatch'],
+    ['request_topic_reuse', replaceRecord(valid, 'response_topic', { v: `${DEFAULT_TOPIC_BASE}/R1/${model3200Id}/resource` }), 'response_topic_mismatch'],
     ['full_topic_endpoint_pin', replaceRecord(valid, 'endpoint_pin', { v: `${DEFAULT_TOPIC_BASE}/R1/${model3200Id}/resource` }), 'invalid_pin_payload_records'],
     ['legacy_response_pin', [...valid, mt('response_pin', 'str', `${DEFAULT_TOPIC_BASE}/U1/1/result`)], 'legacy_pin_payload_metadata_removed'],
     ['invalid_payload_model_id', valid.map((record) => {

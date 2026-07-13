@@ -249,7 +249,7 @@ async function test_invalid_response_topic_is_rejected_before_model3200() {
     assert.equal(
       await dispatch(actor, request, 'resource'),
       false,
-      `same request/response topic must fail before is_need_response=${isNeedResponse} can bypass validation`,
+      `request topic reuse must fail before is_need_response=${isNeedResponse} can bypass validation`,
     );
     assert.deepEqual(positiveModelSnapshot(actor), before, 'transport rejection must not touch Model 3200');
     assert.equal(model3200Root(actor).labels.get('result')?.v ?? null, null, 'transport rejection emits no result');

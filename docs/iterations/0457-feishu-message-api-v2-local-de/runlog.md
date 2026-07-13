@@ -2,7 +2,7 @@
 title: "Iteration 0457 Feishu Message API v2 + Local DE Runlog"
 doc_type: iteration-runlog
 status: active
-updated: 2026-07-11
+updated: 2026-07-13
 source: ai
 iteration_id: 0457-feishu-message-api-v2-local-de
 id: 0457-feishu-message-api-v2-local-de
@@ -497,6 +497,35 @@ phase: phase3
 - Final independent RED re-review: `Approved`; no findings, questions, or verification gaps.
 - No Tier 1 code, actor patch, Feishu state, or OrbStack deployment changed in this RED slice.
 - Result: reviewed expected RED recorded; Tier 1 hard-cut GREEN may begin.
+
+### Step 5 — F-01 Tier 1 v2 Hard-Cut GREEN
+
+- Removed the Feishu resource/data/UI/task manager instance state, v1 parser/validator, business dispatch, response-outbox special cases, Model 0 business labels/intercepts, and family handlers from canonical `runtime.mjs`.
+- Deleted `scripts/lib/feishu_message_api_v1.mjs`; no standalone v2 parser was added. `runtime.js` remains the unchanged CJS shim over `runtime.mjs`.
+- Retained the generic formal-v2 validator, generic BUS_OUT externalization, declared bus/pin routing, table-qualified response materialization, and deep cloning at external publish/materialization boundaries.
+- Replaced 0442 and 0443 with current-contract evidence:
+  - worker-root `model.v1n` and numeric `model.subtableconnection` remain covered;
+  - complete old `0/0.1` input and fake-v2 legacy input reject without Tier 1 Feishu state;
+  - formal v2 dispatches through the real SSOT R1 actor into Model 3200 for resource/data/UI/task behavior.
+- Hard-cut detector TDD chronology:
+  - Added a real MQTT outer-packet case and observed the expected `2 failed / 19 passed`; moved the explicit legacy result to the common parser boundary, then reached `21/21`.
+  - Added a non-Feishu dotted-id counterexample and observed the expected `2 failed / 21 passed`; required the full old root/version/bus/subtable scaffold, then reached `23/23`.
+  - Added high-similarity non-Feishu scaffold cases for missing endpoint, `R1/100`, and `U1/3200`, plus a legacy R1 Model 3200 case without `sys_msg_type`; observed the expected `2 failed / 25 passed`.
+  - Final detector requires the old scaffold plus a canonical `R1` Model `3200` endpoint. Direct BUS_IN and real MQTT now report the same explicit legacy reason, unrelated invalid arrays retain generic classification, and the endpoint—not `sys_msg_type`—is the discriminator.
+  - Final CJS/ESM hard-cut result: `27 passed / 0 failed`.
+- Regression remediation:
+  - 0364 still built old nested `pin_payload.v1` fixtures; the first run exposed `7 passed / 2 failed`. Migrated only those fixtures to formal flat v2 with table-qualified endpoint/origin/reply records and legal control/management fields; final result `9/9`.
+  - Two stale test descriptions tripped the 0396 historical-topic wording scan while still asserting the correct rejection. Reworded the descriptions without changing behavior; the complete 0396 surface scan now passes.
+- Final focused verification:
+  - 0442–0452: `6/6`, `5/5`, `37/37`, `13/13`, `11/11`, `10/10`, `5/5`, `2/2`, `4/4`, and `2/2`.
+  - Model 3200 actor/schema `8/8`; local DE actor contract `14/14`.
+  - Generic transport/response: 0332 `32/32`, 0375 `74/74`, 0376 `14/14`, 0417 `10/10`, both 0430 contracts, and 0396: PASS.
+  - Actor/runtime: 0196 `3/3`, 0197 `2/2`, 0328 `4/4`, 0362 `11/11`, 0364 `9/9`, 0379 `3/3`, and 0419: PASS.
+  - Runtime/test syntax, docs gate, scoped `git diff --check`, and legacy Tier 1 surface scan: PASS.
+- Independent detector precision re-review: `Approved`; no findings or verification gaps.
+- Final independent hard-cut slice review: `Approved`; no findings, open questions, or verification gaps for the bounded deterministic slice.
+- No Feishu state was written and no OrbStack deployment was performed in this slice.
+- Result: PASS for deterministic Tier 1 hard-cut and migrated runtime contracts. Live test app, rollback snapshot, and OrbStack acceptance remain pending.
 
 ## Docs Review Checklist
 

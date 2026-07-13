@@ -170,6 +170,30 @@ function legacyShapeWithKind(kind) {
   ));
 }
 
+function nonFeishuDottedIdRecords() {
+  return [
+    legacyMt('__mt_payload_kind', 'str', 'pin_payload.v2', 'unrelated.meta'),
+    legacyMt('arbitrary_value', 'str', 'not-a-feishu-message', 'unrelated.payload'),
+  ];
+}
+
+function legacyLikeScaffoldRecords(endpointPin = null) {
+  return [
+    legacyMt('model_type', 'model.subtable', 'Unrelated'),
+    legacyMt('model_type', 'model.single', 'Unrelated.Single', '0', 0, 0, 1),
+    legacyMt('__mt_payload_kind', 'str', 'pin_payload.v2', '0', 0, 0, 1),
+    legacyMt('model_type', 'model.matrix', 'Unrelated', '0', 0, 1, 0),
+    ...(endpointPin ? [legacyMt('endpoint_pin', 'str', endpointPin, '0', 0, 1, 0)] : []),
+    legacyMt('model_type', 'model.subtableconnection', 7, '0', 0, 2, 0),
+    legacyMt('model_type', 'model.subtable', 'Unrelated', '0.7'),
+    legacyMt('arbitrary_value', 'str', 'not-a-feishu-message', '0.7'),
+  ];
+}
+
+function legacyFeishuRecordsWithoutSysMsgType() {
+  return completeLegacyFeishuRecords().filter((record) => record.k !== 'sys_msg_type');
+}
+
 function genericV2Records({ opId, includeSysMsgType = false } = {}) {
   return pinPayloadV2Records({
     opId,
@@ -241,6 +265,27 @@ function setupResponseReceiver(Runtime) {
   runtime.setRuntimeMode('edit');
   runtime.setRuntimeMode('running');
   return { runtime, target };
+}
+
+function setupRequestIngress(Runtime) {
+  const runtime = new Runtime();
+  runtime.setRuntimeMode('edit');
+  const model0 = runtime.getModel(0);
+  runtime.addLabel(model0, 0, 0, 0, { k: 'in3', t: 'pin.bus.cb.in', v: null });
+  runtime.addLabel(model0, 0, 0, 0, { k: 'mqtt_ingress_pin', t: 'str', v: 'in3' });
+  const started = runtime.startMqttLoop({
+    transport: 'mock',
+    host: 'localhost',
+    port: 1883,
+    client_id: '0457-hard-cut-request-ingress',
+    topic_mode: 'uiput_mm_v1',
+    topic_base: DEFAULT_TOPIC_BASE,
+    worker_id: 'R1',
+    payload_mode: 'pin_payload_v1',
+  });
+  assert.equal(started.status, 'running', 'local mock MQTT request ingress must start');
+  runtime.setRuntimeMode('running');
+  return runtime;
 }
 
 function tableQualifiedResponseRecords(handlerResult) {
@@ -384,6 +429,105 @@ function makeVariantTests(name, Runtime) {
         const runtime = new Runtime();
         dispatchControlBus(runtime, completeLegacyFeishuRecords());
         assert.deepEqual(legacyObservability(runtime), { labels: [], intercepts: [] });
+      },
+    },
+    {
+      kind: 'EXPECTED_RED',
+      name: `${name}_external_mqtt_legacy_packet_has_explicit_hard_cut_rejection`,
+      run() {
+        const runtime = setupRequestIngress(Runtime);
+        const topic = `${DEFAULT_TOPIC_BASE}/R1/3200/resource`;
+        const accepted = runtime.mqttIncoming(topic, externalPacket(completeLegacyFeishuRecords()));
+        assert.equal(accepted, false, 'external legacy packet must reject before Model 0 ingress');
+        assert.equal(
+          runtime.getModel(0).getCell(0, 0, 0).labels.get('mqtt_inbound_error')?.v?.code,
+          'legacy_feishu_message_api_v1_removed',
+          'external rejection must expose the hard-cut code in ModelTable',
+        );
+        const rejection = runtime.mqttTrace.list().filter((entry) => entry.type === 'inbound_rejected').at(-1);
+        assert.equal(rejection?.payload?.reason, 'legacy_feishu_message_api_v1_removed', 'MQTT trace must use the same explicit reason');
+        assert.equal(runtime.getModel(0).getCell(0, 0, 0).labels.get('in3')?.v, null, 'legacy packet must not reach the declared ingress bus');
+        assert.deepEqual(legacyObservability(runtime), { labels: [], intercepts: [] });
+      },
+    },
+    {
+      kind: 'PRESERVATION',
+      name: `${name}_non_feishu_dotted_ids_keep_generic_invalid_payload_classification`,
+      run() {
+        const records = nonFeishuDottedIdRecords();
+        const directRuntime = new Runtime();
+        const directResult = dispatchControlBus(directRuntime, records);
+        assert.deepEqual(
+          { applied: directResult?.applied ?? null, reason: latestRejectedReason(directRuntime) },
+          { applied: false, reason: 'pin_payload_not_modeltable' },
+          'unrelated dotted IDs must not be classified as the removed Feishu envelope',
+        );
+
+        const mqttRuntime = setupRequestIngress(Runtime);
+        const topic = `${DEFAULT_TOPIC_BASE}/R1/3200/resource`;
+        const accepted = mqttRuntime.mqttIncoming(topic, externalPacket(records));
+        assert.equal(accepted, false, 'unrelated invalid records must still fail closed at MQTT ingress');
+        assert.equal(
+          mqttRuntime.getModel(0).getCell(0, 0, 0).labels.get('mqtt_inbound_error')?.v?.code,
+          'invalid_payload',
+          'unrelated invalid records must retain the generic parser code',
+        );
+        const rejection = mqttRuntime.mqttTrace.list().filter((entry) => entry.type === 'inbound_rejected').at(-1);
+        assert.equal(rejection?.payload?.reason, 'invalid_pin_payload_records');
+      },
+    },
+    {
+      kind: 'PRESERVATION',
+      name: `${name}_legacy_like_non_feishu_scaffolds_keep_generic_invalid_classification`,
+      run() {
+        const topic = `${DEFAULT_TOPIC_BASE}/R1/3200/resource`;
+        const cases = [
+          ['missing_endpoint', legacyLikeScaffoldRecords()],
+          ['non_feishu_model', legacyLikeScaffoldRecords(`${DEFAULT_TOPIC_BASE}/R1/100/submit`)],
+          ['non_feishu_worker', legacyLikeScaffoldRecords(`${DEFAULT_TOPIC_BASE}/U1/3200/resource`)],
+        ];
+        for (const [caseName, records] of cases) {
+          const directRuntime = new Runtime();
+          const directResult = dispatchControlBus(directRuntime, records);
+          assert.deepEqual(
+            { applied: directResult?.applied ?? null, reason: latestRejectedReason(directRuntime) },
+            { applied: false, reason: 'pin_payload_not_modeltable' },
+            `${caseName}: non-Feishu scaffold must retain generic direct classification`,
+          );
+
+          const mqttRuntime = setupRequestIngress(Runtime);
+          const accepted = mqttRuntime.mqttIncoming(topic, externalPacket(records));
+          assert.equal(accepted, false, `${caseName}: invalid MQTT input must fail closed`);
+          assert.equal(
+            mqttRuntime.getModel(0).getCell(0, 0, 0).labels.get('mqtt_inbound_error')?.v?.code,
+            'invalid_payload',
+            `${caseName}: MQTT error must retain the generic parser code`,
+          );
+          const rejection = mqttRuntime.mqttTrace.list().filter((entry) => entry.type === 'inbound_rejected').at(-1);
+          assert.equal(rejection?.payload?.reason, 'invalid_pin_payload_records', `${caseName}: MQTT reason`);
+        }
+      },
+    },
+    {
+      kind: 'EXPECTED_RED',
+      name: `${name}_legacy_feishu_endpoint_rejects_without_sys_msg_type_discriminator`,
+      run() {
+        const records = legacyFeishuRecordsWithoutSysMsgType();
+        const directRuntime = new Runtime();
+        const directResult = dispatchControlBus(directRuntime, records);
+        assert.deepEqual(
+          { applied: directResult?.applied ?? null, reason: latestRejectedReason(directRuntime) },
+          { applied: false, reason: LEGACY_REJECTION_REASON },
+          'R1 Model 3200 endpoint, not business payload fields, identifies the removed envelope',
+        );
+
+        const mqttRuntime = setupRequestIngress(Runtime);
+        const topic = `${DEFAULT_TOPIC_BASE}/R1/3200/resource`;
+        assert.equal(mqttRuntime.mqttIncoming(topic, externalPacket(records)), false);
+        assert.equal(
+          mqttRuntime.getModel(0).getCell(0, 0, 0).labels.get('mqtt_inbound_error')?.v?.code,
+          'legacy_feishu_message_api_v1_removed',
+        );
       },
     },
     {

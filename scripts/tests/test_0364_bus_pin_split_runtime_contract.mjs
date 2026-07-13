@@ -3,12 +3,16 @@
 
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import {
+  DEFAULT_TOPIC_BASE,
+  pinPayloadV2Records,
+} from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
 
-function mt(k, t, v) {
-  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+function mt(k, t, v, id = 0) {
+  return { id, p: 0, r: 0, c: 0, k, t, v };
 }
 
 function payload(value = 'hello') {
@@ -20,54 +24,63 @@ function withoutRecords(records, keys) {
   return records.filter((record) => !deny.has(record.k));
 }
 
-function pinPayload({ requestId = 'req_0364', messageRole = 'request', workerId = 'R1', modelId = 3000, pin = 'submit', nested = payload() } = {}) {
-  const topic = `UIPUT/ws/dam/pic/de/${workerId}/${modelId}/${pin}`;
-  const responseTopic = 'UIPUT/ws/dam/pic/de/ui-server-test/100/result';
-  const records = [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', requestId),
-    mt('op_id', 'str', requestId),
-    mt('message_role', 'str', messageRole),
-    mt('topic', 'str', topic),
-    mt('response_topic', 'str', responseTopic),
-    mt('endpoint_worker_id', 'str', workerId),
-    mt('endpoint_model_id', 'int', modelId),
-    mt('endpoint_pin', 'str', pin),
-    mt('origin_worker_id', 'str', 'ui-server-test'),
-    mt('origin_model_id', 'int', 100),
-    mt('origin_pin', 'str', pin),
-    mt('reply_target_worker_id', 'str', 'ui-server-test'),
-    mt('reply_target_model_id', 'int', 100),
-    mt('reply_target_pin', 'str', 'result'),
-    mt('payload', 'json', nested),
-    mt('timestamp', 'int', 1),
-  ];
-  return records;
+function pinPayload({
+  requestId = 'req_0364',
+  messageRole = 'request',
+  workerId = 'R1',
+  modelId = 3000,
+  pin = 'submit',
+  nested = payload(),
+  routeKind = 'control',
+} = {}) {
+  return pinPayloadV2Records({
+    opId: requestId,
+    messageRole,
+    endpointWorkerId: workerId,
+    endpointModelId: modelId,
+    endpointPin: pin,
+    topic: `${DEFAULT_TOPIC_BASE}/${workerId}/${modelId}/${pin}`,
+    responseTopic: `${DEFAULT_TOPIC_BASE}/U1/100/result`,
+    routeKind,
+    originWorkerId: 'U1',
+    originModelId: 100,
+    originPin: pin,
+    replyTargetWorkerId: 'U1',
+    replyTargetModelId: 100,
+    replyTargetPin: 'result',
+    payloadRecords: nested,
+    timestamp: 1700000000364,
+  });
 }
 
 function busSendPayload({ bus = null, requestId = 'req_bus_send_0364', busOutKey = 'submit_bus', pin = 'submit', messageRole = 'request' } = {}) {
-  const topic = `UIPUT/ws/dam/pic/de/R1/3000/${pin}`;
-  const responseTopic = 'UIPUT/ws/dam/pic/de/ui-server-test/100/result';
+  const topic = `${DEFAULT_TOPIC_BASE}/R1/3000/${pin}`;
+  const responseTopic = `${DEFAULT_TOPIC_BASE}/U1/100/result`;
+  const routeKind = bus || 'control';
   const records = [
     mt('__mt_payload_kind', 'str', 'bus_send.v1'),
     mt('__mt_request_id', 'str', requestId),
     mt('message_role', 'str', messageRole),
     mt('topic', 'str', topic),
     mt('response_topic', 'str', responseTopic),
-    mt('route_kind', 'str', bus || 'control'),
+    mt('route_kind', 'str', routeKind),
+    mt('bus', 'str', routeKind),
     mt('endpoint_worker_id', 'str', 'R1'),
+    mt('endpoint_table_id', 'str', 'host'),
     mt('endpoint_model_id', 'int', 3000),
     mt('endpoint_pin', 'str', pin),
-    mt('origin_worker_id', 'str', 'ui-server-test'),
+    mt('origin_worker_id', 'str', 'U1'),
+    mt('origin_table_id', 'str', 'host'),
     mt('origin_model_id', 'int', 100),
     mt('origin_pin', 'str', pin),
-    mt('reply_target_worker_id', 'str', 'ui-server-test'),
+    mt('reply_target_worker_id', 'str', 'U1'),
+    mt('reply_target_table_id', 'str', 'host'),
     mt('reply_target_model_id', 'int', 100),
     mt('reply_target_pin', 'str', 'result'),
     mt('bus_out_key', 'str', busOutKey),
-    mt('payload', 'json', payload('from_bus_send')),
+    mt('payload_model_id', 'int', 1),
+    mt('message_text', 'str', 'from_bus_send', 1),
   ];
-  if (bus) records.push(mt('bus', 'str', bus));
   return records;
 }
 
@@ -232,7 +245,7 @@ function test_split_bus_out_requires_endpoint_metadata_records() {
   const missingEndpoint = rt.addLabel(model0, 0, 0, 0, {
     k: 'missing_endpoint_mb_out',
     t: 'pin.bus.mb.out',
-    v: withoutRecords(pinPayload({ requestId: 'req_missing_endpoint_0364' }), ['endpoint_worker_id']),
+    v: withoutRecords(pinPayload({ requestId: 'req_missing_endpoint_0364', routeKind: 'management' }), ['endpoint_worker_id']),
   });
   const missingOrigin = rt.addLabel(model0, 0, 0, 0, {
     k: 'missing_origin_cb_out',
@@ -247,13 +260,13 @@ function test_split_bus_out_requires_endpoint_metadata_records() {
   const valid = rt.addLabel(model0, 0, 0, 0, {
     k: 'valid_mb_out',
     t: 'pin.bus.mb.out',
-    v: pinPayload({ requestId: 'req_valid_endpoint_0364' }),
+    v: pinPayload({ requestId: 'req_valid_endpoint_0364', routeKind: 'management' }),
   });
 
-  assert.equal(missingEndpoint.applied, false, 'split bus out must reject pin_payload.v1 without endpoint records');
-  assert.equal(missingOrigin.applied, false, 'split bus out must reject pin_payload.v1 without origin records');
+  assert.equal(missingEndpoint.applied, false, 'split bus out must reject pin_payload.v2 without endpoint records');
+  assert.equal(missingOrigin.applied, false, 'split bus out must reject pin_payload.v2 without origin records');
   assert.equal(invalidEndpoint.applied, false, 'split bus out must reject invalid endpoint records');
-  assert.equal(valid.applied, true, 'split bus out must accept pin_payload.v1 with endpoint/origin/reply records');
+  assert.equal(valid.applied, true, 'split bus out must accept pin_payload.v2 with endpoint/origin/reply records');
   assert.equal(model0.getCell(0, 0, 0).labels.has('missing_endpoint_mb_out'), false, 'endpoint-less management bus out must not be stored');
   assert.equal(model0.getCell(0, 0, 0).labels.has('missing_origin_cb_out'), false, 'origin-less bus out must not be stored');
   assert.equal(model0.getCell(0, 0, 0).labels.get('valid_mb_out')?.t, 'pin.bus.mb.out', 'valid endpoint bus out remains stored');
