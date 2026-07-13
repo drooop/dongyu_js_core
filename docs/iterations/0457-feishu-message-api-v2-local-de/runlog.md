@@ -327,6 +327,35 @@ phase: phase3
 - No Feishu state was written and no OrbStack deployment was performed in this slice.
 - Result: PASS for the Model 3200 actor/schema foundation. Business-family migration and live OrbStack acceptance remain pending.
 
+### Step 3C — F-01 Model 3200 Task Family RED/GREEN
+
+- Replaced the 0444 Tier 1/v1 task-manager test with real R1 actor requests through MQTT, Model 0, Model `-10`, the Model 3200 task PINs, Model 3200-owned state, and the generic `result` response.
+- Initial task RED: `5 failed / 0 passed`; schema foundation remained `8 passed / 0 failed`.
+- Initial RED review: `Change Requested` because two lifecycle cases failed through `TypeError`, required-field coverage was incomplete, and the F-08 boundary was only indirect.
+- Strengthened RED:
+  - every lifecycle step asserts transport delivery and task existence before reading state;
+  - all persisted task fields and lifecycle timestamps are asserted;
+  - all 15 required fields cover both missing and wrong-type cases;
+  - non-add field cases seed only Model 3200 test state so they do not depend on the unimplemented add baseline;
+  - `add_task` proves `add_task_return` remains untouched and `result` is the only public output.
+- Strengthened result: expected RED, `34 failed / 0 passed`, with no `TypeError`; independent RED re-review `Approved` with no findings or gaps.
+- GREEN implementation:
+  - the schema emits an internal validated context instead of a pre-business success response;
+  - `feishu_task_manager` owns add/edit/delete/receive/finish/archive state and visible results entirely inside Model 3200 using V1N label APIs;
+  - required field/type validation and unknown-task rejection fail closed without changing task state or `result`;
+  - the generic response contract runs after the family handler and carries the actual task `handler_result`.
+- Initial GREEN: task `34 passed / 0 failed`; Model 3200 schema `8 passed / 0 failed`; focused actor, transport, routing, response, and legacy 0443-0452 regressions PASS.
+- Initial GREEN review: `Change Requested` because an empty `add_task_return` payload received a generic accepted result, which made pending F-08 look implemented.
+- Added three exact F-08 RED cases covering empty, complete legacy-field, and wrong-type payloads; observed `3 failed / 34 passed`.
+- Remediation: the declared `add_task_return` input now returns Model 3200-visible `task_action_pending:add_task_return` and emits no result or task mutation; no dedicated output/behavior was added.
+- Final verification:
+  - task family: `37 passed / 0 failed`;
+  - Model 3200 schema: `8 passed / 0 failed`;
+  - DE actor `14/14`, unified transport `74/74`, control-first routing `14/14`, generic response materialization `4/4`, 0430, and existing 0443-0452 regressions: PASS.
+- Final independent GREEN re-review: `Approved`; no findings, questions, or verification gaps.
+- No Feishu state was written and no OrbStack deployment was performed in this slice.
+- Result: PASS for the Model 3200 task family. Resource/data/UI/response migration and live acceptance remain pending.
+
 ## Docs Review Checklist
 
 - [x] `CLAUDE.md` runtime baseline reviewed/updated
