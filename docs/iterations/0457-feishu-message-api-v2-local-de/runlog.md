@@ -484,13 +484,17 @@ phase: phase3
   - accepting the complete legacy `0/0.1` Feishu message shape or the same legacy shape with only its payload-kind text changed to v2;
   - retaining resource/data/UI/task manager instance state, legacy parser/dispatch/manager methods, Model 0 Feishu labels, or Feishu business intercepts;
   - retaining or renaming any standalone `scripts/lib/feishu_message_api*.mjs` parser surface.
-- Preservation guards require formal numeric v2 to remain accepted, `sys_msg_type` outside Model 3200 to remain ordinary transport, and table-qualified v2 response materialization plus deep-clone behavior to remain intact.
+- Preservation guards require formal numeric v2 to remain accepted, the complete malformed-v2 matrix to remain fail-closed, `sys_msg_type` outside Model 3200 to remain ordinary transport, and table-qualified v2 response materialization plus deep-clone behavior to remain intact.
 - Code-state correction versus the earlier handoff: `packages/worker-base/src/runtime.js` is currently an eight-line CJS compatibility shim over canonical `runtime.mjs`, not a second runtime implementation. The RED therefore exercises both entrypoints while the production deletion will occur only in `runtime.mjs`.
 - Initial RED: `10 expected failures / 6 preservation passes / 0 preservation failures`.
 - Initial RED review: `Change Requested` because checking only deletion of `feishu_message_api_v1.mjs` would allow the same forbidden standalone parser to return under a v2 filename.
 - Remediation scans the complete `scripts/lib/feishu_message_api*.mjs` surface and requires it to be empty.
 - Strengthened RED: `11 expected failures / 6 preservation passes / 0 preservation failures`; no TypeError, syntax failure, or preservation regression.
-- Independent RED re-review: `Approved`; no findings, questions, or verification gaps.
+- First independent RED re-review: `Approved`; no findings, questions, or verification gaps.
+- Second independent RED review: `Change Requested` because the 0457 gate itself did not yet enumerate all Step 4 malformed formal-v2 boundaries even though broader historical tests covered some of them.
+- Matrix remediation adds CJS/ESM cases for missing/zero/string `payload_model_id`, nested payload, duplicate metadata, missing endpoint/origin/reply table ids, topic endpoint mismatch, equal request/response topics, and removed `manage` routing, with exact fail-closed reasons.
+- Final strengthened RED: `11 expected failures / 8 preservation passes / 0 preservation failures`; no TypeError, syntax failure, or preservation regression.
+- Final independent RED re-review: `Approved`; no findings, questions, or verification gaps.
 - No Tier 1 code, actor patch, Feishu state, or OrbStack deployment changed in this RED slice.
 - Result: reviewed expected RED recorded; Tier 1 hard-cut GREEN may begin.
 

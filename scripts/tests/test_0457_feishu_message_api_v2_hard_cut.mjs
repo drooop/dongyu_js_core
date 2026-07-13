@@ -115,6 +115,18 @@ function payloadRecord(k, t, v, { p = 0, r = 0, c = 0 } = {}) {
   return { id: 1, p, r, c, k, t, v };
 }
 
+function rootRecord(k, t, v) {
+  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+}
+
+function replaceRootRecord(records, key, patch) {
+  return records.map((record) => (
+    record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key
+      ? { ...record, ...patch }
+      : record
+  ));
+}
+
 function completeLegacyFeishuRecords() {
   return [
     legacyMt('model_type', 'model.subtable', 'Data'),
@@ -298,6 +310,36 @@ function makeVariantTests(name, Runtime) {
         const runtime = new Runtime();
         const result = dispatchControlBus(runtime, genericV2Records({ opId: `0457_hard_cut_plain_${name}` }));
         assert.equal(result?.applied, true, 'formal numeric v2 must remain accepted at the generic bus boundary');
+      },
+    },
+    {
+      kind: 'PRESERVATION',
+      name: `${name}_malformed_formal_v2_matrix_remains_fail_closed`,
+      run() {
+        const valid = genericV2Records({ opId: `0457_hard_cut_invalid_matrix_${name}` });
+        const requestTopic = `${DEFAULT_TOPIC_BASE}/R1/100/submit`;
+        const cases = [
+          ['missing_payload_model_id', valid.filter((record) => record.k !== 'payload_model_id'), 'bus_in_missing_payload_model_id'],
+          ['zero_payload_model_id', replaceRootRecord(valid, 'payload_model_id', { v: 0 }), 'bus_in_invalid_payload_model_id'],
+          ['string_payload_model_id', replaceRootRecord(valid, 'payload_model_id', { t: 'str', v: '1' }), 'bus_in_invalid_payload_model_id'],
+          ['nested_payload', [...valid, rootRecord('payload', 'json', [payloadRecord('nested', 'str', 'removed')])], 'bus_in_nested_payload_removed'],
+          ['duplicate_metadata', [...valid, rootRecord('op_id', 'str', 'duplicate')], 'bus_in_invalid_pin_payload_records'],
+          ['missing_endpoint_table_id', valid.filter((record) => record.k !== 'endpoint_table_id'), 'bus_in_missing_endpoint_table_id'],
+          ['missing_origin_table_id', valid.filter((record) => record.k !== 'origin_table_id'), 'bus_in_missing_origin_table_id'],
+          ['missing_reply_target_table_id', valid.filter((record) => record.k !== 'reply_target_table_id'), 'bus_in_missing_reply_target_table_id'],
+          ['topic_endpoint_mismatch', replaceRootRecord(valid, 'topic', { v: `${DEFAULT_TOPIC_BASE}/R1/101/submit` }), 'bus_in_endpoint_mismatch'],
+          ['equal_request_response_topic', replaceRootRecord(valid, 'response_topic', { v: requestTopic }), 'bus_in_response_topic_mismatch'],
+          ['removed_manage_route', replaceRootRecord(valid, 'route_kind', { v: 'manage' }), 'bus_in_invalid_route_kind'],
+        ];
+        for (const [caseName, records, reason] of cases) {
+          const runtime = new Runtime();
+          const result = dispatchControlBus(runtime, records);
+          assert.deepEqual(
+            { applied: result?.applied ?? null, reason: latestRejectedReason(runtime) },
+            { applied: false, reason },
+            `${name}:${caseName}`,
+          );
+        }
       },
     },
     {
