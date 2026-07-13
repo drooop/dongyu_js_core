@@ -467,7 +467,13 @@ phase: phase3
   - two-runtime materialization: `2 passed / 0 failed`;
   - Model 3200 actor/schema `8/8`, generic response materialization `4/4`, unified transport `74/74`, control-first routing `14/14`, 0396 dual-topic, both 0430 contracts, and DE actor `14/14`: PASS;
   - syntax and scoped `git diff --check`: PASS.
-- Independent GREEN review: `Approved`; no findings, questions, or verification gaps.
+- First independent GREEN review: `Approved`; no findings, questions, or verification gaps.
+- Second independent GREEN review: `Change Requested` because the published packet still shared nested handler-result references with the R1 producer. Mutating the externally visible packet could therefore change Model 3200 catalog, last result, result, and Model 0 return-bus state even though the U1 consumer had already deep-cloned its copy.
+- TDD remediation:
+  - added a producer-state isolation assertion and observed the expected `1 failed / 1 passed` in 0452;
+  - moved deep cloning to the generic BUS_OUT externalization boundary and changed response materialization to use the generic clone helper;
+  - external packet mutation now leaves producer catalog, last result, result, return bus, and consumer materialized state unchanged.
+- Final independent GREEN re-review: `Approved`; no findings, questions, or verification gaps.
 - No Feishu state was written and no OrbStack deployment was performed in this slice.
 - Result: PASS for the migrated generic response/publish/materialization evidence. Tier 1 v1 hard cut and live OrbStack acceptance remain pending.
 

@@ -1446,9 +1446,13 @@ class ModelTableRuntime {
     });
   }
 
-  _cloneFeishuValue(value) {
+  _clonePayloadValue(value) {
     if (value && typeof value === 'object') return JSON.parse(JSON.stringify(value));
     return value;
+  }
+
+  _cloneFeishuValue(value) {
+    return this._clonePayloadValue(value);
   }
 
   _cloneFeishuRecord(record) {
@@ -2462,7 +2466,7 @@ class ModelTableRuntime {
   _pinBusOutValueToExternalPayload(value) {
     if (Array.isArray(value)) {
       const parsed = this._parsePinPayloadValue(value);
-      return parsed.ok ? parsed.packet : null;
+      return parsed.ok ? this._clonePayloadValue(parsed.packet) : null;
     }
     return null;
   }
@@ -3460,7 +3464,7 @@ class ModelTableRuntime {
       const result = this.addLabel(targetModel, record.p, record.r, record.c, {
         k: record.k,
         t: record.t,
-        v: this._cloneFeishuValue(record.v),
+        v: this._clonePayloadValue(record.v),
       });
       if (!result || !result.applied) {
         return this._rejectPinPayloadResponseMaterialization(topic, payload, parsed, 'reply_target_write_failed');

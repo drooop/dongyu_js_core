@@ -192,12 +192,30 @@ async function test_real_r1_response_materializes_in_a_distinct_u1_app_runtime()
       `${name}: materialization must remain isolated to the consumer`,
     );
 
+    const producerModel3200 = producer.runtime.getModel(model3200Id).getCell(0, 0, 0);
+    const producerModel0 = producer.runtime.getModel(0).getCell(0, 0, 0);
+    const producerStateBeforeExternalMutation = structuredClone({
+      catalog: producerModel3200.labels.get('feishu_resource_manager_catalog')?.v,
+      last_result: producerModel3200.labels.get('feishu_resource_manager_last_result')?.v,
+      result: producerModel3200.labels.get('result')?.v,
+      return_bus: producerModel0.labels.get('remote_result_bus')?.v,
+    });
     const sourceHandler = payloadRecords(publishedRecords).find((record) => record.k === 'handler_result');
     sourceHandler.v.catalog.UI.push('UI.mutated-after-delivery');
     assert.deepEqual(
       appLabel(replyTarget, 'handler_result')?.v?.catalog,
       { UI: ['UI.app1', 'UI.app2'] },
       `${name}: consumer must deep-clone materialized values`,
+    );
+    assert.deepEqual(
+      {
+        catalog: producerModel3200.labels.get('feishu_resource_manager_catalog')?.v,
+        last_result: producerModel3200.labels.get('feishu_resource_manager_last_result')?.v,
+        result: producerModel3200.labels.get('result')?.v,
+        return_bus: producerModel0.labels.get('remote_result_bus')?.v,
+      },
+      producerStateBeforeExternalMutation,
+      `${name}: externally visible publish packet must not alias any producer state`,
     );
   }
 }
