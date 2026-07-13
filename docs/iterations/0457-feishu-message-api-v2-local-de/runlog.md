@@ -417,6 +417,36 @@ phase: phase3
 - No Feishu state was written and no OrbStack deployment was performed in this slice.
 - Result: PASS for the Model 3200 data family. UI/response migration and live acceptance remain pending.
 
+### Step 3F — F-01 Model 3200 UI Family RED/GREEN
+
+- Replaced the 0447 Tier 1/v1 UI test with real R1 requests through local mock MQTT, Model 0, Model `-10`, Model 3200 `ui`, Model 3200-owned state/result, generic `result`, Model 0 return bus, and MQTT publish.
+- The reviewed RED locks:
+  - each request's own `op_id` must traverse Model 0, Model `-10`, and Model 3200, including pending and rejected requests;
+  - `ui.update_data` replaces current state and appends history, `ui.tmp_data` updates temporary state without changing history, and `ui.form_data` appends submissions;
+  - all three implemented actions use distinct non-default `payload_model_id` values in state, last result, and handler response, with no `payload_table_id` compatibility field;
+  - empty payload and `Flow` root requests reject for all three implemented actions without changing state, `result`, Model 0 return bus, or MQTT publish;
+  - `ui.refresh_data` is explicitly out of the 0457 behavior scope: it must return visible `ui_action_pending:refresh_data` and must not create refresh state, emit `result`, write the Model 0 return bus, publish MQTT, or refresh the frontend projection.
+- Initial RED: `10 failed / 0 passed`; data/resource/task remained `11/13/37` passed.
+- Initial RED review: `Change Requested` because tmp/form still used payload ID `1`, and refresh/rejection chain evidence could reuse labels left by a prior request.
+- RED remediation:
+  - update/tmp/form now use payload IDs `11/12/14`, rejection cases use `13/15/16`, and refresh uses `17`;
+  - dispatch returns the current request's `op_id`, which every positive, pending, and rejected path compares at all three actor stages;
+  - state, last result, and handler response explicitly require v2 naming for every implemented action.
+- Strengthened RED re-review: `Approved`; no findings, questions, or verification gaps.
+- GREEN implementation:
+  - added `feishu_ui_manager` after data handling and before the generic response contract;
+  - update/tmp/form state lives only on Model 3200 labels and preserves actual non-root payload records after excluding root metadata;
+  - invalid requests and refresh pending write a visible Model 3200 result and stop the function chain before business output;
+  - no UI business hook or frontend refresh behavior was added to the runtime kernel.
+- Final verification:
+  - UI family: `10 passed / 0 failed`;
+  - data `11/11`, resource `13/13`, task `37/37`, Model 3200 actor/schema `8/8`;
+  - DE actor `14/14`, unified transport `74/74`, control-first routing `14/14`, generic response materialization `4/4`, 0430, and existing response 0448-0452 regressions: PASS;
+  - JSON/syntax, docs gate, and `git diff --check`: PASS.
+- Independent GREEN review: `Approved`; no findings, questions, or verification gaps.
+- No Feishu state was written and no OrbStack deployment was performed in this slice.
+- Result: PASS for the Model 3200 UI family within the approved scope. Generic response/publish migration and live acceptance remain pending.
+
 ## Docs Review Checklist
 
 - [x] `CLAUDE.md` runtime baseline reviewed/updated
