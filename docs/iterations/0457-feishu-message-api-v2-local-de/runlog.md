@@ -300,6 +300,33 @@ phase: phase3
   - `git diff --check`
 - Result: expected RED recorded and reviewed; actor/schema GREEN may begin from the RED commit.
 
+### Step 3B — F-01 Model 3200 Actor/Schema GREEN
+
+- Added the versioned R1 Model 3200 actor patch at `deploy/sys-v1ns/remote-worker/patches/15_model3200_feishu_message_api.json`.
+- The patch declares the approved `model.submt/Flow` root, exact public request/result PIN surface, Model `-10` subscriptions/routes, Model 3200 schema function, visible accepted/rejected result, generic v2 response, and no dedicated `add_task_return` output.
+- Tightened the generic formal-v2 runtime contract so `bus`, `route_kind`, timestamp, and positive `payload_model_id` are required and exact; canonical emitters now produce equal control/management fields or fail closed.
+- Updated existing exact-v2 fixtures only where required: 0376 isolates invalid `route_kind` with a legal control `bus`, and 0430 includes the required timestamp.
+- Initial GREEN result: Model 3200 contract `8 passed / 0 failed`; 0450 response materialization `4 passed / 0 failed`; DE actor contract `14 passed / 0 failed`; broader focused regressions PASS.
+- Initial independent GREEN review: `Change Requested`.
+  - A present but invalid/blank optional `send_user` or `receive_user` was accepted on the control path.
+  - The canonical emitter could accept conflicting `bus` and `route_kind` inputs and emit a packet rejected by its own validator.
+  - The valid-response test did not prove every table-qualified reference or loop the actual Model 3200 result through generic materialization.
+- Added exact RED cases for both defects and the response-materialization gap; observed the expected `2 failed / 6 passed` before production remediation.
+- Remediation:
+  - Model 3200 distinguishes absent optional users from present invalid users and rejects invalid values with exact codes.
+  - The canonical emitter rejects invalid route/bus values and `bus_route_kind_mismatch` instead of silently normalizing them.
+  - Both legal control and management responses assert endpoint/origin/reply-target table references and materialize the real result into the named app ModelTable without host fallback.
+- Final verification:
+  - Model 3200 actor/schema: `8 passed / 0 failed`.
+  - 0450 generic response materialization: `4 passed / 0 failed`.
+  - 0457 DE actor: `14 passed / 0 failed`.
+  - 0375 unified transport: `74 passed / 0 failed`.
+  - 0376 control-first routing: `14 passed / 0 failed`.
+  - 0430 CJS/ESM/server contract, 0332 payload contract, 0396 dual-topic contract, 0417 principal projection, JSON/syntax, docs gate, and `git diff --check`: PASS.
+- Final independent GREEN re-review: `Approved`; no findings, open questions, or verification gaps.
+- No Feishu state was written and no OrbStack deployment was performed in this slice.
+- Result: PASS for the Model 3200 actor/schema foundation. Business-family migration and live OrbStack acceptance remain pending.
+
 ## Docs Review Checklist
 
 - [x] `CLAUDE.md` runtime baseline reviewed/updated

@@ -558,7 +558,7 @@ async function test_mbr_control_ingress_routes_management_response_and_rejects_i
 
   for (const [name, records, detail] of [
     ['missing_topic', withoutRecords(mbrResponseRecords({ opId: '0376_missing_topic' }), ['topic']), 'bus_in_invalid_topic'],
-    ['invalid_route_kind', mbrResponseRecords({ opId: '0376_invalid_route_kind', routeKind: 'legacy' }), 'bus_in_invalid_route_kind'],
+    ['invalid_route_kind', mbrResponseRecords({ opId: '0376_invalid_route_kind', routeKind: 'legacy', bus: 'control' }), 'bus_in_invalid_route_kind'],
     ['legacy_return_topic', [...mbrResponseRecords({ opId: '0376_legacy_return_topic' }), mt('return_topic', 'str', 'UIPUT/ws/dam/pic/de/U1/2000/result')], 'legacy_pin_payload_metadata_removed'],
     ['legacy_route_reply_to', [...mbrResponseRecords({ opId: '0376_legacy_route_reply_to' }), mt('route.reply_to', 'str', 'UIPUT/ws/dam/pic/de/U1/2000/result')], 'legacy_pin_payload_metadata_removed'],
     ['legacy_result_topic', [...mbrResponseRecords({ opId: '0376_legacy_result_topic' }), mt('result_topic', 'str', 'UIPUT/ws/dam/pic/de/U1/2000/result')], 'legacy_pin_payload_metadata_removed'],

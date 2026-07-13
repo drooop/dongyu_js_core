@@ -97,6 +97,7 @@ function validPinPayloadV2(overrides = {}) {
     mt('reply_target_model_id', 'int', replyTargetModelId),
     mt('reply_target_pin', 'str', replyTargetPin),
     mt('payload_model_id', 'int', payloadModelId),
+    mt('timestamp', 'int', 1700000000430),
     ...businessRecords,
   ];
   if (includeNestedPayload) {

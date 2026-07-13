@@ -2140,6 +2140,7 @@ class ModelTableRuntime {
       || key === 'route'
       || key === 'reply_to'
       || key === 'route.reply_to'
+      || key === 'response_pin'
       || key === 'return_topic'
       || key === 'returnTopic'
       || key === 'result_topic';
@@ -2273,6 +2274,32 @@ class ModelTableRuntime {
     if (messageRole !== 'request' && messageRole !== 'response') {
       return { ok: false, code: 'invalid_message_role' };
     }
+    const busLabel = this._payloadLabel(value, 'bus');
+    if (!busLabel) {
+      return { ok: false, code: 'missing_bus' };
+    }
+    const bus = this._payloadString(value, 'bus');
+    if (busLabel.t !== 'str' || (bus !== 'control' && bus !== 'management')) {
+      return { ok: false, code: 'invalid_bus' };
+    }
+    const routeKindLabel = this._payloadLabel(value, 'route_kind');
+    if (!routeKindLabel) {
+      return { ok: false, code: 'missing_route_kind' };
+    }
+    const routeKind = this._payloadString(value, 'route_kind');
+    if (routeKindLabel.t !== 'str' || (routeKind !== 'control' && routeKind !== 'management')) {
+      return { ok: false, code: 'invalid_route_kind' };
+    }
+    if (bus !== routeKind) {
+      return { ok: false, code: 'bus_route_kind_mismatch' };
+    }
+    const timestampLabel = this._payloadLabel(value, 'timestamp');
+    if (!timestampLabel) {
+      return { ok: false, code: 'missing_timestamp' };
+    }
+    if (timestampLabel.t !== 'int' || !Number.isInteger(timestampLabel.v)) {
+      return { ok: false, code: 'invalid_timestamp' };
+    }
     const topic = this._payloadString(value, 'topic');
     if (!this._isValidPayloadTopic(topic)) {
       return { ok: false, code: 'invalid_topic' };
@@ -2284,11 +2311,6 @@ class ModelTableRuntime {
     const nestedPayloadLabel = this._payloadLabel(value, 'payload');
     if (nestedPayloadLabel && nestedPayloadLabel.t === 'json' && this._isTemporaryModelTablePayload(nestedPayloadLabel.v)) {
       return { ok: false, code: 'nested_payload_removed' };
-    }
-    const routeKindLabel = this._payloadLabel(value, 'route_kind');
-    const routeKind = this._payloadString(value, 'route_kind') || 'control';
-    if (routeKindLabel && (routeKindLabel.t !== 'str' || (routeKind !== 'control' && routeKind !== 'management'))) {
-      return { ok: false, code: 'invalid_route_kind' };
     }
     if (this._hasLegacyPinPayloadMetadataForPinPayloadRecords(value)) {
       return { ok: false, code: 'legacy_pin_payload_metadata_removed' };
@@ -2305,9 +2327,13 @@ class ModelTableRuntime {
     if (!this._payloadLabel(value, 'reply_target_table_id')) {
       return { ok: false, code: 'missing_reply_target_table_id' };
     }
-    const payloadModelId = this._payloadInt(value, 'payload_model_id');
-    if (!Number.isInteger(payloadModelId)) {
+    const payloadModelIdLabel = this._payloadLabel(value, 'payload_model_id');
+    if (!payloadModelIdLabel) {
       return { ok: false, code: 'missing_payload_model_id' };
+    }
+    const payloadModelId = this._payloadInt(value, 'payload_model_id');
+    if (payloadModelIdLabel.t !== 'int' || !Number.isInteger(payloadModelId) || payloadModelId <= 0) {
+      return { ok: false, code: 'invalid_payload_model_id' };
     }
     const hasPayloadRecords = value.some((record) => record && record.id === payloadModelId);
     if (!hasPayloadRecords) {
@@ -2347,8 +2373,19 @@ class ModelTableRuntime {
     return { ok: true, endpoint, origin, replyTarget, payloadRecords, payloadModelId, messageRole, topic, responseTopic, routeKind };
   }
 
-  _buildPinPayloadValue({ opId, payload, payloadModelId = 1, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, replyTargetPrincipalKey = '', messageRole = 'request', topic = '', responseTopic = '', routeKind = null, bus = null }) {
+  _buildPinPayloadValue({ opId, payload, payloadModelId = 1, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, replyTargetPrincipalKey = '', messageRole = 'request', topic = '', responseTopic = '', routeKind = 'control', bus = null }) {
     const requestId = opId || `pin_payload_${Date.now()}`;
+    const effectiveRouteKind = routeKind == null ? 'control' : routeKind;
+    if (effectiveRouteKind !== 'control' && effectiveRouteKind !== 'management') {
+      throw new Error('invalid_route_kind');
+    }
+    const effectiveBus = bus == null ? effectiveRouteKind : bus;
+    if (effectiveBus !== 'control' && effectiveBus !== 'management') {
+      throw new Error('invalid_bus');
+    }
+    if (effectiveBus !== effectiveRouteKind) {
+      throw new Error('bus_route_kind_mismatch');
+    }
     const payloadRecords = Array.isArray(payload)
       ? payload.filter((record) => record && record.id === payloadModelId)
       : [];
@@ -2378,8 +2415,8 @@ class ModelTableRuntime {
     }
     if (typeof topic === 'string' && topic) records.push(this._mtPayloadRecord('topic', 'str', topic));
     if (typeof responseTopic === 'string' && responseTopic) records.push(this._mtPayloadRecord('response_topic', 'str', responseTopic));
-    if (typeof routeKind === 'string' && routeKind) records.push(this._mtPayloadRecord('route_kind', 'str', routeKind));
-    if (typeof bus === 'string' && bus) records.push(this._mtPayloadRecord('bus', 'str', bus));
+    records.push(this._mtPayloadRecord('route_kind', 'str', effectiveRouteKind));
+    records.push(this._mtPayloadRecord('bus', 'str', effectiveBus));
     return records;
   }
 

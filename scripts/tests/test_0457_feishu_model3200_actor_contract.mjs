@@ -93,6 +93,10 @@ function replaceRecord(records, key, patchRecord) {
   return records.map((record) => record.k === key ? { ...record, ...patchRecord } : record);
 }
 
+function rootValue(records, key) {
+  return records.find((record) => record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key)?.v;
+}
+
 function positiveModelSnapshot(runtime, modelId) {
   return runtime.snapshot().models[String(modelId)] ?? null;
 }
@@ -213,6 +217,23 @@ function test_generic_v2_requires_exact_transport_envelope() {
     assert.equal(parsed.ok, false, `${name}: exact v2 envelope must reject`);
     assert.equal(parsed.code, code, `${name}: exact rejection code`);
   }
+
+  assert.throws(
+    () => runtime._buildPinPayloadValue({
+      opId: '0457_builder_bus_route_conflict',
+      payload: [recordAt('value', 'str', 'conflict', { id: 1 })],
+      payloadModelId: 1,
+      endpoint: { worker_id: 'R1', table_id: 'host', model_id: 100, pin: 'submit' },
+      origin: { worker_id: 'U1', table_id: 'host', model_id: 1, pin: 'send' },
+      replyTarget: { worker_id: 'U1', table_id: 'host', model_id: 1, pin: 'result' },
+      topic: `${DEFAULT_TOPIC_BASE}/R1/100/submit`,
+      responseTopic: `${DEFAULT_TOPIC_BASE}/U1/1/result`,
+      routeKind: 'management',
+      bus: 'control',
+    }),
+    /bus_route_kind_mismatch/,
+    'canonical emitter must reject conflicting bus and route_kind instead of emitting an invalid packet',
+  );
 }
 
 async function test_model3200_rejects_invalid_feishu_extension_and_business_root() {
@@ -222,6 +243,10 @@ async function test_model3200_rejects_invalid_feishu_extension_and_business_root
     ['invalid_between', model3200Request({ between: 'DEM_DEM' }), 'invalid_between'],
     ['management_missing_send_user', model3200Request({ routeKind: 'management', receiveUser: 'R1' }), 'missing_send_user'],
     ['management_missing_receive_user', model3200Request({ routeKind: 'management', sendUser: 'U1' }), 'missing_receive_user'],
+    ['control_invalid_send_user_type', replaceRecord(model3200Request({ sendUser: 'U1' }), 'send_user', { t: 'int', v: 7 }), 'invalid_send_user'],
+    ['control_blank_send_user', model3200Request({ sendUser: '' }), 'invalid_send_user'],
+    ['control_invalid_receive_user_type', replaceRecord(model3200Request({ receiveUser: 'R1' }), 'receive_user', { t: 'int', v: 7 }), 'invalid_receive_user'],
+    ['control_blank_receive_user', model3200Request({ receiveUser: '' }), 'invalid_receive_user'],
     ['missing_business_model_type', model3200Request({ omit: ['model_type'] }), 'missing_business_model_type'],
     ['invalid_business_model_type', model3200Request({ payloadType: 'Code.JS' }), 'invalid_business_model_type'],
     ['missing_sys_msg_type', model3200Request({ omit: ['sys_msg_type'] }), 'missing_sys_msg_type'],
@@ -288,12 +313,42 @@ async function test_model3200_accepts_valid_control_and_management_schema() {
     assert.equal(result.v.find((record) => record.id === 0 && record.k === 'topic')?.v, `${DEFAULT_TOPIC_BASE}/U1/1/result`);
     assert.equal(result.v.find((record) => record.id === 0 && record.k === 'response_topic')?.v, `${DEFAULT_TOPIC_BASE}/U1/1/result`);
     assert.equal(result.v.find((record) => record.id === 0 && record.k === 'endpoint_worker_id')?.v, 'U1');
+    assert.equal(result.v.find((record) => record.id === 0 && record.k === 'endpoint_table_id')?.v, 'host');
     assert.equal(result.v.find((record) => record.id === 0 && record.k === 'endpoint_model_id')?.v, 1);
     assert.equal(result.v.find((record) => record.id === 0 && record.k === 'endpoint_pin')?.v, 'result');
     assert.equal(result.v.find((record) => record.id === 0 && record.k === 'origin_worker_id')?.v, 'R1');
+    assert.equal(result.v.find((record) => record.id === 0 && record.k === 'origin_table_id')?.v, 'host');
     assert.equal(result.v.find((record) => record.id === 0 && record.k === 'origin_model_id')?.v, model3200Id);
+    assert.equal(result.v.find((record) => record.id === 0 && record.k === 'origin_pin')?.v, 'resource');
+    assert.equal(result.v.find((record) => record.id === 0 && record.k === 'reply_target_worker_id')?.v, 'U1');
+    assert.equal(result.v.find((record) => record.id === 0 && record.k === 'reply_target_table_id')?.v, 'app:0457:feishu-contract');
+    assert.equal(result.v.find((record) => record.id === 0 && record.k === 'reply_target_model_id')?.v, 1);
+    assert.equal(result.v.find((record) => record.id === 0 && record.k === 'reply_target_pin')?.v, 'result');
     assert.equal(result.v.find((record) => record.id === 0 && record.k === 'bus')?.v, testCase.routeKind);
     assert.equal(result.v.find((record) => record.id === 0 && record.k === 'route_kind')?.v, testCase.routeKind);
+
+    const receiver = new r1.runtime.constructor();
+    const receiverRoot = receiver.getModel(0);
+    receiver.addLabel(receiverRoot, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
+    receiver.addLabel(receiverRoot, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: DEFAULT_TOPIC_BASE });
+    receiver.addLabel(receiverRoot, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'U1' });
+    receiver.addLabel(receiverRoot, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
+    const target = receiver.createModel({
+      table_id: 'app:0457:feishu-contract',
+      id: 1,
+      name: `${testCase.name} reply target`,
+      type: 'app',
+    });
+    receiver.addLabel(target, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'Data' });
+    receiver.setRuntimeMode('edit');
+    receiver.setRuntimeMode('running');
+    assert.equal(
+      receiver.mqttIncoming(rootValue(result.v, 'topic'), externalPacket(result.v)),
+      true,
+      `${testCase.name}: real Model 3200 response must materialize by its table-qualified reply target`,
+    );
+    assert.equal(target.getCell(0, 0, 0).labels.get('status')?.v, 'accepted', `${testCase.name}: response status materialized`);
+    assert.equal(target.getCell(0, 0, 0).labels.get('handler_result')?.v?.status, 'accepted', `${testCase.name}: handler result materialized`);
   }
 }
 
