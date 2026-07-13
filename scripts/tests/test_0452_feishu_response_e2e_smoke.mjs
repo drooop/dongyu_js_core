@@ -1,188 +1,230 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { loadSsotDeActor } from '../lib/ssot_de_actor_test_helpers.mjs';
+import {
+  DEFAULT_TOPIC_BASE,
+  externalPacket,
+  mt,
+  payloadRecords,
+  payloadValue,
+  pinPayloadV2Records,
+} from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const cjsRuntime = require('../../packages/worker-base/src/runtime.js');
 const esmRuntime = await import('../../packages/worker-base/src/runtime.mjs');
 
-const runtimeVariants = [
-  ['cjs', cjsRuntime.ModelTableRuntime],
-  ['esm', esmRuntime.ModelTableRuntime],
+const consumerVariants = [
+  ['cjs-consumer', cjsRuntime.ModelTableRuntime],
+  ['esm-consumer', esmRuntime.ModelTableRuntime],
 ];
 
-const topicBase = 'UIPUT/ws/dam/pic/de';
-const requestTopic = `${topicBase}/R1/3000/resource`;
-const responseTopic = `${topicBase}/U1/2000/result`;
+const model3200Id = 3200;
+const responseEndpointModelId = 21;
+const responseTargetModelId = 0;
+const responseTargetTableId = 'app:0457:response-e2e';
+const responseTopic = `${DEFAULT_TOPIC_BASE}/U1/${responseEndpointModelId}/result`;
+let requestSequence = 0;
 
-function mt(k, t, v, id = '0', p = 0, r = 0, c = 0) {
-  return { id, p, r, c, k, t, v };
+function recordAt(k, t, v, { p = 0, r = 0, c = 0 } = {}) {
+  return { id: 1, p, r, c, k, t, v };
 }
 
-function rootLabel(rt, key) {
-  return rt.getModel(0).getCell(0, 0, 0).labels.get(key) || null;
-}
-
-function cellLabel(model, key, p = 0, r = 0, c = 0) {
-  return model.getCell(p, r, c).labels.get(key) || null;
-}
-
-function payloadValue(records, key, id = 0) {
-  return Array.isArray(records)
-    ? records.find((record) => record && record.id === id && record.k === key)?.v
-    : undefined;
-}
-
-function payloadRecord(records, key, id = 1) {
-  return Array.isArray(records)
-    ? records.find((record) => record && record.id === id && record.k === key) || null
-    : null;
-}
-
-function feishuResourceReportMessage() {
+function resourceRows() {
   return [
-    mt('model_type', 'model.subtable', 'Data'),
-    mt('model_type', 'model.single', 'Data.Single', '0', 0, 0, 1),
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1', '0', 0, 0, 1),
-    mt('is_need_response', 'bool', true, '0', 0, 0, 1),
-    mt('model_type', 'model.matrix', 'Data', '0', 0, 1, 0),
-    mt('model_size', 'model.matrix.size', {
-      min_p: 0,
-      min_r: 1,
-      min_c: 0,
-      max_p: 0,
-      max_r: 1,
-      max_c: 2,
-    }, '0', 0, 1, 0),
-    mt('route_kind', 'str', 'control', '0', 0, 1, 0),
-    mt('origin_pin', 'str', responseTopic, '0', 0, 1, 0),
-    mt('endpoint_pin', 'str', requestTopic, '0', 0, 1, 0),
-    mt('response_pin', 'str', responseTopic, '0', 0, 1, 0),
-    mt('model_type', 'model.single', 'Data.Single', '0', 0, 1, 1),
-    mt('message_server', 'str', 'local', '0', 0, 1, 1),
-    mt('between', 'str', 'DEM_V1N', '0', 0, 1, 1),
-    mt('model_type', 'model.subtableconnection', 1, '0', 0, 2, 0),
-    mt('model_type', 'model.subtable', 'Data', '0.1'),
-    mt('model_name', 'model.name', 'payload', '0.1'),
-    mt('sys_msg_type', 'str', 'resource.report', '0.1'),
-    mt('type', 'str', 'UI', '0.1', 0, 0, 1),
-    mt('resource', 'list', ['UI.app1', 'UI.app2'], '0.1', 0, 0, 1),
+    recordAt('type', 'str', 'UI', { c: 1 }),
+    recordAt('resource', 'list', ['UI.app1', 'UI.app2'], { c: 1 }),
   ];
 }
 
-async function setupRuntime(Runtime, { createReplyTarget = true } = {}) {
-  const rt = new Runtime();
-  await rt.setRuntimeMode('edit');
-  const model0 = rt.getModel(0);
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_mode', t: 'str', v: 'uiput_mm_v1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_topic_base', t: 'str', v: topicBase });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_worker_id', t: 'str', v: 'U1' });
-  rt.addLabel(model0, 0, 0, 0, { k: 'mqtt_payload_mode', t: 'str', v: 'pin_payload_v1' });
-  const replyTarget = createReplyTarget
-    ? rt.createModel({ id: 2000, name: 'it0452_reply_target', type: 'test' })
-    : null;
-  if (replyTarget) {
-    rt.addLabel(replyTarget, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'E2E.ReplyTarget' });
-  }
-  await rt.setRuntimeMode('running');
-  const publishes = [];
-  rt.mqttClient = {
-    publish(topic, payload) {
-      publishes.push({ topic, payload });
-    },
-  };
-  return { rt, replyTarget, publishes };
-}
-
-function dispatchFeishuMessage(rt) {
-  return rt.addLabel(rt.getModel(0), 0, 0, 0, {
-    k: 'in3',
-    t: 'pin.bus.cb.in',
-    v: feishuResourceReportMessage(),
+function resourceRequest({ replyTargetTableId = responseTargetTableId } = {}) {
+  requestSequence += 1;
+  const requestTopic = `${DEFAULT_TOPIC_BASE}/R1/${model3200Id}/resource`;
+  return pinPayloadV2Records({
+    opId: `0457_response_e2e_${requestSequence}`,
+    endpointWorkerId: 'R1',
+    endpointTableId: 'host',
+    endpointModelId: model3200Id,
+    endpointPin: 'resource',
+    topic: requestTopic,
+    responseTopic,
+    routeKind: 'control',
+    originWorkerId: 'U1',
+    originTableId: replyTargetTableId,
+    originModelId: responseTargetModelId,
+    originPin: 'send',
+    replyTargetWorkerId: 'U1',
+    replyTargetTableId,
+    replyTargetModelId: responseTargetModelId,
+    replyTargetPin: 'result',
+    payloadModelId: 7,
+    payloadRecords: [
+      recordAt('model_type', 'model.table', 'Data'),
+      recordAt('sys_msg_type', 'str', 'resource.report'),
+      ...resourceRows(),
+    ],
+    extraRecords: [
+      mt('is_need_response', 'bool', true),
+      mt('message_server', 'str', 'local'),
+      mt('between', 'str', 'DEM_V1N'),
+    ],
+    timestamp: 1700000005200 + requestSequence,
   });
 }
 
-function assertPublishedResponse(name, publishes) {
-  assert.equal(publishes.length, 1, `${name}: exactly one response publish`);
-  const published = publishes[0];
-  assert.equal(published.topic, responseTopic, `${name}: response published to response topic`);
-  assert.equal(published.payload?.type, 'pin_payload', `${name}: published payload type`);
-  assert.equal(payloadValue(published.payload.payload, '__mt_payload_kind'), 'pin_payload.v2', `${name}: published packet kind`);
-  assert.equal(payloadValue(published.payload.payload, 'message_role'), 'response', `${name}: published role`);
-  assert.equal(payloadValue(published.payload.payload, 'topic'), responseTopic, `${name}: published topic`);
-  assert.equal(payloadValue(published.payload.payload, 'response_topic'), responseTopic, `${name}: published response_topic`);
-  assert.equal(payloadValue(published.payload.payload, 'reply_target_worker_id'), 'U1', `${name}: reply target worker`);
-  assert.equal(payloadValue(published.payload.payload, 'reply_target_table_id'), 'host', `${name}: reply target table`);
-  assert.equal(payloadValue(published.payload.payload, 'reply_target_model_id'), 2000, `${name}: reply target model`);
-  assert.equal(payloadRecord(published.payload.payload, 'family')?.v, 'resource', `${name}: payload family`);
-  assert.equal(payloadRecord(published.payload.payload, 'status')?.v, 'accepted', `${name}: payload status`);
-  assert.equal(payloadRecord(published.payload.payload, 'handler_result')?.v?.action, 'report', `${name}: payload handler action`);
-  return published;
+function setupProducer() {
+  const actor = loadSsotDeActor('r1');
+  assert.equal(actor.loadRejected, 0, 'R1 patches must load without rejection');
+  actor.runtime.setRuntimeMode('edit');
+  const mqttStart = actor.runtime.startMqttLoop({
+    transport: 'mock',
+    host: 'localhost',
+    port: 1883,
+    client_id: `0457-response-e2e-r1-${requestSequence + 1}`,
+    topic_mode: 'uiput_mm_v1',
+    topic_base: DEFAULT_TOPIC_BASE,
+    worker_id: 'R1',
+    payload_mode: 'pin_payload_v1',
+  });
+  assert.equal(mqttStart.status, 'running', 'R1 local mock MQTT must start');
+  actor.runtime.setRuntimeMode('running');
+  return actor;
 }
 
-function retargetPublishedResponse(published, { tableId, modelId }) {
-  return {
-    ...published.payload,
-    payload: published.payload.payload.map((record) => {
-      if (record && record.id === 0 && record.k === 'reply_target_table_id') {
-        return { ...record, v: tableId };
-      }
-      if (record && record.id === 0 && record.k === 'reply_target_model_id') {
-        return { ...record, v: modelId };
-      }
-      return { ...record };
-    }),
-  };
+function setupConsumer(Runtime, { createReplyTarget = true } = {}) {
+  const runtime = new Runtime();
+  runtime.setRuntimeMode('edit');
+  const responseEndpoint = runtime.createModel({
+    id: responseEndpointModelId,
+    name: '0457 Response Endpoint',
+    type: 'endpoint',
+  });
+  const replyTarget = createReplyTarget
+    ? runtime.createModel({
+      table_id: responseTargetTableId,
+      id: responseTargetModelId,
+      name: '0457 Response App',
+      type: 'app',
+    })
+    : null;
+  const mqttStart = runtime.startMqttLoop({
+    transport: 'mock',
+    host: 'localhost',
+    port: 1883,
+    client_id: `0457-response-e2e-u1-${requestSequence + 1}`,
+    topic_mode: 'uiput_mm_v1',
+    topic_base: DEFAULT_TOPIC_BASE,
+    worker_id: 'U1',
+    payload_mode: 'pin_payload_v1',
+  });
+  assert.equal(mqttStart.status, 'running', 'U1 local mock MQTT must start');
+  runtime.setRuntimeMode('running');
+  return { runtime, responseEndpoint, replyTarget };
 }
 
-async function test_resource_response_publishes_and_materializes_to_reply_target() {
-  for (const [name, Runtime] of runtimeVariants) {
-    const { rt, replyTarget, publishes } = await setupRuntime(Runtime);
-
-    const dispatched = dispatchFeishuMessage(rt);
-    assert.equal(dispatched.applied, true, `${name}: Feishu message accepted`);
-    assert.deepEqual(rootLabel(rt, 'feishu_resource_manager_catalog')?.v, {
-      UI: ['UI.app1', 'UI.app2'],
-    }, `${name}: resource handler state`);
-
-    const published = assertPublishedResponse(name, publishes);
-    const looped = rt.mqttIncoming(published.topic, published.payload);
-
-    assert.equal(looped, true, `${name}: published response loopback accepted`);
-    assert.equal(cellLabel(replyTarget, 'sys_msg_type')?.v, 'resource.report', `${name}: sys_msg_type materialized`);
-    assert.equal(cellLabel(replyTarget, 'family')?.v, 'resource', `${name}: family materialized`);
-    assert.equal(cellLabel(replyTarget, 'action')?.v, 'report', `${name}: action materialized`);
-    assert.equal(cellLabel(replyTarget, 'status')?.v, 'accepted', `${name}: status materialized`);
-    assert.equal(cellLabel(replyTarget, 'handler_result')?.v?.action, 'report', `${name}: handler result materialized`);
-    assert.equal(cellLabel(replyTarget, 'result'), null, `${name}: endpoint pin.in must not be written`);
-    assert.equal(rootLabel(rt, 'pin_payload_response_materialize_last_result')?.v?.status, 'applied', `${name}: materialization status`);
-    assert.equal(rootLabel(rt, 'pin_payload_response_materialize_last_result')?.v?.reply_target_model_id, 2000, `${name}: materialization target`);
-    assert.equal(publishes.some((entry) => entry.topic === requestTopic), false, `${name}: response never published to request topic`);
+async function settlePropagation() {
+  for (let index = 0; index < 12; index += 1) {
+    await new Promise((resolvePromise) => setImmediate(resolvePromise));
   }
 }
 
-async function test_loopback_missing_non_host_reply_target_rejects_without_host_fallback() {
-  for (const [name, Runtime] of runtimeVariants) {
-    const { rt, publishes } = await setupRuntime(Runtime, { createReplyTarget: true });
-    const dispatched = dispatchFeishuMessage(rt);
-    assert.equal(dispatched.applied, true, `${name}: Feishu message accepted before retarget`);
-    const published = assertPublishedResponse(name, publishes);
-    const missingTargetPacket = retargetPublishedResponse(published, {
-      tableId: 'missing_app_table_0452',
-      modelId: 0,
-    });
+async function publishFromProducer(actor, records) {
+  const requestTopic = `${DEFAULT_TOPIC_BASE}/R1/${model3200Id}/resource`;
+  const accepted = actor.runtime.mqttIncoming(requestTopic, externalPacket(records));
+  await settlePropagation();
+  assert.equal(accepted, true, 'R1 must accept the real v2 resource request');
+  assert.deepEqual(
+    actor.runtime.getModel(model3200Id).getCell(0, 0, 0).labels.get('feishu_resource_manager_catalog')?.v,
+    { UI: ['UI.app1', 'UI.app2'] },
+    'R1 must execute the real resource handler before responding',
+  );
+  const publishes = actor.runtime.mqttTrace.list().filter((entry) => entry.type === 'publish');
+  assert.equal(publishes.length, 1, 'R1 must publish exactly one response');
+  assert.equal(publishes[0].payload.topic, responseTopic, 'R1 must publish to the response topic');
+  assert.equal(publishes[0].payload.payload?.type, 'pin_payload', 'R1 must publish an external pin payload packet');
+  return publishes[0];
+}
 
-    const looped = rt.mqttIncoming(published.topic, missingTargetPacket);
+function rootLabel(runtime, key) {
+  return runtime.getModel(0).getCell(0, 0, 0).labels.get(key) ?? null;
+}
 
-    assert.equal(looped, false, `${name}: missing non-host reply target rejected`);
-    assert.equal(rootLabel(rt, 'pin_payload_response_materialize_last_result')?.v?.status, 'rejected', `${name}: rejection status`);
-    assert.equal(rootLabel(rt, 'pin_payload_response_materialize_last_result')?.v?.reason, 'reply_target_model_not_found', `${name}: rejection reason`);
-    assert.equal(rootLabel(rt, 'sys_msg_type'), null, `${name}: missing target must not fallback to host root`);
+function appLabel(replyTarget, key) {
+  return replyTarget.getCell(0, 0, 0).labels.get(key) ?? null;
+}
+
+async function test_real_r1_response_materializes_in_a_distinct_u1_app_runtime() {
+  for (const [name, Runtime] of consumerVariants) {
+    const producer = setupProducer();
+    const { runtime: consumer, responseEndpoint, replyTarget } = setupConsumer(Runtime);
+    assert.notEqual(producer.runtime, consumer, `${name}: producer and consumer must be distinct runtimes`);
+    assert.equal(
+      producer.runtime.getModel({ table_id: responseTargetTableId, model_id: responseTargetModelId }) ?? null,
+      null,
+      `${name}: producer must not own the U1 app target`,
+    );
+
+    const request = resourceRequest();
+    const requestId = payloadValue(request, 'op_id');
+    const published = await publishFromProducer(producer, request);
+    const publishedPacket = published.payload.payload;
+    const publishedRecords = publishedPacket.payload;
+    assert.equal(payloadValue(publishedRecords, '__mt_payload_kind'), 'pin_payload.v2', `${name}: response must stay v2`);
+    assert.equal(payloadValue(publishedRecords, 'op_id'), requestId, `${name}: response must preserve op_id`);
+    assert.equal(payloadValue(publishedRecords, 'reply_target_table_id'), responseTargetTableId, `${name}: response must preserve app table target`);
+    assert.equal(payloadValue(publishedRecords, 'reply_target_model_id'), responseTargetModelId, `${name}: response must preserve app model target`);
+
+    const accepted = consumer.mqttIncoming(published.payload.topic, publishedPacket);
+
+    assert.equal(accepted, true, `${name}: U1 must accept the exact R1 published packet`);
+    assert.equal(appLabel(replyTarget, 'sys_msg_type')?.v, 'resource.report', `${name}: sys_msg_type materialized`);
+    assert.equal(appLabel(replyTarget, 'family')?.v, 'resource', `${name}: family materialized`);
+    assert.equal(appLabel(replyTarget, 'action')?.v, 'report', `${name}: action materialized`);
+    assert.equal(appLabel(replyTarget, 'status')?.v, 'accepted', `${name}: status materialized`);
+    assert.deepEqual(appLabel(replyTarget, 'handler_result')?.v?.catalog, { UI: ['UI.app1', 'UI.app2'] }, `${name}: real handler result materialized`);
+    assert.equal(responseEndpoint.getCell(0, 0, 0).labels.get('result'), undefined, `${name}: endpoint pin must not be written`);
+    assert.equal(rootLabel(consumer, 'family'), null, `${name}: response must not fall back to host root`);
+    assert.equal(rootLabel(consumer, 'pin_payload_response_materialize_last_result')?.v?.status, 'applied', `${name}: materialization status`);
+    assert.equal(rootLabel(consumer, 'pin_payload_response_materialize_last_result')?.v?.reply_target_table_id, responseTargetTableId, `${name}: materialization records table target`);
+    assert.equal(
+      producer.runtime.getModel({ table_id: responseTargetTableId, model_id: responseTargetModelId }) ?? null,
+      null,
+      `${name}: materialization must remain isolated to the consumer`,
+    );
+
+    const sourceHandler = payloadRecords(publishedRecords).find((record) => record.k === 'handler_result');
+    sourceHandler.v.catalog.UI.push('UI.mutated-after-delivery');
+    assert.deepEqual(
+      appLabel(replyTarget, 'handler_result')?.v?.catalog,
+      { UI: ['UI.app1', 'UI.app2'] },
+      `${name}: consumer must deep-clone materialized values`,
+    );
+  }
+}
+
+async function test_missing_non_host_target_rejects_without_host_fallback() {
+  for (const [name, Runtime] of consumerVariants) {
+    const missingTableId = `app:0457:missing-response-target:${name}`;
+    const producer = setupProducer();
+    const { runtime: consumer, responseEndpoint } = setupConsumer(Runtime, { createReplyTarget: false });
+    const request = resourceRequest({ replyTargetTableId: missingTableId });
+    const published = await publishFromProducer(producer, request);
+
+    const accepted = consumer.mqttIncoming(published.payload.topic, published.payload.payload);
+
+    assert.equal(accepted, false, `${name}: missing non-host target must be rejected`);
+    assert.equal(rootLabel(consumer, 'pin_payload_response_materialize_last_result')?.v?.status, 'rejected', `${name}: rejection must be visible`);
+    assert.equal(rootLabel(consumer, 'pin_payload_response_materialize_last_result')?.v?.reason, 'reply_target_model_not_found', `${name}: rejection reason`);
+    assert.equal(rootLabel(consumer, 'sys_msg_type'), null, `${name}: missing app target must not fall back to host root`);
+    assert.equal(rootLabel(consumer, 'family'), null, `${name}: no response field may land on host root`);
+    assert.equal(responseEndpoint.getCell(0, 0, 0).labels.get('result'), undefined, `${name}: endpoint pin must remain untouched`);
+    assert.equal(consumer.getModel({ table_id: missingTableId, model_id: responseTargetModelId }) ?? null, null, `${name}: consumer must not auto-create a missing reply target`);
   }
 }
 
 const tests = [
-  test_resource_response_publishes_and_materializes_to_reply_target,
-  test_loopback_missing_non_host_reply_target_rejects_without_host_fallback,
+  test_real_r1_response_materializes_in_a_distinct_u1_app_runtime,
+  test_missing_non_host_target_rejects_without_host_fallback,
 ];
 
 let failed = 0;

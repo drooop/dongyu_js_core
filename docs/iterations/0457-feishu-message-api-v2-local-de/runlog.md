@@ -447,6 +447,30 @@ phase: phase3
 - No Feishu state was written and no OrbStack deployment was performed in this slice.
 - Result: PASS for the Model 3200 UI family within the approved scope. Generic response/publish migration and live acceptance remain pending.
 
+### Step 3G — F-01 Generic Response, Publish, and Two-Runtime Materialization Migration
+
+- Replaced the 0448 response-outbox test with a real SSOT R1 request path through local mock MQTT, Model 0, Model `-10`, Model 3200 family handlers, the generic `result` output, Model 0 `remote_result_bus`, and the response-topic publish.
+- The response contract now proves request correlation, complete endpoint/origin/reply-target identity, real task/resource handler output, management `bus`/`route_kind`, reversed management users, response suppression, and the F-08 no-dedicated-output boundary.
+- Initial independent review: `Change Requested` because the invalid equal request/response topic case did not also cover `is_need_response=false`; an implementation that skipped address validation when response emission was disabled could have passed.
+- Remediation added both `is_need_response=true` and `false` equal-topic cases. Both reject before Model 3200, leave business state/output unchanged, publish nothing, and write a visible Model 0 transport error.
+- Replaced the 0449 publish test with two generic paths:
+  - running R1 plus active local mock MQTT prepares the real Model 3200 result, writes the exact Model 0 return bus value, and publishes exactly once only to the response topic;
+  - running R1 with no MQTT client accepts the same real v2 ingress and prepares the same result/return bus without publishing.
+  - The removed edit-mode claim was not preserved because normal ModelTable functions intentionally do not execute in edit mode; preserving it would have required a forbidden Tier 1 business bypass.
+- Replaced the 0452 same-runtime loopback with an in-process two-runtime actor regression:
+  - a real R1 actor produces and publishes the response;
+  - a distinct U1 CJS/ESM consumer receives the exact published packet and materializes it only into the table-qualified app target;
+  - the producer never owns that target, the host endpoint pin remains untouched, a missing non-host target rejects without host fallback or auto-creation, and materialized JSON values are deep-cloned from the source packet.
+- Final verification:
+  - generic response contract: `5 passed / 0 failed`;
+  - generic publish contract: `2 passed / 0 failed`;
+  - two-runtime materialization: `2 passed / 0 failed`;
+  - Model 3200 actor/schema `8/8`, generic response materialization `4/4`, unified transport `74/74`, control-first routing `14/14`, 0396 dual-topic, both 0430 contracts, and DE actor `14/14`: PASS;
+  - syntax and scoped `git diff --check`: PASS.
+- Independent GREEN review: `Approved`; no findings, questions, or verification gaps.
+- No Feishu state was written and no OrbStack deployment was performed in this slice.
+- Result: PASS for the migrated generic response/publish/materialization evidence. Tier 1 v1 hard cut and live OrbStack acceptance remain pending.
+
 ## Docs Review Checklist
 
 - [x] `CLAUDE.md` runtime baseline reviewed/updated
