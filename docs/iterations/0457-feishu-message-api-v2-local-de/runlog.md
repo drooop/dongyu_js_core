@@ -356,6 +356,36 @@ phase: phase3
 - No Feishu state was written and no OrbStack deployment was performed in this slice.
 - Result: PASS for the Model 3200 task family. Resource/data/UI/response migration and live acceptance remain pending.
 
+### Step 3D — F-01 Model 3200 Resource Family RED/GREEN
+
+- Replaced the 0445 Tier 1/v1 resource test with real R1 requests through local mock MQTT, Model 0, Model `-10`, Model 3200 `resource`, Model 3200-owned catalog/result state, generic `result`, Model 0 return bus, and MQTT publish.
+- The reviewed RED locks:
+  - the same `op_id` must be visible at Model 0 ingress, Model `-10` dispatcher output, and Model 3200 input;
+  - `resource.report` and `resource.result` replace the Model 3200 catalog and return their real handler result;
+  - `resource.request` reads the current catalog while `is_need_response=false` leaves Model 3200 `result`, Model 0 return bus, and MQTT publish count unchanged;
+  - empty records, empty resource lists, blank types, and wrong resource types reject for both report and result without partial state;
+  - valid `type`/`resource` pairs may live in any same payload Cell, including non-root page/row coordinates, and one invalid Cell makes the entire request fail closed.
+- Initial strengthened RED: `11 failed / 0 passed`; independent RED review found the MQTT assertion initially had no active client. After starting a complete local mock MQTT runtime and proving the positive publish baseline, RED re-review was `Approved`.
+- GREEN implementation:
+  - added `feishu_resource_manager` to the Model 3200 function chain after task handling and before the generic response contract;
+  - resource catalog and last result now live only on Model 3200 labels through V1N APIs;
+  - report/result replace the catalog, request reads it, invalid business records write a visible rejection and emit no response;
+  - no resource business hook was added to the runtime kernel.
+- Initial GREEN: resource `11/11`, task `37/37`, actor/schema `8/8`; independent review found an incorrect `p=0,r=0,c>0` restriction that rejected legal non-root Cells and could ignore mixed invalid records.
+- TDD remediation:
+  - added non-root `p=1` and `r=1` positive cases plus a mixed valid/off-axis invalid negative case;
+  - observed the expected resource `2 failed / 11 passed` and actor/schema `1 failed / 7 passed` before the fix;
+  - changed the manager to group every `type`/`resource` record under the declared `payload_model_id` by its actual Cell coordinates and reject the whole request when any group is invalid.
+- Final verification:
+  - resource family: `13 passed / 0 failed`;
+  - task family: `37 passed / 0 failed`;
+  - Model 3200 actor/schema: `8 passed / 0 failed`;
+  - DE actor `14/14`, unified transport `74/74`, control-first routing `14/14`, generic response materialization `4/4`, 0430, and existing 0443-0452 regressions: PASS;
+  - JSON/syntax, docs gate, and `git diff --check`: PASS.
+- Final independent GREEN re-review: `Approved`; no findings, questions, or verification gaps.
+- No Feishu state was written and no OrbStack deployment was performed in this slice.
+- Result: PASS for the Model 3200 resource family. Data/UI/response migration and live acceptance remain pending.
+
 ## Docs Review Checklist
 
 - [x] `CLAUDE.md` runtime baseline reviewed/updated
