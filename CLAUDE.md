@@ -347,7 +347,7 @@ ARCH_INVARIANTS
 - app-as-OS: IA organized by apps/workstations, not single function
 - three model forms: simple (sandbox) / matrix (spatial, deferred) / table (dynamic)
 - PIN decoupling: 0356 target uses 2 connection declarations (label/cell), type-based differentiation
-- bus decoupling: management bus (user-facing) + control bus (execution) + MBR bridge
+- bus decoupling: management bus (user-facing) + control bus (execution) + MBR management-only bridge
 - workspace isolation: data separated, comms encrypted, trust revocable
 - capability detection: worker base must degrade gracefully, never crash silently
 - application-layer = positive model_id user-created models; system-level = negative model_id software-worker capability layers.
@@ -398,7 +398,7 @@ tier 2: model definitions (填表能力)
   - all system infrastructure functions (via system model labels)
   - data model subtypes (Data.Array.One/Two/Three, Data.Queue, Data.Stack, etc.) as JSON patch templates
   - flow model (flow.* labels + flow manager function) as JSON patch templates
-  - MBR routing rules (via mbr_route_* labels)
+  - MBR management routing/dispatch (via pin.connect.* and function labels; legacy `mbr_route_*` labels MUST NOT be restored)
   - MGMT send/receive (via function labels)
   - intent dispatch (via function labels)
   files: packages/worker-base/system-models/*.json, deploy/sys-v1ns/**/*.json
@@ -452,7 +452,7 @@ allocation rules (authoritative):
                   reserved for login flow; do not reuse for cognition/system routing.
 
   Model -10      system capability layer: infrastructure logic expressed as function labels:
-                  mgmt_send, mgmt_receive, intent_dispatch, mbr_route_*, mqtt config helpers.
+                  mgmt_send, mgmt_receive, intent_dispatch, management routing functions, mqtt config helpers.
                   all MBR/MGMT/intent capabilities live here as "filled table" entries.
 
   Model -12      system capability layer: cognition context model. scene_context and feedback-loop state carrier
@@ -622,11 +622,16 @@ MODEL_TYPE_REGISTRY
 
 RUNTIME_BASELINE
 
-default: Docker + K8s (not local MBR JS)
+default: local OrbStack Docker + Kubernetes (not host-side MBR JS)
 
 always-on:
-  docker: element-docker-demo (Matrix/Element), mosquitto
-  k8s (docker-desktop, default ns): deployment/mbr-worker=1, deployment/remote-worker=1
+  context: docker=orbstack, kubernetes=orbstack
+  namespace: dongyu
+  k8s: deployment/mosquitto=1, deployment/synapse=1,
+       deployment/remote-worker=1, deployment/workspace-manager=1,
+       deployment/mbr-worker=1, deployment/ui-server=1
+  transport: Matrix=http://synapse.dongyu.svc.cluster.local:8008,
+             MQTT=mosquitto.dongyu.svc.cluster.local:1883
 
 test classification:
   unit    = in-process ModelTableRuntime, no network, no Docker.
@@ -639,7 +644,7 @@ test classification:
             pre-req: Docker + K8s running. MUST run pre-flight first.
 
 pre-flight (MANDATORY before e2e/deploy tests):
-  bash scripts/ops/ensure_runtime_baseline.sh
+  bash scripts/ops/ensure_runtime_baseline.sh  # mutating; may build/sync/deploy
   bash scripts/ops/check_runtime_baseline.sh
 
 violation protocol:
@@ -657,6 +662,10 @@ mbr location record: prefer ModelTable Cell Label (model_id=-10, p=0, r=0, c=0, 
 DATA_SOURCES
 
 default external: Git / GitHub only.
+repo-governed exception: Feishu UpstreamConsensus may be fetched read-only from
+  exact https://open.feishu.cn:443 when an Approved iteration needs source evidence.
+  this does not authorize Feishu writes; every Feishu write requires separate explicit user approval.
+  local-only test infrastructure does not mean air-gapped execution.
 do not assume: Sentry, Linear, Notion, Figma (unless user confirms).
 if information is missing but work can still proceed reliably →
   state the assumption and how to validate it.

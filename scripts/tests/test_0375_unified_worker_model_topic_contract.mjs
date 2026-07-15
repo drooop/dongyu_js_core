@@ -13,6 +13,7 @@ import { pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
 const repoRoot = new URL('../..', import.meta.url);
+const flushAsyncTurn = () => new Promise((resolvePromise) => setImmediate(resolvePromise));
 
 function mt(k, t, v) {
   return { id: 0, p: 0, r: 0, c: 0, k, t, v };
@@ -46,6 +47,7 @@ function pinPayloadRecords({
   replyTargetModelId = 2000,
   replyTargetPin = 'result',
   messageRole = 'request',
+  routeKind = 'control',
   topic = null,
   responseTopic = null,
   payload = [mt('text', 'str', 'hello')],
@@ -71,6 +73,7 @@ function pinPayloadRecords({
     replyTargetWorkerId,
     replyTargetModelId,
     replyTargetPin,
+    routeKind,
     payloadRecords: payload,
     extraRecords,
     timestamp: 1,
@@ -1105,6 +1108,131 @@ async function test_worker_engine_publishes_response_to_response_topic() {
   return { key: 'worker_engine_publishes_response_to_response_topic', status: 'PASS' };
 }
 
+async function test_worker_engine_async_mqtt_publish_failure_retains_outbox_and_retries() {
+  const rt = new ModelTableRuntime();
+  await rt.setRuntimeMode('edit');
+  markDem(rt);
+  configureUnifiedMqtt(rt, 'R1');
+  const model0 = root(rt);
+  let rejectFirstPublish;
+  const firstPublish = new Promise((_resolvePromise, rejectPromise) => {
+    rejectFirstPublish = rejectPromise;
+  });
+  let publishAttempts = 0;
+  const engine = new WorkerEngineV0({
+    runtime: rt,
+    mqttPublish: () => {
+      publishAttempts += 1;
+      return publishAttempts === 1 ? firstPublish : Promise.resolve('published');
+    },
+  });
+  engine.splitBusRetryDelayMs = 0;
+  const outputKey = 'async_callback_out';
+  rt.addLabel(model0, 0, 0, 0, {
+    k: outputKey,
+    t: 'pin.bus.cb.out',
+    v: pinPayloadRecords({
+      opId: 'req_0375_async_callback',
+      endpointWorkerId: 'R1',
+      endpointModelId: 3000,
+      endpointPin: 'submit',
+    }),
+  });
+  await rt.setRuntimeMode('running');
+  engine.tick();
+
+  assert.equal(publishAttempts, 1, 'the first tick must start exactly one callback-backed publish');
+  assert.equal(
+    model0.getCell(0, 0, 0).labels.has(outputKey),
+    true,
+    'a pending MQTT callback must keep the bus output available',
+  );
+  assert.equal(engine.pendingBusOpIds.size, 1, 'the operation must remain pending until the callback settles');
+  assert.equal(engine.processedBusOpIds.size, 0, 'pending publish must not be recorded as processed');
+
+  rejectFirstPublish(new Error('mqtt callback rejected'));
+  await flushAsyncTurn();
+  assert.equal(engine.pendingBusOpIds.size, 0, 'callback failure must leave pending state');
+  assert.equal(engine.processedBusOpIds.size, 0, 'callback failure must not become a processed success');
+  assert.equal(
+    model0.getCell(0, 0, 0).labels.get('split_bus_out_error')?.v?.code,
+    'split_bus_mqtt_publish_failed',
+    'callback failure must write a ModelTable-visible error',
+  );
+  assert.equal(
+    model0.getCell(0, 0, 0).labels.has(outputKey),
+    true,
+    'callback failure must retain the exact output for retry',
+  );
+
+  engine.tick();
+  await flushAsyncTurn();
+  assert.equal(publishAttempts, 2, 'a later tick must retry the retained output');
+  assert.equal(engine.processedBusOpIds.size, 1, 'only the callback-confirmed retry may become processed');
+  assert.equal(
+    model0.getCell(0, 0, 0).labels.has(outputKey),
+    false,
+    'callback-confirmed success may acknowledge the dynamic output',
+  );
+  return { key: 'worker_engine_async_mqtt_publish_failure_retains_outbox_and_retries', status: 'PASS' };
+}
+
+async function test_runtime_async_mqtt_publish_failure_is_visible_and_never_unhandled() {
+  const rt = new ModelTableRuntime();
+  await rt.setRuntimeMode('edit');
+  markDem(rt);
+  configureUnifiedMqtt(rt, 'R1');
+  const model0 = root(rt);
+  const outputKey = 'runtime_async_callback_out';
+  let publishAttempts = 0;
+  const unhandled = [];
+  const onUnhandled = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    rt.mqttClient = {
+      publish() {
+        publishAttempts += 1;
+        return Promise.reject(new Error('runtime mqtt callback rejected'));
+      },
+    };
+    await rt.setRuntimeMode('running');
+    rt.addLabel(model0, 0, 0, 0, {
+      k: outputKey,
+      t: 'pin.bus.cb.out',
+      v: pinPayloadRecords({
+        opId: 'req_0375_runtime_async_callback',
+        endpointWorkerId: 'R1',
+        endpointModelId: 3000,
+        endpointPin: 'submit',
+      }),
+    });
+    await flushAsyncTurn();
+    assert.deepEqual(unhandled, [], 'runtime publish callback failure must never escape as an unhandled rejection');
+    assert.equal(publishAttempts, 1);
+    assert.equal(
+      model0.getCell(0, 0, 0).labels.get('split_bus_out_error')?.v?.code,
+      'split_bus_mqtt_publish_failed',
+      'runtime direct publish failure must be ModelTable-visible',
+    );
+    assert.equal(
+      model0.getCell(0, 0, 0).labels.has(outputKey),
+      true,
+      'runtime direct publish failure must retain the output for an explicit retry',
+    );
+
+    rt.mqttClient.publish = () => {
+      publishAttempts += 1;
+      return Promise.resolve('published');
+    };
+    rt.addLabel(model0, 0, 0, 0, model0.getCell(0, 0, 0).labels.get(outputKey));
+    await flushAsyncTurn();
+    assert.equal(publishAttempts, 2, 're-adding the retained output must retry through the same runtime path');
+  } finally {
+    process.off('unhandledRejection', onUnhandled);
+  }
+  return { key: 'runtime_async_mqtt_publish_failure_is_visible_and_never_unhandled', status: 'PASS' };
+}
+
 async function test_worker_engine_rejects_short_payload_topic() {
   const rt = new ModelTableRuntime();
   await rt.setRuntimeMode('edit');
@@ -1289,7 +1417,20 @@ async function test_generic_worker_bootstrap_validates_topic_payload_endpoint_ma
 }
 
 async function test_generic_worker_matrix_ingress_validates_strict_pin_payload_packet() {
-  const valid = externalPacket(pinPayloadRecords({ endpointWorkerId: 'R1', endpointModelId: 3000, endpointPin: 'submit' }));
+  const validRecords = pinPayloadRecords({
+    endpointWorkerId: 'R1',
+    endpointModelId: 3000,
+    endpointPin: 'submit',
+    routeKind: 'management',
+  });
+  const valid = externalPacket(validRecords);
+  const controlRoute = externalPacket(pinPayloadRecords({
+    opId: 'req_0375_matrix_control_route',
+    endpointWorkerId: 'R1',
+    endpointModelId: 3000,
+    endpointPin: 'submit',
+    routeKind: 'control',
+  }));
   const version0 = { ...valid, version: 'v0' };
   const extraTop = { ...valid, op_id: 'loose_op' };
   const legacyRecord = externalPacket(pinPayloadRecords().concat([legacyReplyToRecord()]));
@@ -1302,17 +1443,52 @@ async function test_generic_worker_matrix_ingress_validates_strict_pin_payload_p
     'op_id',
     { v: '   ' },
   ));
+  const missingTimestamp = externalPacket(withoutRecords(validRecords, ['timestamp']));
+  const invalidTimestamp = externalPacket(withRecordOverride(validRecords, 'timestamp', { t: 'str', v: '1' }));
+  const duplicateRootExtension = externalPacket(validRecords.concat([
+    mt('custom_hint', 'str', 'first'),
+    mt('custom_hint', 'str', 'second'),
+  ]));
+  const nonRootModelZeroPackets = ['p', 'r', 'c'].map((axis) => externalPacket(validRecords.concat([{
+    ...mt(`custom_hint_${axis}`, 'str', 'off-root'),
+    [axis]: 1,
+  }])));
 
   assert.equal(validateUnifiedMatrixEventPacket(valid).ok, true, 'valid Matrix pin_payload event must pass');
-  assert.equal(validateUnifiedMatrixEventPacket(version0).ok, false, 'Matrix ingress must reject version v0');
-  assert.equal(validateUnifiedMatrixEventPacket(extraTop).ok, false, 'Matrix ingress must reject loose top-level fields');
-  assert.equal(validateUnifiedMatrixEventPacket(externalPacket(withoutRecords(pinPayloadRecords(), ['__mt_request_id', 'op_id']))).ok, false, 'Matrix ingress must reject missing request correlation metadata');
-  assert.equal(validateUnifiedMatrixEventPacket(blankRequestCorrelation).ok, false, 'Matrix ingress must reject whitespace-only request correlation metadata');
-  assert.equal(validateUnifiedMatrixEventPacket(legacyRecord).ok, false, 'Matrix ingress must reject legacy metadata records');
-  assert.equal(validateUnifiedMatrixEventPacket(legacyReturnRecord).ok, false, 'Matrix ingress must reject legacy return_topic metadata records');
-  assert.equal(validateUnifiedMatrixEventPacket(nestedLegacyReturnRecord).ok, false, 'Matrix ingress must reject nested legacy returnTopic records');
-  assert.equal(validateUnifiedMatrixEventPacket(malformedRecord).ok, false, 'Matrix ingress must reject malformed Temporary ModelTable records');
-  assert.equal(validateUnifiedMatrixEventPacket(wrongType).ok, false, 'Matrix ingress must reject malformed metadata label types');
+  assert.deepEqual(
+    validateUnifiedMatrixEventPacket(controlRoute),
+    { ok: false, reason: 'matrix_ingress_requires_management_route' },
+    'Matrix ingress must reject a parser-valid control/control route with an exact fail-closed reason',
+  );
+  const runnerSource = readFileSync(new URL('../run_worker_v0.mjs', import.meta.url), 'utf8');
+  assert.match(
+    runnerSource,
+    /adapter\.subscribe\(\(event\) => \{[\s\S]*?const validation = validateUnifiedMatrixEventPacket\(event\);[\s\S]*?if \(!validation\.ok\) \{[\s\S]*?return;[\s\S]*?\}[\s\S]*?k: 'mbr_mb_in'/u,
+    'the real Matrix listener must return on validator rejection before writing mbr_mb_in',
+  );
+  assert.deepEqual(validateUnifiedMatrixEventPacket(version0), { ok: false, reason: 'invalid_pin_payload_packet' }, 'Matrix ingress must reject version v0 with the canonical reason');
+  assert.deepEqual(validateUnifiedMatrixEventPacket(extraTop), { ok: false, reason: 'invalid_pin_payload_packet' }, 'Matrix ingress must reject loose top-level fields with the canonical reason');
+  assert.deepEqual(
+    validateUnifiedMatrixEventPacket(externalPacket(withoutRecords(pinPayloadRecords(), ['__mt_request_id', 'op_id']))),
+    { ok: false, reason: 'missing_request_correlation' },
+    'Matrix ingress must reject missing request correlation metadata with the canonical reason',
+  );
+  assert.deepEqual(validateUnifiedMatrixEventPacket(blankRequestCorrelation), { ok: false, reason: 'invalid_pin_payload_records' }, 'Matrix ingress must reject whitespace-only request correlation metadata with the canonical reason');
+  assert.deepEqual(validateUnifiedMatrixEventPacket(legacyRecord), { ok: false, reason: 'legacy_pin_payload_metadata_removed' }, 'Matrix ingress must reject legacy metadata records with the canonical reason');
+  assert.deepEqual(validateUnifiedMatrixEventPacket(legacyReturnRecord), { ok: false, reason: 'legacy_pin_payload_metadata_removed' }, 'Matrix ingress must reject legacy return_topic metadata records with the canonical reason');
+  assert.deepEqual(validateUnifiedMatrixEventPacket(nestedLegacyReturnRecord), { ok: false, reason: 'legacy_pin_payload_metadata_removed' }, 'Matrix ingress must reject nested legacy returnTopic records with the canonical reason');
+  assert.deepEqual(validateUnifiedMatrixEventPacket(malformedRecord), { ok: false, reason: 'invalid_pin_payload_records' }, 'Matrix ingress must reject malformed Temporary ModelTable records with the canonical reason');
+  assert.deepEqual(validateUnifiedMatrixEventPacket(wrongType), { ok: false, reason: 'invalid_pin_payload_records' }, 'Matrix ingress must reject malformed metadata label types with the canonical reason');
+  assert.deepEqual(validateUnifiedMatrixEventPacket(missingTimestamp), { ok: false, reason: 'missing_timestamp' }, 'Matrix ingress must require timestamp with the canonical missing reason');
+  assert.deepEqual(validateUnifiedMatrixEventPacket(invalidTimestamp), { ok: false, reason: 'invalid_timestamp' }, 'Matrix ingress must reject a non-int timestamp with the canonical invalid reason');
+  assert.deepEqual(validateUnifiedMatrixEventPacket(duplicateRootExtension), { ok: false, reason: 'invalid_pin_payload_records' }, 'Matrix ingress must reject duplicate arbitrary Model 0 root keys');
+  for (const [index, axis] of ['p', 'r', 'c'].entries()) {
+    assert.deepEqual(
+      validateUnifiedMatrixEventPacket(nonRootModelZeroPackets[index]),
+      { ok: false, reason: 'invalid_pin_payload_records' },
+      `Matrix ingress must reject Model 0 records outside root coordinate ${axis}`,
+    );
+  }
   return { key: 'generic_worker_matrix_ingress_validates_strict_pin_payload_packet', status: 'PASS' };
 }
 
@@ -1459,6 +1635,7 @@ async function test_server_pin_payload_return_materializes_by_reply_target_recor
       payload: pinPayloadRecords({
         opId: 'req_0375_result',
         messageRole: 'response',
+        routeKind: 'management',
         topic: `UIPUT/ws/dam/pic/de/U1/${replyTargetModelId}/result`,
         responseTopic: `UIPUT/ws/dam/pic/de/U1/${replyTargetModelId}/result`,
         endpointWorkerId: 'U1',
@@ -1487,6 +1664,95 @@ async function test_server_pin_payload_return_materializes_by_reply_target_recor
     );
   });
   return { key: 'server_pin_payload_return_materializes_by_reply_target_records', status: 'PASS' };
+}
+
+async function test_server_matrix_management_return_rejects_invalid_transport_metadata() {
+  await withServerState(async (state) => {
+    const targetModelId = 1072;
+    const targetModel = state.runtime.createModel({ id: targetModelId, name: 'it0375_matrix_transport_guard', type: 'test' });
+    state.runtime.addLabel(targetModel, 0, 0, 0, { k: 'model_type', t: 'model.table', v: 'ReturnTarget' });
+    state.runtime.addLabel(targetModel, 0, 0, 0, { k: 'dual_bus_model', t: 'json', v: { mode: 'imported_host_egress', egress_pins: ['submit'] } });
+
+    const packet = (opId, key) => pinPayloadRecords({
+      opId,
+      messageRole: 'response',
+      routeKind: 'management',
+      topic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+      responseTopic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+      endpointWorkerId: 'U1',
+      endpointModelId: targetModelId,
+      endpointPin: 'result',
+      originWorkerId: 'R1',
+      originModelId: 3200,
+      originPin: 'resource',
+      replyTargetWorkerId: 'U1',
+      replyTargetModelId: targetModelId,
+      replyTargetPin: 'result',
+      payload: [mt(key, 'str', opId)],
+    });
+    const validKey = 'valid_management_result';
+    state.programEngine.handleDyBusEvent(externalPacket(packet('req_0375_valid_management', validKey)));
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    assert.equal(
+      state.runtime.getCell(targetModel, 0, 0, 0).labels.get(validKey)?.v,
+      'req_0375_valid_management',
+      'a valid management response must still materialize through Matrix',
+    );
+
+    const controlKey = 'matrix_control_route_must_not_materialize';
+    state.programEngine.handleDyBusEvent(externalPacket(pinPayloadRecords({
+      opId: 'req_0375_matrix_control_route_rejected',
+      messageRole: 'response',
+      routeKind: 'control',
+      topic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+      responseTopic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
+      endpointWorkerId: 'U1',
+      endpointModelId: targetModelId,
+      endpointPin: 'result',
+      originWorkerId: 'R1',
+      originModelId: 3200,
+      originPin: 'resource',
+      replyTargetWorkerId: 'U1',
+      replyTargetModelId: targetModelId,
+      replyTargetPin: 'result',
+      payload: [mt(controlKey, 'str', 'must_not_write')],
+    })));
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    assert.equal(
+      state.runtime.getCell(targetModel, 0, 0, 0).labels.get(controlKey),
+      undefined,
+      'a parser-valid control response must not enter through the Matrix management return handler',
+    );
+
+    const base = packet('req_0375_invalid_matrix_transport', 'invalid_matrix_transport_result');
+    const cases = [
+      ['missing_bus', withoutRecords(base, ['bus'])],
+      ['invalid_bus', withRecordOverride(base, 'bus', { v: 'other' })],
+      ['missing_route_kind', withoutRecords(base, ['route_kind'])],
+      ['invalid_route_kind', withRecordOverride(base, 'route_kind', { v: 'manage' })],
+      ['bus_route_kind_mismatch', withRecordOverride(base, 'bus', { v: 'control' })],
+      ['missing_timestamp', withoutRecords(base, ['timestamp'])],
+      ['invalid_timestamp', withRecordOverride(base, 'timestamp', { t: 'str', v: '1' })],
+    ];
+    for (const [caseName, records] of cases) {
+      const key = `invalid_matrix_transport_${caseName}`;
+      const recordsWithUniquePayload = records.map((record) => (
+        record.id === 1 && record.k === 'invalid_matrix_transport_result'
+          ? { ...record, k: key, v: caseName }
+          : record
+      ));
+      state.programEngine.handleDyBusEvent(externalPacket(recordsWithUniquePayload));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 160));
+    for (const [caseName] of cases) {
+      assert.equal(
+        state.runtime.getCell(targetModel, 0, 0, 0).labels.get(`invalid_matrix_transport_${caseName}`),
+        undefined,
+        `Matrix return must not materialize ${caseName}`,
+      );
+    }
+  });
+  return { key: 'server_matrix_management_return_rejects_invalid_transport_metadata', status: 'PASS' };
 }
 
 async function test_server_rejects_remote_endpoint_response() {
@@ -2382,6 +2648,7 @@ async function test_server_return_accepts_safe_numeric_origin_segments() {
       payload: pinPayloadRecords({
         opId: 'req_0375_numeric_origin_segments',
         messageRole: 'response',
+        routeKind: 'management',
         topic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
         responseTopic: `UIPUT/ws/dam/pic/de/U1/${targetModelId}/result`,
         endpointWorkerId: 'U1',
@@ -2554,6 +2821,8 @@ const tests = [
   test_split_bus_out_accepts_endpoint_records_and_rejects_route_record,
   test_worker_engine_publishes_control_bus_to_unified_endpoint_topic,
   test_worker_engine_publishes_response_to_response_topic,
+  test_worker_engine_async_mqtt_publish_failure_retains_outbox_and_retries,
+  test_runtime_async_mqtt_publish_failure_is_visible_and_never_unhandled,
   test_worker_engine_rejects_short_payload_topic,
   test_worker_engine_rejects_padded_payload_topic,
   test_generic_worker_bootstrap_subscribes_only_unified_endpoint_topics,
@@ -2564,6 +2833,7 @@ const tests = [
   test_runtime_direct_bus_out_rejects_short_base_topic,
   test_runtime_rejects_padded_configured_worker_id,
   test_server_pin_payload_return_materializes_by_reply_target_records,
+  test_server_matrix_management_return_rejects_invalid_transport_metadata,
   test_server_rejects_remote_endpoint_response,
   test_server_pin_payload_result_without_reply_target_is_rejected,
   test_server_pin_payload_extra_top_level_field_is_rejected,
@@ -2592,10 +2862,16 @@ const tests = [
   test_frontend_projection_does_not_parse_removed_console_ack_shape,
 ];
 
+const requestedFilter = process.env.DY_0375_TEST_FILTER || '';
+const selectedTests = requestedFilter
+  ? tests.filter((test) => test.name.includes(requestedFilter))
+  : tests;
+assert.ok(selectedTests.length > 0, 'no 0375 contract test matched DY_0375_TEST_FILTER');
+
 (async () => {
   let passed = 0;
   let failed = 0;
-  for (const t of tests) {
+  for (const t of selectedTests) {
     try {
       const result = await t();
       console.log(`[${result.status}] ${result.key}`);
@@ -2605,6 +2881,6 @@ const tests = [
       failed += 1;
     }
   }
-  console.log(`\n${passed} passed, ${failed} failed out of ${tests.length}`);
+  console.log(`\n${passed} passed, ${failed} failed out of ${selectedTests.length}`);
   process.exit(failed > 0 ? 1 : 0);
 })();

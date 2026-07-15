@@ -69,19 +69,26 @@ async function test_import_generates_host_owned_binding_and_split_bus_pins() {
     assert.equal(importResult.ok, true, 'valid_provider_zip_must_import');
     const importedId = importResult.data?.model_id;
     assert.equal(Number.isInteger(importedId), true, 'import_must_allocate_local_model_id');
+    const importedRef = importResult.data?.model_ref;
+    assert.equal(typeof importedRef?.table_id, 'string', 'import_must_return_table_qualified_model_ref');
+    assert.equal(importedRef?.model_id, importedId, 'imported_model_ref_must_match_returned_model_id');
 
-    const rootLabels = state.runtime.getCell(state.runtime.getModel(importedId), 0, 0, 0).labels;
+    const rootLabels = state.runtime.getCell(state.runtime.getModel(importedRef), 0, 0, 0).labels;
     const bindings = Array.from(rootLabels.values()).filter((label) => label && label.t === 'ui.egress.binding.v1');
     assert.equal(bindings.length, 1, 'installer_must_create_one_host_owned_egress_binding_for_submit1');
-    const binding = bindings[0];
+    const binding = rootLabels.get('ui_egress_submit1_binding');
+    assert.equal(binding?.t, 'ui.egress.binding.v1', 'binding_must_use_host_owned_type');
     assert.equal(binding.k, 'ui_egress_submit1_binding', 'binding_key_must_be_stable_and_provider_visible');
-    assert.deepEqual(binding.v, {
+    const hostPinKey = binding.v?.host_pin_key;
+    assert.equal(typeof hostPinKey, 'string', 'binding_must_reference_production_generated_host_pin_key');
+    assert.equal(hostPinKey.length > 0, true, 'binding_host_pin_key_must_not_be_empty');
+    assert.deepEqual({ ...binding.v, host_pin_key: '<production-generated>' }, {
       from_pin: 'submit1',
       bus: 'control',
       host_model_id: 0,
       host_cell: [0, 0, 0],
       host_pin_type: 'pin.bus.cb.out',
-      host_pin_key: `imported_submit1_${importedId}_bus`,
+      host_pin_key: '<production-generated>',
       target: {
         transport: 'mqtt',
         route_kind: 'control',
@@ -89,6 +96,7 @@ async function test_import_generates_host_owned_binding_and_split_bus_pins() {
         model_id: 3000,
         pin: 'submit1',
         topic: 'UIPUT/ws/dam/pic/de/R1/3000/submit1',
+        response_topic: 'UIPUT/ws/dam/pic/de/ui-server-0364/1051/result',
       },
       reply_pin: 'result',
       owned_by: 'ui-server-installer',
@@ -106,7 +114,7 @@ async function test_import_generates_host_owned_binding_and_split_bus_pins() {
     assert.ok(ingressKey, 'host_ingress_cleanup_list_must_include_model0_ingress_pin');
     assert.equal(state.runtime.getCell(model0, 0, 0, 0).labels.get(ingressKey)?.t, 'pin.bus.cb.in', 'generated_host_ingress_pin_must_use_control_bus_in');
 
-    const exportResult = buildSlideAppExportPayload(state.runtime, importedId);
+    const exportResult = buildSlideAppExportPayload(state.runtime, importedRef);
     assert.equal(exportResult.ok, true, 'export_must_succeed_after_import');
     assert.equal(exportResult.data.payload.some((record) => record.t === 'ui.egress.binding.v1'), false, 'export_must_not_include_host_owned_binding');
     assert.equal(exportResult.data.payload.some((record) => typeof record.t === 'string' && record.t.startsWith('pin.bus.')), false, 'export_must_not_include_host_bus_pins');

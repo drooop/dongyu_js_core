@@ -2,7 +2,7 @@
 title: "Feishu Alignment Decisions v0"
 doc_type: ssot
 status: active
-updated: 2026-07-10
+updated: 2026-07-16
 source: ai
 ---
 
@@ -33,16 +33,16 @@ source: ai
 - repo SSOT：经 iteration 审核后的当前可执行合同。Feishu 上游变化不能自动覆盖它。
 - Human entry 与 LLM entry 共享同一套 repo SSOT；差别只在导航和执行职责。
 
-## 0456 已裁决但尚未实施的方向
+## 0456 裁决与当前实施状态
 
-以下用户裁决已进入正式采纳决议面，但当前 executable behavior 不变。每项产品行为仍必须经过自己的 Approved implementation iteration、SSOT 更新和验证后才能成为当前可执行合同。
+以下用户裁决已进入正式采纳决议面。F-01 已由 0457 完成本地实现与 OrbStack live acceptance，但在 full regression、accepted implementation commit 和规定的 closeout reviews 完成前仍不得标为 aligned/completed。其余项目继续保持各自边界。
 
 | Finding | 已采纳方向 | 当前状态 |
 |---|---|---|
-| F-01 | 整体 Feishu Message API 输入 envelope 升级到 `pin_payload.v2`。 | `decision_recorded_implementation_pending`；当前 parser/runtime input 仍为 `pin_payload.v1`。 |
+| F-01 | 整体 Feishu Message API 输入 envelope 升级到 `pin_payload.v2`。 | `local_acceptance_passed_closeout_pending`；0457 当前公开输入已 hard cut 到 v2，legacy v1 fail closed，R1 Model 3200 拥有业务行为；F-01 尚未完成最终合同关闭。 |
 | F-04 | `model.submtconnect` 确认为来源笔误；repo 保持 no alias。 | `decision_recorded_source_correction_pending`；当前 repo 行为无需修改。 |
-| F-05 | `ui.refresh_data` 通过授权的 ModelTable 写入表达状态变化；frontend 保持 projection-only。 | `decision_recorded_implementation_pending`；当前 pending-refresh 行为尚未更新。 |
-| F-08 | `add_task_return` 必须成为真实 PIN 消息。 | `decision_recorded_implementation_pending`；当前 response outbox 映射仍是现行行为。 |
+| F-05 | `ui.refresh_data` 通过授权的 ModelTable 写入表达状态变化；frontend 保持 projection-only。 | `decision_recorded_implementation_pending`；当前 Model 3200 以 `ui_action_pending:refresh_data` fail closed，不写 refresh state、不产出 response。 |
+| F-08 | `add_task_return` 必须成为真实 PIN 消息。 | `decision_recorded_implementation_pending`；当前 Model 3200 以 `task_action_pending:add_task_return` fail closed，generic `result` 不算真实 `add_task_return` PIN。 |
 
 F-06 与 F-07 仍为 `requires_user_confirmation`，本轮没有替用户补全决策。F-04 的 Feishu 来源纠错以及任何 `DerivedView` 更新都不在本轮授权内；Feishu 写入仍需单独授权。
 

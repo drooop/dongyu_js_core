@@ -2,7 +2,7 @@
 title: "MQTT 回包到 UI 显示"
 doc_type: user-guide
 status: active
-updated: 2026-07-01
+updated: 2026-07-16
 source: ai
 ---
 
@@ -45,6 +45,8 @@ remote-worker 不要自己猜本地 model id，也不要把 response 发回 requ
 | 字段 | response 写法 |
 |---|---|
 | `message_role` | 必须是 `response`。 |
+| `bus` / `route_kind` | 两者都必填、值必须相同；control 回包都写 `control`。 |
+| `timestamp` | 必填 `int`，写 packet 生成时的 Unix 毫秒时间戳。 |
 | `topic` | 必须等于 request 中的 `response_topic`。 |
 | `response_topic` | 也写 request 中的 `response_topic`。 |
 | `endpoint_*` | 必须描述当前 response 的 host transport endpoint，例如 `U1 / host / 1087 / result`。 |
@@ -62,7 +64,9 @@ remote-worker 不要自己猜本地 model id，也不要把 response 发回 requ
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1087/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1087/result" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "timestamp", "t": "int", "v": 1784152800000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "U1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_table_id", "t": "str", "v": "host" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_model_id", "t": "int", "v": 1087 },
@@ -92,6 +96,8 @@ UI Server 收到 control-bus / MQTT packet 后，会先校验：
 - 内层 payload 是严格的 ModelTable records array。
 - `__mt_payload_kind=pin_payload.v2`。
 - `message_role=response`。
+- `bus` 与 `route_kind` 都存在、取值合法且相同。
+- `timestamp` 是整数。
 - `topic` 等于 `response_topic`。
 - `endpoint_*` 描述当前 response packet 投递到 UI Server 的 host transport endpoint，并与当前 `topic` 对齐；`reply_target_*` 描述最终 materialize 的 App table 目标。二者在 App instance 场景下通常不同。
 - `payload_model_id` 指向的 records 是 ModelTable records array，且不能再出现 `payload` 这个 nested record。
@@ -172,6 +178,7 @@ return [
   mt('message_role', 'str', 'response'),
   mt('topic', 'str', responseTopic),
   mt('response_topic', 'str', responseTopic),
+  mt('bus', 'str', 'control'),
   mt('route_kind', 'str', 'control'),
   mt('endpoint_worker_id', 'str', responseEndpoint.worker_id),
   mt('endpoint_table_id', 'str', responseEndpoint.table_id),

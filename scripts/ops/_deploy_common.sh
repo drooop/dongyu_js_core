@@ -69,12 +69,27 @@ ensure_namespace() {
   echo "  Namespace '$ns': OK"
 }
 
+latest_running_pod() {
+  local ns="${NAMESPACE:?}"
+  local app="${1:?app label required}"
+  local pod
+  pod="$(kubectl -n "$ns" get pods -l "app=$app" \
+    --field-selector=status.phase=Running \
+    --sort-by=.metadata.creationTimestamp \
+    -o name | tail -n 1 | sed 's#^pod/##')"
+  if [ -z "$pod" ]; then
+    echo "ERROR: no running pod found for app=$app" >&2
+    return 1
+  fi
+  printf '%s' "$pod"
+}
+
 # ── wait_for_synapse_ready ─────────────────────────────────
 # Polls Synapse HTTP until it responds (max 60s).
 wait_for_synapse_ready() {
   local ns="${NAMESPACE:?}"
   local pod
-  pod=$(kubectl -n "$ns" get pods -l app=synapse -o jsonpath='{.items[0].metadata.name}')
+  pod="$(latest_running_pod synapse)"
   echo "  Waiting for Synapse HTTP to be ready (max 60s)..."
   local i=0
   while [ $i -lt 30 ]; do
@@ -104,7 +119,7 @@ register_synapse_users() {
   local ns="${NAMESPACE:?}"
   local server_name="${SYNAPSE_SERVER_NAME:?}"
   local pod
-  pod=$(kubectl -n "$ns" get pods -l app=synapse -o jsonpath='{.items[0].metadata.name}')
+  pod="$(latest_running_pod synapse)"
   echo "  Synapse pod: $pod"
 
   # Wait for Synapse to be actually serving HTTP
@@ -172,7 +187,7 @@ PY
 
   local ns="${NAMESPACE:?}"
   local pod
-  pod=$(kubectl -n "$ns" get pods -l app=synapse -o jsonpath='{.items[0].metadata.name}')
+  pod="$(latest_running_pod synapse)"
   kubectl -n "$ns" exec "$pod" -- \
     python3 -c "
 import urllib.request, json
@@ -231,7 +246,7 @@ PY
   local ns="${NAMESPACE:?}"
   local server_name="${SYNAPSE_SERVER_NAME:?}"
   local pod
-  pod=$(kubectl -n "$ns" get pods -l app=synapse -o jsonpath='{.items[0].metadata.name}')
+  pod="$(latest_running_pod synapse)"
 
   local room_id
   room_id=$(kubectl -n "$ns" exec "$pod" -- \

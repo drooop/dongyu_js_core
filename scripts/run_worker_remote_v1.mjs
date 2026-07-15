@@ -14,7 +14,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { ACTOR_ATTESTATION_MARKER, buildDeActorAttestation } from './lib/de_actor_attestation.mjs';
+import {
+  ACTOR_ATTESTATION_MARKER,
+  buildDeActorAttestation,
+  createDeActorAttestationHeartbeat,
+} from './lib/de_actor_attestation.mjs';
+import { createRoleScopedDeRuntimeDiagnosticHeartbeat } from './lib/de_runtime_diagnostics.mjs';
+import { createDeNetworkBoundaryObservability } from './lib/de_network_boundary_evidence.mjs';
+import {
+  createDePinFlowEvidenceEmitter,
+} from '../packages/worker-base/src/de_pin_flow_evidence.mjs';
+import { createR1PinFlowEvidenceWiring } from '../packages/worker-base/src/de_pin_flow_wiring.mjs';
 import { loadSystemPatch } from './worker_engine_v0.mjs';
 import {
   applyPersistedAssetEntries,
@@ -26,11 +36,35 @@ import {
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
 
+export function createRemoteWorkerNetworkBoundaryObservability({
+  workerScope = 'remote-worker',
+  mqttDestination,
+  writeLine,
+  now,
+  setIntervalFn,
+  clearIntervalFn,
+  heartbeatIntervalMs,
+}) {
+  if (workerScope !== 'remote-worker' && workerScope !== 'workspace-manager') {
+    throw new TypeError('workerScope must be remote-worker or workspace-manager');
+  }
+  return createDeNetworkBoundaryObservability({
+    service: workerScope,
+    effectiveDestinations: [mqttDestination],
+    writeLine,
+    now,
+    setIntervalFn,
+    clearIntervalFn,
+    heartbeatIntervalMs,
+  });
+}
+
 // --- Configuration from environment ---
 const MQTT_HOST = process.env.DY_MQTT_HOST || process.env.MQTT_HOST || '127.0.0.1';
 const MQTT_PORT = parseInt(process.env.DY_MQTT_PORT || process.env.MQTT_PORT || '1883', 10);
 const MQTT_USER = process.env.DY_MQTT_USER || process.env.MQTT_USER || 'u';
 const MQTT_PASS = process.env.DY_MQTT_PASS || process.env.MQTT_PASS || 'p';
+const mqttDestination = `mqtt://${MQTT_HOST}:${MQTT_PORT}`;
 const WORKER_ID = process.env.WORKER_ID || '2';
 const PATCH_DIR = process.argv[2] || process.env.DY_ROLE_PATCH_DIR || '';
 const ASSET_ROOT = resolvePersistedAssetRoot();
@@ -71,24 +105,38 @@ if (ASSET_ROOT) {
 // --- 1. Create runtime + load system patches ---
 const rt = new ModelTableRuntime();
 loadSystemPatch(rt, { assetRoot: ASSET_ROOT, scope: WORKER_SCOPE });
-let mqttTraceCursor = 0;
+const runtimeDiagnostics = createRoleScopedDeRuntimeDiagnosticHeartbeat({
+  workerScope: WORKER_SCOPE,
+  runtime: rt,
+  writeLine: (line) => process.stdout.write(`${line}\n`),
+  beforeEmit: (reason) => {
+    process.stdout.write(`[${LOG_PREFIX}] MQTT connected: ${Boolean(rt.mqttClient && rt.mqttClient.connected)} status=${mqttRuntimeStatus()} reason=${reason}\n`);
+    process.stdout.write(`[${LOG_PREFIX}] MQTT subscriptions: ${JSON.stringify(rt.mqttClient ? [...rt.mqttClient.subscriptions].sort() : [])}\n`);
+  },
+  setIntervalFn: setInterval,
+  clearIntervalFn: clearInterval,
+  heartbeatIntervalMs: 10000,
+});
+const emitPinFlowEvidenceLine = createDePinFlowEvidenceEmitter({
+  producer: 'r1',
+  writeLine: (line) => process.stdout.write(`${line}\n`),
+  now: Date.now,
+});
+
+const r1PinFlowWiring = createR1PinFlowEvidenceWiring({
+  runtime: rt,
+  emitEvidence: emitPinFlowEvidenceLine,
+  onEvidenceError: ({ code, stage }) => {
+    process.stderr.write(`[${LOG_PREFIX}] ${code} stage=${stage}\n`);
+  },
+});
+rt.mqttIncoming = r1PinFlowWiring.mqttIncoming;
 
 function mqttRuntimeStatus() {
   const model0 = rt.getModel(0);
   if (!model0) return 'missing_model0';
   const root = rt.getCell(model0, 0, 0, 0);
   return String(root.labels.get('mqtt_runtime_status')?.v || 'unknown');
-}
-
-function emitMqttDiagnostics(reason) {
-  const connected = Boolean(rt.mqttClient && rt.mqttClient.connected);
-  const subscriptions = rt.mqttClient ? [...rt.mqttClient.subscriptions].sort() : [];
-  const trace = rt.mqttTrace.list();
-  const delta = trace.slice(mqttTraceCursor);
-  mqttTraceCursor = trace.length;
-  process.stdout.write(`[${LOG_PREFIX}] MQTT connected: ${connected} status=${mqttRuntimeStatus()} reason=${reason}\n`);
-  process.stdout.write(`[${LOG_PREFIX}] MQTT subscriptions: ${JSON.stringify(subscriptions)}\n`);
-  process.stdout.write(`[${LOG_PREFIX}] MQTT trace delta: ${JSON.stringify(delta.slice(-20))}\n`);
 }
 
 // --- 2. Load role patches (alphabetical order) ---
@@ -129,6 +177,17 @@ const remoteSubscriptions = Array.isArray(remoteSubConfig)
   : [];
 
 // --- 3. Start MQTT loop (runtime handles everything) ---
+const networkBoundaryObservability = createRemoteWorkerNetworkBoundaryObservability({
+  workerScope: WORKER_SCOPE,
+  mqttDestination,
+  writeLine: (line) => process.stdout.write(`${line}\n`),
+  now: Date.now,
+  setIntervalFn: setInterval,
+  clearIntervalFn: clearInterval,
+  heartbeatIntervalMs: 10000,
+});
+process.once('exit', () => networkBoundaryObservability.stop());
+networkBoundaryObservability.recordOutbound(mqttDestination);
 const mqttResult = rt.startMqttLoop({
   transport: 'real',
   host: MQTT_HOST,
@@ -141,9 +200,21 @@ const mqttResult = rt.startMqttLoop({
 process.stdout.write(`[${LOG_PREFIX}] MQTT startMqttLoop: ${JSON.stringify(mqttResult)}\n`);
 
 if (mqttResult.status !== 'running') {
+  networkBoundaryObservability.stop();
   process.stderr.write(`[${LOG_PREFIX}] MQTT failed to start: ${JSON.stringify(mqttResult)}\n`);
   process.exit(1);
 }
+const actorAttestationHeartbeat = createDeActorAttestationHeartbeat({
+  attestation: actorAttestation,
+  writeLine: (line) => process.stdout.write(`${line}\n`),
+  heartbeatIntervalMs: 10000,
+});
+process.once('exit', () => actorAttestationHeartbeat.stop());
+const runtimeMqttPublish = rt.mqttClient.publish.bind(rt.mqttClient);
+rt.mqttClient.publish = (topic, packet) => {
+  networkBoundaryObservability.recordOutbound(mqttDestination);
+  return r1PinFlowWiring.publishControlResponse(runtimeMqttPublish, topic, packet);
+};
 rt.setRuntimeMode('running');
 process.stdout.write(`[${LOG_PREFIX}] runtime_mode=${rt.getRuntimeMode()}\n`);
 
@@ -154,13 +225,9 @@ for (const topic of remoteSubscriptions) {
 process.stdout.write(`[${LOG_PREFIX}] bus.in ports: [${[...rt.busInPorts.keys()].join(', ')}]\n`);
 process.stdout.write(`[${LOG_PREFIX}] bus.out ports: [${[...rt.busOutPorts.keys()].join(', ')}]\n`);
 process.stdout.write(`[${LOG_PREFIX}] patch subscriptions: ${JSON.stringify(remoteSubscriptions)}\n`);
-emitMqttDiagnostics('after_start');
+runtimeDiagnostics.start();
 
-// --- 5. Heartbeat (optional diagnostic logging) ---
-const mqttDiagTimer = setInterval(() => {
-  emitMqttDiagnostics('interval');
-}, 10000);
-mqttDiagTimer.unref();
+// --- 5. Heartbeat (optional non-Model3200 diagnostic logging) ---
 
 const heartbeatTimer = setInterval(() => {
   const model100 = rt.getModel(100);
@@ -172,5 +239,13 @@ const heartbeatTimer = setInterval(() => {
   }
 }, 30000);
 heartbeatTimer.unref();
+
+process.once('SIGINT', () => {
+  networkBoundaryObservability.stop();
+  actorAttestationHeartbeat.stop();
+  runtimeDiagnostics.stop();
+  clearInterval(heartbeatTimer);
+  process.exit(0);
+});
 
 process.stdout.write(`[${LOG_PREFIX}] Ready. Runtime handles: mqttIncoming -> Model 0 bus ingress -> parent connection -> child function\n`);

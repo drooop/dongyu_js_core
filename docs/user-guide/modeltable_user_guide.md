@@ -2,7 +2,7 @@
 title: "ModelTable User Guide (Living Doc)"
 doc_type: user-guide
 status: active
-updated: 2026-06-10
+updated: 2026-07-16
 source: ai
 ---
 
@@ -28,7 +28,7 @@ source: ai
 - 管理总线（MGMT）与控制总线（PIN/MQTT）只处理“纯 ModelTable patch”。
 
 ## 2. Reserved Models (System)
-- `model_id = 0`：root / intermediate layer / system boundary；当前规范要求 `Model 0 (0,0,0)` 显式持有 `model.table`
+- `model_id = 0`：root / intermediate layer / system boundary；软件工人 host table 的 `Model 0 (0,0,0)` 必须显式持有 `model.v1n`，普通非 worker ModelTable root 才使用 `model.table`
 - `model_id = -1`：legacy/compat bus-event mailbox + status surface（不是 current frontend/server first ingress）
 - `model_id = -2`：editor_state（UI 控件状态）
 - `model_id = -100`：Matrix debug / bus trace observable state + Workspace debug surface；只允许承载调试投影、trace 摘要与安全操作结果，不得作为 business truth
@@ -39,7 +39,7 @@ source: ai
 ## 2.1 Cell Model Labels (Current Normative View)
 
 - 每个 materialized Cell 必须且只能有一个有效模型标签（主归属 / 主执行形态）。
-- 有效模型标签集合：`model.single` / `model.matrix` / `model.table` / `model.submt` / `model.submtconnection` / `model.subtable` / `model.subtableconnection`
+- 有效模型标签集合：`model.single` / `model.matrix` / `model.v1n` / `model.table` / `model.submt` / `model.submtconnection` / `model.subtable` / `model.subtableconnection`
 - `model.table`：模型根 `(0,0,0)` 的显式根声明
 - `model.matrix`：矩阵自身相对 `(0,0,0)` 的显式根声明
 - `model.submt`：子模型自己的 root `(0,0,0)` 声明，表示“我是一个 child model”
@@ -179,13 +179,13 @@ source: ai
 后续移动端可以沿用同一产品边界：最终用户先看到 app 桌面，通过单前台运行和任务切换完成常规使用；分屏、多实例和更复杂后台属于后续阶段。
 
 ## 3. User Input (Bus Event)
-frontend/server current path 只提交 `bus_event_v2`，同工作区业务默认写入 `Model 0 (0,0,0)` 的 `pin.bus.cb.in`；显式管理语义才写入 `pin.bus.mb.in`。
+frontend/server current path 只提交 `bus_event_v2`，所有浏览器业务统一写入 `Model 0 (0,0,0)` 的 `pin.bus.cb.in`；management 只在目标模型外发时由 `bus=management` / `route_kind=management` 选择 Matrix/Synapse/MBR，浏览器不直接写 `pin.bus.mb.in`。
 事件 envelope 仍必须包含 `op_id`（用于审计/去重）。
 
 补充：
 
 - `Model -1 (0,0,1)` mailbox 只保留 compat/status 角色，不再是 current frontend/server 第一落点。
-- `Model 0 pin.bus.cb.in / pin.bus.mb.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 的解释属于 Tier 1 runtime。
+- 浏览器事件的 `Model 0 pin.bus.cb.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 解释属于 Tier 1 runtime；`pin.bus.mb.in` 保留给 management transport ingress。
 - `server` 只负责 envelope 适配、bus-event transport 与 snapshot / transport；不应长期持有独立正式事件语义。
 - 对需要落到“当前模型 / 当前单元格”的业务动作，前端事件 envelope 应显式携带：
   - `target.model_id`
@@ -605,6 +605,9 @@ bus pin 的 `v` 必须是临时 ModelTable record array。常用 record 形状�
 [
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "op-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "timestamp", "t": "int", "v": 1700000000000 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/R1/3000/submit1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
@@ -629,14 +632,15 @@ bus pin 的 `v` 必须是临时 ModelTable record array。常用 record 形状�
 
 ### 6.3 Control To Control（默认）
 
-UI Server 要把同工作区业务请求发给 remote-worker 时，默认写入本机 Model 0 的 `pin.bus.cb.out`。MBR 收到后读取 payload 内的 `topic` record，并按该 topic 转发；不得从 `endpoint_*` 派生 topic。
+UI Server 要把同工作区业务请求发给 remote-worker 时，默认写入本机 Model 0 的 `pin.bus.cb.out`，由本地 MQTT 直接投递到 R1。MBR 不参与 control request/response 转发；transport adapter 只使用 payload 内的 `topic` record，不得从 `endpoint_*` 派生 topic。
 
 最小 Submit 的实际方向是：
 
 ```text
 UI button -> local model root pin.out -> host adapter
 -> Model 0 pin.bus.cb.out
--> MBR reads payload topic
+-> local MQTT control plane
+-> R1 Model -10 declared dispatcher
 -> remote-worker Model 3000 submit1
 ```
 
@@ -658,25 +662,37 @@ remote-worker 内部再通过自己的 `pin.connect.cell` / `pin.connect.label` 
 
 这条路径同样只认 `pin_payload.v2` 临时 ModelTable records，不接受旧 envelope、普通 JSON fallback 或把业务 records 嵌进 `payload` label 的旧写法。
 
-### 6.5 Control To Management Return
+### 6.5 Control / Management Return Paths
 
-remote-worker 回包时，写入自身 Model 0 的 `pin.bus.cb.out`。回包 payload 的 `topic` 必须改为 request 中的 `response_topic`；MBR / UI Server 收包后仍只按当前 packet 的 `topic` record 转发或接收，UI Server 再按 `reply_target_*` / `origin_*` records 选择本地 owner materialization 目标，写入目标 UI 模型 label。
+remote-worker 回包时，写入自身 Model 0 的 `pin.bus.cb.out`。回包 payload 的 `topic` 必须改为 request 中的 `response_topic`；UI Server 再按 `reply_target_*` / `origin_*` records 选择本地 owner materialization 目标，写入目标 UI 模型 label。
+
+- `route_kind="control"`：R1 经本地 MQTT 直达 UI Server；MBR 即使观测到该 response 也不得 republish、echo 或转发到 Matrix。
+- `route_kind="management"`：R1 经本地 MQTT 把 response 送到 MBR，MBR 只转发一次到本地 Matrix/Synapse，再由 UI Server 的 `pin.bus.mb.in` 接收。
 
 最小 Submit 的返回方向是：
 
 ```text
 remote-worker Model 3000 submit1 result
 -> remote-worker Model 0 pin.bus.cb.out
--> MBR
+-> local MQTT control plane
 -> UI Server Model 0 pin.bus.cb.in
 -> owner materialization
 -> imported UI model display_text / remote_status
 ```
 
+management response 则在 `local MQTT` 与 `UI Server Model 0 pin.bus.mb.in` 之间增加 `MBR pin.bus.cb.in -> MBR pin.bus.mb.out -> local Matrix/Synapse`，不得与 control response 同时投递。
+
 ### 6.6 对齐说明
 
 - 若与 `docs/ssot/runtime_semantics_modeltable_driven.md` 冲突，以该文档为准。
 - 总线传输格式始终是 ModelTable-like；是否持久化由显式 materialization 决定。
+
+### 6.7 Feishu Message API Current Surface（0457）
+
+- public input 只接受 flat `pin_payload.v2` records；legacy v1 envelope fail closed。
+- R1 Model 3200 的 request pins 为 `resource`、`data`、`ui`、`add_task`、`add_task_return`、`edit_task`、`delete_task`、`receive_task`、`finish_task`、`archive_task`；response 只从 generic `result` 返回。
+- F-05 仍 pending：`ui.refresh_data` 返回 `ui_action_pending:refresh_data`，不写 refresh state、不产出 response。
+- F-08 仍 pending：`add_task_return` 返回 `task_action_pending:add_task_return`；generic `result` 不能当作真实 `add_task_return` PIN 消息。
 
 ## 7. Env vs ModelTable
 当前产品路径的唯一启动入口是 `MODELTABLE_PATCH_JSON`：
@@ -734,22 +750,24 @@ Worker：软件工人类型标签固定写法如下：
 - `op_id_replay`: op_id 重复
 - `invalid_target`: target 缺失/类型不对
 
-建议先查 `ui_event_error` 与 EventLog。
+建议先查 `bus_event_error`、`bus_event_last_op_id` 与 EventLog。`/ui_event` 只是接受同一 `bus_event_v2` body 的兼容 URL，不恢复 legacy `type=ui_event`。
 
 ## 9. Connectivity Test (Submit / Result 双向)
 
 本测试只依赖 split bus pins 与 ModelTable-like payload，不依赖 UI 特殊逻辑。
 
-### 9.1 Submit（UI Server → MBR → remote-worker）
+### 9.1 Submit（UI Server → local MQTT → remote-worker）
 
-在 UI Server 所在 DEM 的 Model 0 `(0,0,0)` 写入一个 `pin.bus.cb.out` label。`v` 是临时 ModelTable records，其中 `topic` 是 MBR 的唯一转发目标，`endpoint_*` 指向 remote-worker 的公开 pin，`origin_*` / `reply_target_*` 指向 UI Server 本地安装实例。安装后的滑动 App 必须使用 `origin_table_id + origin_model_id` 与 `reply_target_table_id + reply_target_model_id`，不能只靠裸 `model_id`：
+在 UI Server 所在 DEM 的 Model 0 `(0,0,0)` 写入一个 `pin.bus.cb.out` label。`v` 是临时 ModelTable records，其中 `topic` 是 control transport adapter 的唯一投递目标，`endpoint_*` 指向 remote-worker 的公开 pin，`origin_*` / `reply_target_*` 指向 UI Server 本地安装实例。安装后的滑动 App 必须使用 `origin_table_id + origin_model_id` 与 `reply_target_table_id + reply_target_model_id`，不能只靠裸 `model_id`：
 
 ```json
 [
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "submit-test-001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "submit-test-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "timestamp", "t": "int", "v": 1700000000000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/R1/3000/submit1" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
@@ -772,10 +790,10 @@ Worker：软件工人类型标签固定写法如下：
 
 预期：
 
-- MBR 只根据 payload 里的 `topic` record 发布到 remote-worker 的控制总线 topic；`endpoint_*` records 只给 remote-worker 内部分发到公开 pin 使用。
+- UI Server 的 control adapter 只根据 payload 里的 `topic` record 发布到 remote-worker 的本地 MQTT topic；`endpoint_*` records 只给 remote-worker 内部分发到公开 pin 使用。MBR 不参与本路径。
 - remote-worker Model 3000 的 root `submit1` 通过 `pin.connect.cell` 触发程序模型。
 
-### 9.2 Result（remote-worker → MBR → UI Server）
+### 9.2 Result（remote-worker → local MQTT → UI Server）
 
 remote-worker 程序模型处理完成后，不能直接发 transport。它应返回 `pin_payload.v2` records，先走本 worker 的 Model 0 `pin.bus.cb.out`。
 
@@ -786,7 +804,9 @@ remote-worker 程序模型处理完成后，不能直接发 transport。它应�
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "req_123" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "timestamp", "t": "int", "v": 1700000000000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1055/result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
@@ -810,6 +830,6 @@ remote-worker 程序模型处理完成后，不能直接发 transport。它应�
 
 预期：
 
-- MBR 按 payload `topic` record 转发 remote-worker 的控制总线回包；默认仍是控制总线消息。由于 response 的 `topic` 等于 `response_topic`，它不会再回到 submit endpoint。
+- remote-worker 的 control response 按 payload `topic` record 经本地 MQTT 直达 UI Server；MBR 不得回显。由于 response 的 `topic` 等于 `response_topic`，它不会再回到 submit endpoint。
 - UI Server 的 owner materialization 更新 imported UI model 的 `display_text` 和 `remote_status`。
 - 浏览器里显示 `Submitted: <输入内容>`，状态显示 `remote_processed`。

@@ -5,7 +5,7 @@ metadata:
   namespace: dongyu
 data:
   mosquitto.conf: |
-    listener 1883
+    listener 1883 0.0.0.0
     allow_anonymous true
 ---
 apiVersion: apps/v1

@@ -2,7 +2,7 @@
 title: "Runtime Baseline Default"
 doc_type: deployment
 status: active
-updated: 2026-05-10
+updated: 2026-07-16
 source: ai
 ---
 
@@ -12,18 +12,19 @@ Status: current deployment/runbook baseline. Treat `ensure_runtime_baseline.sh` 
 
 ## 1. 默认策略
 
-1. 本仓库默认运行模式是全 K8s 常驻基线（推荐 context=`orbstack`, namespace=`dongyu`）。
-2. K8s context 以 `K8S_CONTEXT` 为准；未设置时按当前 `kubectl current-context` 运行。
-3. 无 Docker 容器依赖。所有组件（MQTT、Synapse、Workers、UI Server）均在 K8s 内运行。
+1. 本地测试与 acceptance 固定使用全 K8s 常驻基线，namespace=`dongyu`。
+2. Docker context 必须精确为 `orbstack`，Kubernetes context 必须精确为 `orbstack`；任一不匹配都必须 fail closed。
+3. 无独立 Docker 容器依赖。所有组件（MQTT、Synapse、Workers、UI Server）均在该本地 K8s 集群内运行。
 4. 默认不使用本地 `scripts/run_worker_mbr_v0.mjs`。
 5. 不依赖 `metrics-server` 作为链路健康前置条件。
 
 ## 2. 常驻组件（应保持 Running）
 
-K8s（context=`orbstack`，可被 `K8S_CONTEXT` 覆盖；namespace=`dongyu`）：
+本地 K8s（Docker/Kubernetes context 均为 `orbstack`；namespace=`dongyu`）固定包含以下六个 deployment：
 - `deployment/mosquitto` replicas = 1 (MQTT broker)
 - `deployment/synapse` replicas = 1 (Matrix homeserver, server_name=localhost)
 - `deployment/remote-worker` replicas = 1
+- `deployment/workspace-manager` replicas = 1
 - `deployment/mbr-worker` replicas = 1
 - `deployment/ui-server` replicas = 1
 - `service/ui-server-nodeport` NodePort 30900 (本地访问)
@@ -45,9 +46,11 @@ Manifests 位置：`k8s/local/`
 工作目录：仓库根目录
 
 ```bash
-bash scripts/ops/ensure_runtime_baseline.sh
+bash scripts/ops/ensure_runtime_baseline.sh --force-rebuild
 bash scripts/ops/check_runtime_baseline.sh
 ```
+
+首次部署，或代码、镜像、manifest、actor asset 发生变化时，必须使用上面的 `--force-rebuild` 入口；它会构建镜像、应用本地部署、等待 rollout，再执行基线检查。不得把单独执行 `docker build` 或无参数的 `ensure_runtime_baseline.sh` 当作变更后的部署完成证据。
 
 UI Server 访问地址：`http://localhost:30900`
 
@@ -59,7 +62,7 @@ UI Server 访问地址：`http://localhost:30900`
 
 ## 4. 镜像构建
 
-首次部署或代码变更后需重新构建镜像：
+以下命令只用于单独排查镜像构建；它们不会应用 deployment 或替换正在运行的 Pod，不能作为 acceptance 的部署入口：
 
 ```bash
 docker build -f k8s/Dockerfile.remote-worker -t dy-remote-worker:v3 .

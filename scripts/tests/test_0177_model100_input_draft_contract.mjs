@@ -54,8 +54,14 @@ function assertInputFieldContract(bind, label) {
 
 function assertSubmitDraftContract(write, label) {
   assert.ok(write && typeof write === 'object', `${label}: submit write must exist`);
-  assert.equal(write.pin, 'click', `${label}: submit write must target the click pin`);
+  assert.equal(write.bus_event_v2, true, `${label}: submit write must use the Model 0 bus_event_v2 ingress`);
+  assert.equal(write.bus_in_key, 'bus_event_submit_100_0_0_0', `${label}: submit write must target the declared Model 0 bus input`);
+  assert.equal(write.pin, undefined, `${label}: submit write must not directly mutate a positive-model pin`);
   assert.ok(Array.isArray(write.value_ref), `${label}: submit payload must be a temporary ModelTable array`);
+  assert.ok(
+    write.value_ref.some((record) => record && record.k === '__mt_payload_kind' && record.v === 'ui_event.v1'),
+    `${label}: submit payload must declare ui_event.v1`,
+  );
   const inputValueRecord = write.value_ref.find((record) => record && record.k === 'input_value');
   assert.deepEqual(
     inputValueRecord?.v,

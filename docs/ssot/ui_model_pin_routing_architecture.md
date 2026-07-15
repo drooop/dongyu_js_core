@@ -2,7 +2,7 @@
 title: "UI 模型 Pin 路由架构"
 doc_type: ssot
 status: active
-updated: 2026-05-10
+updated: 2026-07-16
 source: ai
 tags:
   - pin-routing
@@ -21,17 +21,17 @@ tags:
 
 Authority:
 - Below `CLAUDE.md`, architecture SSOT, runtime semantics, label registry, PIN connection contract, and temporary payload contract.
-- This file describes UI model routing architecture and migration targets; it does not override runtime or PIN contracts.
+- This file describes the current UI model routing architecture and declaration boundaries; it does not override runtime or PIN contracts.
 
 Scope:
-- UI model message routing, current direct/hardcoded route debt, and target declaration-driven PIN routing architecture.
+- Current browser ingress, target-model routing, transport egress, and declaration-driven PIN boundaries.
 
 Conflict behavior:
 - If current implementation language conflicts with target contract language, mark the section as current state or target state explicitly.
 - If another doc restores direct UI bus side effects, update it or mark it historical.
 
-**当前状态**：UI 事件链路通过 `submitEnvelope()` 硬编码路由（server.mjs 300+ 行特判），未使用 Pin 声明式路由。
-**目标状态**：所有 UI 模型间通信通过 `pin.connect.cell` 与各模型内部 `pin.connect.label` 声明完成，路由拓扑完全 Tier 2 化。
+**当前状态**：所有浏览器 `bus_event_v2` 都先进入 Model 0 的 `pin.bus.cb.in`，再由 ModelTable 中的 PIN 连接进入目标模型。浏览器不能直接选择 management ingress。
+**声明目标**：模型内部通信使用 `pin.connect.cell` / `pin.connect.label`，跨模型通信使用父侧 `model.submtconnection` boundary pins、子模型 root boundary pins 与所在模型内的 `pin.connect.cell`；路由拓扑保持 Tier 2 化。
 
 ## 图一：系统全景
 
@@ -47,31 +47,31 @@ graph LR
         wv -.-> shell
     end
 
-    subgraph bus["双总线 via MBR"]
-        mgmt["MBR"]
-        ctrl["控制总线 MQTT"]
-    end
-
     subgraph sw["软件工人"]
-    m0["Model 0 pin.bus.mb.* / pin.bus.cb.*"]
+        m0["Model 0<br/>browser ingress: pin.bus.cb.in"]
         ms["模型空间 - 详见图二"]
     end
 
-    shell --> mgmt
-    shell --> ctrl
-    mgmt --> m0
-    ctrl --> m0
+    ctrl["Local MQTT"]
+    r1["R1 target worker"]
+    matrix["Local Matrix/Synapse"]
+    mbr["MBR"]
+
+    shell -->|"bus_event_v2"| m0
     m0 --> ms
-    ms -.-> m0
-    m0 -.-> mgmt
-    m0 -.-> ctrl
+    ms -->|"control: pin.bus.cb.out"| ctrl
+    ctrl --> r1
+    ms -->|"management: pin.bus.mb.out"| matrix
+    matrix --> mbr
+    mbr -.->|"management return: pin.bus.mb.in"| m0
 
     style m0 fill:#ffe8cc,stroke:#d9480f,stroke-width:3px,color:#333
     style ms fill:#f8f9fa,stroke:#868e96,color:#333
     style shell fill:#e7f5ff,stroke:#1971c2,color:#333
     style fm fill:#e7f5ff,stroke:#1971c2,color:#333
     style wv fill:#f8f9fa,stroke:#868e96,color:#333
-    style mgmt fill:#f3d9fa,stroke:#862e9c,color:#333
+    style mbr fill:#f3d9fa,stroke:#862e9c,color:#333
+    style matrix fill:#f3d9fa,stroke:#862e9c,color:#333
     style ctrl fill:#f3d9fa,stroke:#862e9c,color:#333
 ```
 
@@ -80,10 +80,6 @@ graph LR
 | 颜色 | 含义 |
 |------|------|
 | 橙色（粗边框） | Model 0 系统边界 |
-| 黄色 | M-1 UI Mailbox |
-| 红色 | M-10 Intent Dispatch |
-| 紫色 | M-2 Editor State |
-| 青色 | Page Asset 模型 |
 | 绿色 | 用户模型 |
 | 蓝色 | 渲染 Shell |
 | 实线 | 请求路径（前端 → 工人） |
@@ -95,107 +91,56 @@ graph LR
 |------|------|------|
 | 前端模型基座位置 | 在 UI 模型**内部**，与 M1-M4 并列 | 基座是**解释器**，应包裹所有模型 |
 | 系统边界 | 无 Model 0，In/Out 直接挂在 UI 模型上 | Model 0 (0,0,0) 是唯一外部入口 |
-| In/Out 端口 | 泛称 In\_1/In\_2/Out\_1/Out\_2 | 系统边界应使用 `pin.bus.mb.*` / `pin.bus.cb.*`，模型内部使用 `pin.in` / `pin.out` |
+| In/Out 端口 | 泛称 In\_1/In\_2/Out\_1/Out\_2 | 浏览器统一进入 `pin.bus.cb.in`；目标模型外发才在 `pin.bus.cb.out` 与 `pin.bus.mb.out` 之间选择 |
 | M1-M4 | 无具体含义 | 应为具体模型 ID（-1, -2, -10 等） |
 | 返回路径 | 无 | 完整回路可见 |
 | 层次 | 无 3 层连接架构 | Layer 1/2/3 分层可见 |
 
 ---
 
-## 图二：软件工人内部 3 层 Pin 路由详图
+## 图二：当前浏览器入口与 transport egress
 
-> 粗线（==>）标示完整 round-trip 主路径。子图内细线为模型内部 pin.connect.cell 路由。
+> 浏览器入口与 transport egress 是两个阶段。入口始终是 control ingress；只有目标模型外发记录可以选择 management。
 
 ```mermaid
-graph TB
-    subgraph l1["Layer1 系统边界 Model 0"]
-        bus_in["pin.bus.mb.in / pin.bus.cb.in 外部消息入站"]
-        bus_out["pin.bus.mb.out / pin.bus.cb.out 结果出站"]
-    end
+flowchart TB
+    browser["Browser bus_event_v2"] --> cb_in["Model 0 pin.bus.cb.in"]
+    cb_in --> route["PIN route"]
+    route --> target["Target model"]
+    target -->|"bus=control<br/>route_kind=control"| cb_out["pin.bus.cb.out"]
+    cb_out --> mqtt["Local MQTT"]
+    mqtt --> r1["R1"]
+    target -->|"bus=management<br/>route_kind=management"| mb_out["pin.bus.mb.out"]
+    mb_out --> matrix["Local Matrix/Synapse"]
+    matrix --> mbr["MBR"]
+    mbr -.-> mb_in["pin.bus.mb.in<br/>management transport ingress"]
 
-    subgraph l2["软件工人内"]
-        subgraph m1_box["Model -1 UI Mailbox"]
-            m1_root["Cell 0,0,0<br/>pin.model.in/out"]
-            m1_mb["Cell 0,0,1<br/>ui_event label<br/>pin.in/out"]
-            m1_root -->|"pin.connect.cell"| m1_mb
-            m1_mb -->|"pin.connect.cell"| m1_root
-        end
-
-        subgraph m10_box["Model -10 Intent Dispatch"]
-            m10_root["Cell 0,0,0<br/>dispatch_table<br/>pin.model.in/out"]
-            m10_fn["Cell 1,0,0<br/>func.js handlers<br/>pin.in/out"]
-            m10_root -->|"pin.connect.cell"| m10_fn
-            m10_fn -->|"pin.connect.cell"| m10_root
-        end
-
-        targets["M-2 / M-21~26 / M>0"]
-    end
-
-    bus_in ==>|"step1"| m1_root
-    m1_root ==>|"step2"| m10_root
-    m10_root -->|"dispatch"| targets
-    m10_root ==>|"step3 result"| m1_root
-    m1_root ==>|"step4"| bus_out
-
-    style bus_in fill:#ffe8cc,stroke:#d9480f,stroke-width:3px,color:#333
-    style bus_out fill:#ffe8cc,stroke:#d9480f,stroke-width:3px,color:#333
-    style m1_root fill:#fff4e6,stroke:#e67700,color:#333
-    style m1_mb fill:#fff4e6,stroke:#e67700,color:#333
-    style m10_root fill:#ffe3e3,stroke:#c92a2a,color:#333
-    style m10_fn fill:#e5dbff,stroke:#5f3dc4,color:#333
-    style targets fill:#d3f9d8,stroke:#2f9e44,color:#333
+    style cb_in fill:#ffe8cc,stroke:#d9480f,stroke-width:3px,color:#333
+    style cb_out fill:#ffe8cc,stroke:#d9480f,stroke-width:3px,color:#333
+    style mb_out fill:#f3d9fa,stroke:#862e9c,color:#333
+    style mb_in fill:#f3d9fa,stroke:#862e9c,color:#333
+    style target fill:#d3f9d8,stroke:#2f9e44,color:#333
 ```
 
-### 完整 Round-trip 路径
+### 当前完整路径
 
 | Step | 路径 | Pin 类型 | 连接层 |
 |------|------|---------|--------|
-| step1 | Model 0 bus\_in → M-1 connection Cell → M-1 (0,0,0) | pin.connect.cell + model.submtconnection boundary + child model.submt root | Layer 2 |
-| — | M-1 (0,0,0) → M-1 (0,0,1) mailbox | pin.connect.cell | Layer 3 |
-| — | M-1 (0,0,1) event 处理 → M-1 (0,0,0) | pin.connect.cell | Layer 3 |
-| step2 | M-1 root → M-10 connection Cell → M-10 (0,0,0) dispatch | pin.connect.cell + model.submtconnection boundary + child model.submt root | Layer 2 |
-| — | M-10 (0,0,0) → M-10 (1,0,0) handler | pin.connect.cell | Layer 3 |
-| — | M-10 (1,0,0) func.js 执行 → M-10 (0,0,0) | pin.connect.label + pin.connect.cell | Layer 3 |
-| step3 | M-10 root result → M-1 connection/root boundary | pin.connect.cell + model.submtconnection boundary + child model.submt root | Layer 2 |
-| step4 | M-1 root → Model 0 bus\_out | pin.connect.cell + model.submtconnection boundary + child model.submt root | Layer 2 |
+| step1 | Browser `bus_event_v2` → Model 0 `pin.bus.cb.in` | 固定 browser ingress | Layer 1 |
+| step2 | Model 0 → PIN route → target model | `pin.connect.cell` / model boundary pins | Layer 2/3 |
+| step3-control | target model → `pin.bus.cb.out` → local MQTT → R1 | `bus=control`, `route_kind=control` | transport egress |
+| step3-management | target model → `pin.bus.mb.out` → local Matrix/Synapse → MBR | `bus=management`, `route_kind=management` | transport egress |
+| step4-management | MBR return → `pin.bus.mb.in` | management transport ingress only | Layer 1 |
 
 ---
 
-## 当前实现 vs 目标架构差距
+## 当前路由约束
 
-### 当前状态（非合规）
-
-UI 事件链路绕过 Pin 系统，通过 `submitEnvelope()` 硬编码路由：
-
-```
-HTTP POST /ui_event
-  → addLabel(M-1, 0,0,1, ui_event)        // 直接写 label，未进入 split bus
-  → processEventsSnapshot() 特判检测       // 硬编码 model_id === -1 检查
-  → event_trigger_map 查找                 // 直接读 M-10 label，无跨模型 pin 链
-  → intent_dispatch_table 查找             // 同上
-  → handler 执行                           // 直接调用，无 pin.connect.cell
-  → HTTP response                          // 直接返回，未进入 split bus out
-```
-
-### 需要补齐的 Pin 声明
-
-| 模型 | Cell | 需新增的 Pin 声明 |
-|------|------|-------------------|
-| Model 0 | (0,0,0) | 同工作区 UI/滑动 App 默认使用 `pin.bus.cb.in` / `pin.bus.cb.out`；显式管理语义使用 `pin.bus.mb.in` / `pin.bus.mb.out` |
-| Model -1 | (0,0,0) | pin.in: ui\_msg\_in, pin.out: dispatch\_out, bus\_reply |
-| Model -1 | (0,0,1) | pin.in: event\_in, pin.out: event\_out |
-| Model -1 | (0,0,0) | pin.connect.cell: (0,0,0)→(0,0,1), (0,0,1)→(0,0,0) |
-| Model -10 | (0,0,0) | pin.in: dispatch\_in, pin.out: result\_out |
-| Model -10 | (1,0,0) | pin.in: handler\_in, pin.out: handler\_out |
-| Model -10 | (0,0,0) | pin.connect.cell: (0,0,0)→(1,0,0), (1,0,0)→(0,0,0) |
-| 跨模型 | — | 父侧 `model.submtconnection` Cell 边界引脚 + 子模型 root 边界引脚 + 所在模型内 `pin.connect.cell`；`model.submt` 只负责 child 侧身份声明 |
-
-### 迁移影响
-
-- **Tier 1 变更**：无。`_applyBuiltins()` 和 `_propagateCellConnect()` 已实现 pin 路由引擎。
-- **Tier 2 变更**：新增上述 pin 声明（JSON patch）。
-- **server.mjs 变更**：`submitEnvelope()` 中的硬编码路由逻辑可逐步替换为 pin 路由调用。
-- **前置条件**：Pin 工具（引脚连接 UI）完成后，此迁移才能在界面上可操作。
+- 所有浏览器 `bus_event_v2` 必须先写入 Model 0 的 `pin.bus.cb.in`，不得按浏览器提交意图改写入口。
+- control 由目标模型外发到 `pin.bus.cb.out`，经本地 MQTT 直达 R1；MBR 不桥接、不回显。
+- management 仅由目标模型外发的 `bus=management` 与 `route_kind=management` 共同选择，经 `pin.bus.mb.out`、本地 Matrix/Synapse 到 MBR。
+- `pin.bus.mb.in` 仅是 management transport ingress，不是 browser submit path。
+- 跨模型 PIN 连接继续使用父侧 `model.submtconnection` boundary pins、子模型 root boundary pins 与模型内 `pin.connect.cell`；`model.submt` 只声明 child 身份。
 
 ---
 

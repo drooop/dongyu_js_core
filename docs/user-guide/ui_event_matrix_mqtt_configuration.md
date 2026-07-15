@@ -2,16 +2,20 @@
 title: "UI 事件通过控制总线/MQTT 到达设备的配置指南"
 doc_type: user-guide
 status: active
-updated: 2026-04-21
+updated: 2026-07-16
 source: ai
 ---
 
 # UI 事件通过控制总线/MQTT 到达设备的配置指南
 
 适用场景：
-- Web UI 的同工作区事件默认经由 `Control Bus -> MBR -> MQTT -> worker` 到达设备或模型 PIN；显式管理语义才转入 Matrix 管理总线。
+- Web UI 的同工作区事件默认经由 `Control Bus -> local MQTT -> worker` 直达设备或模型 PIN，MBR no-echo；显式 management 才经本地 Matrix/Synapse 与 MBR。
 
 当前正式口径：
+- 所有浏览器 `bus_event_v2` 都先进入 Model 0 的 `pin.bus.cb.in`
+- control 从目标模型的 `pin.bus.cb.out` 经本地 MQTT 直达 R1，MBR no-echo
+- management 仅由目标模型外发的 `bus=management` 与 `route_kind=management` 共同选择，再经本地 Matrix/Synapse 与 MBR
+- `pin.bus.mb.in` 仅作为 management transport ingress，不是 browser submit path
 - 产品路径只接受一个启动入口：`MODELTABLE_PATCH_JSON`
 - 进程启动时先 `applyPatch`
 - Matrix / MQTT 运行参数只从 **Model 0, Cell (0,0,0)** 读取
@@ -22,6 +26,8 @@ source: ai
 ## 一、必填 labels
 
 ### 1. Matrix
+
+以下 Matrix labels 只影响显式 management 路径；默认 control 直连本地 MQTT，不依赖 Matrix/MBR。
 
 | Cell | k | t | v |
 |---|---|---|---|
@@ -118,7 +124,13 @@ bash scripts/ops/check_runtime_baseline.sh
 ```
 
 PASS 判定：
-- 5 个 deployment ready
+- 6 个 deployment ready，且必须逐项包含：
+  - `mosquitto（Mosquitto）`
+  - `synapse（Synapse）`
+  - `remote-worker（R1）`
+  - `workspace-manager（WM1）`
+  - `mbr-worker（MBR）`
+  - `ui-server（UI Server）`
 - `mbr-worker-secret.MODELTABLE_PATCH_JSON` ready
 - `ui-server-secret.MODELTABLE_PATCH_JSON` ready
 - `snapshot.models["0"].cells["0,0,0"].labels.runtime_mode.v` 为 `edit` 或 `running`

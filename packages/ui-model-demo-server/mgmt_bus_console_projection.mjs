@@ -54,10 +54,10 @@ function sanitizeObjectForDisplay(value) {
   return sanitizeString(value);
 }
 
-function findModelTableRecord(records, key) {
+function findModelTableRecord(records, key, id = 0) {
   return (Array.isArray(records) ? records : []).find((record) => (
     record
-    && record.id === 0
+    && record.id === id
     && record.p === 0
     && record.r === 0
     && record.c === 0
@@ -65,25 +65,36 @@ function findModelTableRecord(records, key) {
   )) || null;
 }
 
-function previewFromBusinessRecords(records) {
+function previewFromBusinessRecords(records, payloadModelId = 0) {
   for (const key of ['reply_text', 'message_text', 'draft', 'text']) {
-    const record = findModelTableRecord(records, key);
-    if (record && typeof record.v === 'string' && record.v.trim()) return record.v;
+    const record = findModelTableRecord(records, key, payloadModelId);
+    if (record?.t === 'str' && typeof record.v === 'string' && record.v.trim()) return record.v;
   }
-  const target = findModelTableRecord(records, 'target_user_id');
-  return target && typeof target.v === 'string' ? target.v : '';
+  const target = findModelTableRecord(records, 'target_user_id', payloadModelId);
+  return target?.t === 'str' && typeof target.v === 'string' ? target.v : '';
 }
 
 function previewFromPinPayloadPacket(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
-  if (value.version !== 'v1' || value.type !== 'pin_payload') return '';
-  const nestedPayload = findModelTableRecord(value.payload, 'payload')?.v;
-  return previewFromBusinessRecords(nestedPayload);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  if (value.version !== 'v1' || value.type !== 'pin_payload') return null;
+
+  const envelopeKind = findModelTableRecord(value.payload, '__mt_payload_kind');
+  if (envelopeKind?.t !== 'str' || envelopeKind.v !== 'pin_payload.v2') return '';
+
+  const payloadModelIdRecord = findModelTableRecord(value.payload, 'payload_model_id');
+  const payloadModelId = payloadModelIdRecord?.v;
+  if (
+    payloadModelIdRecord?.t !== 'int'
+    || !Number.isSafeInteger(payloadModelId)
+    || payloadModelId <= 0
+  ) return '';
+
+  return previewFromBusinessRecords(value.payload, payloadModelId);
 }
 
 function compactPreview(value) {
   const pinPayloadPreview = previewFromPinPayloadPacket(value);
-  if (pinPayloadPreview) {
+  if (pinPayloadPreview !== null) {
     const normalized = sanitizeString(pinPayloadPreview).replace(/\s+/gu, ' ').trim();
     return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;
   }

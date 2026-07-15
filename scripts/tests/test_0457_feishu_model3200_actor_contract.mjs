@@ -207,6 +207,9 @@ function test_generic_v2_requires_exact_transport_envelope() {
     ['request_topic_reuse', replaceRecord(valid, 'response_topic', { v: `${DEFAULT_TOPIC_BASE}/R1/${model3200Id}/resource` }), 'response_topic_mismatch'],
     ['full_topic_endpoint_pin', replaceRecord(valid, 'endpoint_pin', { v: `${DEFAULT_TOPIC_BASE}/R1/${model3200Id}/resource` }), 'invalid_pin_payload_records'],
     ['legacy_response_pin', [...valid, mt('response_pin', 'str', `${DEFAULT_TOPIC_BASE}/U1/1/result`)], 'legacy_pin_payload_metadata_removed'],
+    ['duplicate_feishu_root_extension', [...valid, mt('is_need_response', 'bool', false)], 'invalid_pin_payload_records'],
+    ['duplicate_generic_root_extension', [...valid, mt('custom_hint', 'str', 'first'), mt('custom_hint', 'str', 'second')], 'invalid_pin_payload_records'],
+    ['non_root_model0_record', [...valid, recordAt('custom_hint', 'str', 'off-root', { id: 0, p: 1 })], 'invalid_pin_payload_records'],
     ['invalid_payload_model_id', valid.map((record) => {
       if (record.k === 'payload_model_id') return { ...record, v: 0 };
       return record.id === 1 ? { ...record, id: 0 } : record;

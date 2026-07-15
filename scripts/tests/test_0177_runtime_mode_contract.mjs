@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
+import { pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
@@ -25,23 +26,20 @@ function mt(k, t, v) {
 }
 
 function pinPayload(opId) {
-  return [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', opId),
-    mt('op_id', 'str', opId),
-    mt('message_role', 'str', 'request'),
-    mt('endpoint_worker_id', 'str', 'R1'),
-    mt('endpoint_model_id', 'int', 100),
-    mt('endpoint_pin', 'str', 'submit'),
-    mt('origin_worker_id', 'str', 'ui-server-test'),
-    mt('origin_model_id', 'int', 100),
-    mt('origin_pin', 'str', 'submit'),
-    mt('reply_target_worker_id', 'str', 'ui-server-test'),
-    mt('reply_target_model_id', 'int', 100),
-    mt('reply_target_pin', 'str', 'result'),
-    mt('payload', 'json', [mt('phase', 'str', 'running')]),
-    mt('timestamp', 'int', Date.now()),
-  ];
+  return pinPayloadV2Records({
+    opId,
+    endpointWorkerId: 'R1',
+    endpointModelId: 100,
+    endpointPin: 'submit',
+    originWorkerId: 'ui-server-test',
+    originModelId: 100,
+    originPin: 'submit',
+    replyTargetWorkerId: 'ui-server-test',
+    replyTargetModelId: 100,
+    replyTargetPin: 'result',
+    payloadRecords: [mt('phase', 'str', 'running')],
+    timestamp: Date.now(),
+  });
 }
 
 function test_runtime_mode_and_trusted_bootstrap() {
@@ -111,6 +109,12 @@ function test_runtime_mode_and_trusted_bootstrap() {
 
   rt.addLabel(model0, 0, 0, 0, { k: 'running_out', t: 'pin.bus.cb.out', v: pinPayload('running_out') });
   assert.equal(mqttPublishes.length, 1, 'running mode must re-enable pin.bus.cb.out side effects');
+  assert.equal(mqttPublishes[0].topic, 'UIPUT/ws/dam/pic/de/R1/100/submit', 'running mode must publish v2 payloads to their declared topic');
+  assert.equal(
+    mqttPublishes[0].payload.payload.find((record) => record.k === '__mt_payload_kind')?.v,
+    'pin_payload.v2',
+    'running mode must publish the current pin_payload.v2 contract',
+  );
   assert.equal(findRuntimeModeLabel(rt)?.v, 'running', 'runtime must update Model 0 runtime_mode label when entering running');
 }
 

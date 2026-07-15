@@ -2,7 +2,7 @@
 title: "Iteration 0457 Feishu Message API v2 + Local DE Resolution"
 doc_type: iteration-resolution
 status: approved
-updated: 2026-07-10
+updated: 2026-07-13
 source: ai
 iteration_id: 0457-feishu-message-api-v2-local-de
 id: 0457-feishu-message-api-v2-local-de
@@ -70,6 +70,7 @@ Use RED/GREEN slices. Resolve the authority conflict first, then repair local ba
   - `deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json`: add worker-root `model.v1n`; preserve existing WM1 Model 4000 chain.
   - Add non-secret actor-attestation logging derived after actual patch load in both worker runners.
 - Actor side effects use declared pins and `V1N.addLabel`/`removeLabel`; no Model 0 business function.
+- Freeze split-bus no-echo behavior: control request/response traffic is direct UI Server ↔ local MQTT ↔ R1 and MBR must not bridge it; management request is UI Server `mb.out` → MBR → R1 `cb.in`, while management response is R1 `cb.out` → MBR → UI Server `mb.in`, exactly once.
 - Verify all named tests plus `node scripts/tests/test_0419_mbr_control_bus_ready_contract.mjs` and syntax checks.
 - Acceptance: tier/model placement, owners, forward/response flow, and no-skip chain are explicit and GREEN.
 - Rollback: revert runner/role patches together; no pods changed yet.
@@ -132,23 +133,52 @@ Use RED/GREEN slices. Resolve the authority conflict first, then repair local ba
 - Acceptance: all focused behavior is owned by Model 3200 and the former 51 behaviors plus new cases pass.
 - Rollback: revert Model 3200 and migrated tests together.
 
+## Step 6.5 - RED/GREEN the Generic Host-Egress Prerequisite
+
+Code-state amendment recorded 2026-07-13: the approved Step 7 cannot run through the current imported-app adapter because all public egress pins share one route and the bridge remaps every record to business Model `1`. This is an execution-discovered prerequisite, not a change in Feishu ownership. Revision 4 was explicitly approved by the user after the workflow revision limit placed the iteration On Hold.
+
+- Add RED contracts before production edits for:
+  - one imported app with two declared public output pins, one routed through `pin.bus.cb.out` and the other through `pin.bus.mb.out`, exercised from the imported root pin through the generated `pin.connect.cell` / `pin.connect.label` chain rather than by directly invoking bridge code;
+  - exact safe envelope extensions surviving into final `pin_payload.v2` Model `0`, while business records remain under the declared positive payload model;
+  - default route compatibility, export/import/reapply round-trip, and fail-closed duplicate, unknown-pin, invalid-route, reserved-key, authority, legacy-route, non-root, and undeclared extension attempts, plus extra-model rejection only at the internal `bus_send.v1` materialization boundary;
+  - generic formal v2 rejection of duplicate Model `0` Cell/key records, including duplicate Feishu extensions, without a Tier 1 Feishu-key list;
+  - a verifier contract for exact removed dotted-id outer input through local Mosquitto → deployed R1 Model 0, with explicit rejection and unchanged Model 3200 state/output.
+- Extend only generic declarations/boundaries:
+  - `dual_bus_model.egress_routes` is an optional array of `{pin_name,route_kind}` overrides. Every pin must already appear exactly once in `egress_pins` and be a root `pin.out`; route kind is `control|management`. Resolution order is per-pin override, `remote_bus_endpoint_v1.route_kind`, then `control`.
+  - `dual_bus_model.envelope_extension_keys` is an optional unique list of at most `16` keys. Each key is `1..64` characters and matches `^[a-z][a-z0-9_]*$`. The generated adapter lifts every matching exact `(id=0,p=0,r=0,c=0)` record, sends the declared-key list as internal `bus_send.v1` metadata, and remaps all other records, including non-root records with a declared key, to payload Model `1`; the same behavior is required for non-Feishu public pins.
+  - shared generic rule module `packages/worker-base/src/pin_payload_envelope_extensions.mjs` is the only definition of safe keys. Reserved exact keys are `__mt_payload_kind`, `__mt_request_id`, `op_id`, `request_id`, `correlation_id`, `message_role`, `bus`, `bus_out_key`, `route_kind`, `topic`, `response_topic`, `timestamp`, `payload`, `payload_model_id`, `bundle_record_id_offset`, `worker_id`, `model_id`, `table_id`, `pin`, `principal_ref`, `principal_id`, `authority`, `identity`, `source_model_id`, `route`, `reply_to`, `route.reply_to`, `response_pin`, `return_topic`, `returnTopic`, `result_topic`, and the internal `envelope_extension_keys`. Reserved prefixes are `__mt_`, `endpoint_`, `origin_`, `reply_target_`, `principal_`, `owner_`, `payload_`, `response_`, `return_`, `route_`, `source_`, `model_`, and `sys_`.
+  - generic `bus_send.v1` recognizes the internal declared-key list but never emits it externally. It accepts only declared safe root extensions, rejects duplicate root Cell/key records, non-root Model `0` metadata, records outside Model `0` or the declared positive payload model, and deep-clones extensions into generated `pin_payload.v2`.
+  - generic formal `pin_payload.v2` validation rejects any duplicate Model `0` Cell/key record and any Model `0` non-root record. It otherwise preserves the existing `bundle_record_id_offset` and inline positive-model bundle semantics; Feishu type/required-field validation remains exclusively in Model 3200.
+  - the deployed legacy negative uses the existing R1 bus/MQTT rejection-only detector; no positive App-table Model `0` claim, v1 parser, conversion, or compatibility is added.
+- Production files are limited to `packages/ui-model-demo-server/server.mjs`, canonical `packages/worker-base/src/runtime.mjs`, and the shared generic rule module above; `runtime.js` remains the CJS shim. MBR and Model 3200 do not change for this prerequisite, and no new Model 3200 `unexpected_payload_model` rule is introduced.
+- Preserve every existing imported-app default route/export/import behavior and generic transport regression.
+- The Server state used by persistence/reapply tests exposes waitable startup readiness and idempotent shutdown; shutdown drains pending work, leaves runtime non-running, closes persistence and active adapters, and permits no late snapshot mutation or background warning.
+- Obtain three consecutive independent `Approved` reviews of this amendment before GREEN implementation. Any requested change resets the count.
+- Acceptance: reviewed RED is specific, GREEN passes focused and generic regressions, no Feishu-special parser/state appears in Tier 1, the live fixture can use one app for both buses, and the separate local MQTT probe proves deployed legacy rejection.
+- Rollback: revert the three generic production files and their focused tests together. Step 8 also captures the pre-deploy UI image/persistence before any live rollout.
+
 ## Step 7 - Build the Live Test ModelTable App and OrbStack Verifier
 
 - Create committed deterministic fixture `scripts/fixtures/0457/feishu_message_api_v2_orbstack_app_payload.json` as a test-only imported ModelTable app.
 - It exposes control and management actions, emits exact v2 requests to R1 Model 3200 through its host-owned Model 0 egress, and receives table-qualified responses through the existing materialization chain.
 - Create `scripts/test_e2e_0457_feishu_message_api_v2_orbstack.mjs`.
 - The verifier:
-  - requires `orbstack` and local services;
+  - requires Kubernetes context `orbstack`, passes the existing local runtime-baseline check, and confirms a ready local Synapse service plus local Mosquitto; it rejects remote MQTT/Matrix/OIDC/SSO endpoints while allowing only the approved `https://open.feishu.cn` Feishu host;
   - installs/uses the test app through existing host ingress, never direct actor mutation;
-  - records the acceptance start timestamp;
+  - records both the acceptance start timestamp and the actual legacy publish timestamp;
   - checks actor attestations from MBR/R1/WM1 logs;
   - runs one control and one management request/response;
-  - sends a legacy v1 negative case through the same deployed boundary;
-  - checks bounded logs/results for response and rejection evidence;
+  - publishes a uniquely marked legacy v1 negative packet through local Mosquitto to the deployed R1 public control boundary, then proves R1 rejection and unchanged Model 3200 state/output;
+  - reads that proof through the executable runtime rejection trace → shared stateful redacted emitter factory with an injected writer and an owned MQTT-trace cursor → verifier parser path and from a non-secret R1 diagnostic marker containing Model 0 `mqtt_inbound_error` fields plus stable SHA-256 values for the full Model 3200 snapshot and its root `result`; the runner has no local cursor/delta implementation or raw/direct trace serialization and must not add an API or write actor state;
+  - binds the trace and error to the exact packet, marker, response topic, and publish timestamp; uses bounded tunnel-readiness and fresh-marker polling; then observes a conservative response-silence interval after fresh rejection evidence;
+  - validates diagnostic schema and checks cumulative bounded logs/results for all fresh correlated event types with the production parsers, preserving an earlier accepted-ingress event even when a later rejection exists; every log read timeout is shorter than the overall poll bound;
+  - awaits MQTT.js connect/SUBACK/publish/end callbacks, removes temporary listeners/timers on every settlement, keeps a managed post-connect error path, and ensures the adapter timeout completes before the outer probe timeout; the probe owns and disposes its response/error listeners on every outcome, and an MQTT error during the silence window invalidates acceptance; port-forward readiness/error/exit plus every MQTT/evidence stage have explicit timeouts;
+  - attempts MQTT and tunnel cleanup exactly once each even when either cleanup itself fails, without hiding the primary acceptance failure;
   - fails on remote Matrix/MQTT/OIDC URLs in the acceptance window.
 - Add a clean-checkout fixture guard: the verifier must resolve the committed fixture without ignored `test_files/` state or generated local snapshots.
+- Package the shared diagnostic/trace helper in `k8s/Dockerfile.remote-worker`; migrate the existing remote-worker observability contract away from raw MQTT payload logging to the redacted marker contract.
 - Unit-contract the verifier before deployment; do not claim E2E yet.
-- Rollback: remove test fixture/verifier; no production mutation API was added.
+- Rollback: remove test fixture/verifier and revert the reviewed Step 6.5 generic prerequisite if the complete path is abandoned; no direct actor mutation API is added.
 
 ## Step 8 - Prepare and Verify Deterministic Local Rollback
 
@@ -177,6 +207,7 @@ Use RED/GREEN slices. Resolve the authority conflict first, then repair local ba
   3. `bash scripts/ops/check_runtime_baseline.sh`
   4. `node scripts/test_e2e_0457_feishu_message_api_v2_orbstack.mjs`
   5. `bash scripts/ops/verify_model100_submit_roundtrip.sh --base-url http://127.0.0.1:30900`
+- The local deploy entry must apply both Synapse/Mosquitto manifests, restart both deployments before any rollout status check, and use the Synapse Matrix HTTP readiness probe so bootstrap cannot begin on a Kubernetes-only false ready.
 - Inspect live deployments/logs and bounded no-remote assertions.
 - Optional Feishu read: if the approved credential mechanism is available, run a read-only focused source check to a temporary output; label it external read evidence. Never substitute fixture output or write Feishu.
 - On any failure: execute the Step 8 rollback, keep F-01 pending, fix via a new RED test, and repeat.
@@ -218,6 +249,8 @@ Use RED/GREEN slices. Resolve the authority conflict first, then repair local ba
 ## Required Verification Set
 
 - Focused actor/F-01 tests from Steps 1-7.
+- Revision 4 boundary contracts: `test_0457_pin_payload_envelope_extension_rules.mjs`, `test_0457_imported_host_egress_prerequisite.mjs`, `test_0457_remote_worker_diagnostic_contract.mjs`, and `test_0457_orbstack_e2e_verifier_contract.mjs`.
+- Bundle compatibility required together: `test_0375_unified_worker_model_topic_contract.mjs`, `test_0376_control_first_mbr_routing_contract.mjs`, and `test_0384_provider_owned_slide_app_install_flow.mjs`.
 - Generic transport: 0332, 0375, 0396, 0417, 0430.
 - Actor/runtime: 0196, 0197, 0328, 0362, 0364, 0376, 0379, 0419.
 - All 0442-0452 focused Feishu behavior files.

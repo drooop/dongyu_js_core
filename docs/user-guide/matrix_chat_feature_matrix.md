@@ -2,7 +2,7 @@
 title: "Matrix Chat 功能与调试清单"
 doc_type: user-guide
 status: active
-updated: 2026-06-03
+updated: 2026-07-16
 source: ai
 ---
 
@@ -12,7 +12,9 @@ source: ai
 
 ## 当前显示口径
 
-`Matrix Chat` 默认使用 `drop` 的远端 Matrix 身份，homeserver 为 `https://matrix.dongyudigital.com`。本地测试也按这个远端 homeserver 执行，不再用本地 Matrix 服务器替代。
+本地测试与 Revision 4 acceptance 使用 OrbStack 内的 Synapse，homeserver 为 `http://synapse.dongyu.svc.cluster.local:8008`，server name 为 `localhost`。本地 Matrix 房间、用户与消息 fixture 必须在该服务内创建。
+
+Cloud/remote 环境可以按显式 cloud 配置使用 `drop` 的远端 Matrix 身份和 `https://matrix.dongyudigital.com`；该环境的真实会话数据与故障不计入 local acceptance。
 
 会话列表按真实 Matrix 数据分组：
 
@@ -109,23 +111,26 @@ python3 -m py_compile scripts/matrix_chat_real_flow_check.py
 git diff --check
 ```
 
-涉及真实 Matrix 行为时，还要运行：
+涉及本地真实 Matrix 行为时，先确认 OrbStack baseline，再对集群内 Synapse 做真实收发：
 
 ```bash
-scripts/matrix_chat_real_flow_check.py --timeout 40
+bash scripts/ops/check_runtime_baseline.sh
+python3 scripts/matrix_connection_check.py --homeserver k8s --timeout 40
 ```
+
+Cloud/remote-only：`scripts/matrix_chat_real_flow_check.py` 当前强制使用远端 homeserver，只用于显式 cloud/remote 诊断，不属于 local acceptance。
 
 真实浏览器至少覆盖：
 
 - 打开 `Matrix Chat`。
-- 点击 `Refresh`，确认远端 `drop` joined rooms 出现。
+- 点击 `Refresh`，确认本地 Synapse 中 `drop` 的 joined rooms 出现。
 - 点击 `People`，确认 `mbr` 的 1v1 room 显示为 `mbr` 或对应 peer 名，摘要不是正式 DM。
 - 点击 `Rooms`，确认普通 room 或接口异常 room 不混入 People。
 - 发送一条文本消息并在时间线看到 `You` 消息。
 - 发送一个文本文件并看到 file card，下载入口可见。
 - 发送一张图片并看到 image card 缩略图，打开/下载入口可见。
 - 点击 `Voice`，确认进入录音面板；点击 `Finish` 或按 Enter 后发送，并在时间线看到 audio card；点击 `Cancel` 时不发送。
-- 新建临时 room，邀请 `@mbr:synapse.dongyudigital.com`，移除邀请/成员后确认投影更新。
+- 新建临时 room，邀请 `@mbr:localhost`，移除邀请/成员后确认投影更新。
 - 由 `mbr` 邀请 `drop`，在浏览器中接受邀请，确认邀请变成普通 room，再退出并确认列表移除。
 - 由 `mbr` 再邀请 `drop`，在浏览器中拒绝邀请，确认邀请行从列表移除。
 - 结束后清理临时 Matrix room。

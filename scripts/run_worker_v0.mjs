@@ -19,8 +19,13 @@ import { WorkerEngineV0, loadSystemPatch } from './worker_engine_v0.mjs';
 import {
   ACTOR_ATTESTATION_MARKER,
   buildDeActorAttestation,
+  createDeActorAttestationHeartbeat,
 } from './lib/de_actor_attestation.mjs';
+import { createDeNetworkBoundaryObservability } from './lib/de_network_boundary_evidence.mjs';
 import { readMatrixBootstrapConfig, readMqttBootstrapConfig } from '../packages/worker-base/src/bootstrap_config.mjs';
+import { createDePinFlowEvidenceEmitter } from '../packages/worker-base/src/de_pin_flow_evidence.mjs';
+import { createMbrPinFlowEvidenceWiring } from '../packages/worker-base/src/de_pin_flow_wiring.mjs';
+import { publishMqttWithAck } from '../packages/worker-base/src/mqtt_publish_ack.mjs';
 import {
   applyPersistedAssetEntries,
   readPersistedAssetManifest,
@@ -32,6 +37,26 @@ const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../packages/worker-base/src/runtime.js');
 const { createMatrixLiveAdapter } = require('../packages/worker-base/src/matrix_live.js');
 const mqtt = require('mqtt');
+
+export function createMbrWorkerNetworkBoundaryObservability({
+  mqttUrl,
+  matrixHomeserverUrl,
+  writeLine,
+  now,
+  setIntervalFn,
+  clearIntervalFn,
+  heartbeatIntervalMs,
+}) {
+  return createDeNetworkBoundaryObservability({
+    service: 'mbr-worker',
+    effectiveDestinations: [mqttUrl, matrixHomeserverUrl],
+    writeLine,
+    now,
+    setIntervalFn,
+    clearIntervalFn,
+    heartbeatIntervalMs,
+  });
+}
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -271,6 +296,18 @@ function hasDuplicatePinPayloadRecordKeys(payload, keys) {
   return false;
 }
 
+function hasInvalidModelZeroRootRecords(payload) {
+  if (!payload || !Array.isArray(payload.payload)) return true;
+  const rootKeys = new Set();
+  for (const record of payload.payload) {
+    if (!record || record.id !== 0) continue;
+    if (record.p !== 0 || record.r !== 0 || record.c !== 0) return true;
+    if (rootKeys.has(record.k)) return true;
+    rootKeys.add(record.k);
+  }
+  return false;
+}
+
 function isStrictNonBlankString(value) {
   return typeof value === 'string' && value.length > 0 && value.trim() === value;
 }
@@ -305,6 +342,8 @@ function validatePinPayloadRecordEnvelope(payload) {
     'reply_target_table_id',
     'reply_target_pin',
     'reply_target_principal_key',
+    'bus',
+    'route_kind',
   ];
   const metadataKeys = stringMetadataKeys.concat([
     '__mt_payload_kind',
@@ -338,6 +377,25 @@ function validatePinPayloadRecordEnvelope(payload) {
   const messageRole = pinPayloadString(payload, 'message_role');
   if (messageRole !== 'request' && messageRole !== 'response') {
     return { ok: false, reason: 'invalid_message_role' };
+  }
+  const bus = pinPayloadString(payload, 'bus');
+  const routeKind = pinPayloadString(payload, 'route_kind');
+  if ((bus !== 'control' && bus !== 'management')
+    || (routeKind !== 'control' && routeKind !== 'management')) {
+    return { ok: false, reason: 'invalid_route_kind' };
+  }
+  if (bus !== routeKind) {
+    return { ok: false, reason: 'bus_route_kind_mismatch' };
+  }
+  const timestamp = pinPayloadRecord(payload, 'timestamp');
+  if (!timestamp) {
+    return { ok: false, reason: 'missing_timestamp' };
+  }
+  if (timestamp.t !== 'int' || !Number.isInteger(timestamp.v)) {
+    return { ok: false, reason: 'invalid_timestamp' };
+  }
+  if (hasInvalidModelZeroRootRecords(payload)) {
+    return { ok: false, reason: 'invalid_pin_payload_records' };
   }
   const topicValue = pinPayloadString(payload, 'topic');
   const responseTopicValue = pinPayloadString(payload, 'response_topic');
@@ -409,6 +467,8 @@ function validatePinPayloadRecordEnvelope(payload) {
   return {
     ok: true,
     message_role: messageRole,
+    bus,
+    route_kind: routeKind,
     topic: topicValue,
     response_topic: responseTopicValue,
     endpoint,
@@ -418,7 +478,12 @@ function validatePinPayloadRecordEnvelope(payload) {
 }
 
 export function validateUnifiedMatrixEventPacket(event) {
-  return validatePinPayloadRecordEnvelope(event);
+  const validation = validatePinPayloadRecordEnvelope(event);
+  if (!validation.ok) return validation;
+  if (validation.bus !== 'management' || validation.route_kind !== 'management') {
+    return { ok: false, reason: 'matrix_ingress_requires_management_route' };
+  }
+  return validation;
 }
 
 export function validateUnifiedEndpointTopicPacket(topic, payload, base) {
@@ -447,7 +512,23 @@ export function validateUnifiedEndpointTopicPacket(topic, payload, base) {
   if (parsed.topic !== topic) {
     return { ok: false, reason: 'topic_mismatch' };
   }
-  return { ok: true, worker_id: workerId, model_id: modelId, pin };
+  return {
+    ok: true,
+    worker_id: workerId,
+    model_id: modelId,
+    pin,
+    message_role: parsed.message_role,
+    bus: parsed.bus,
+    route_kind: parsed.route_kind,
+  };
+}
+
+export function shouldBridgeMbrMqttPacket(validation) {
+  return Boolean(validation
+    && validation.ok === true
+    && validation.message_role === 'response'
+    && validation.bus === 'management'
+    && validation.route_kind === 'management');
 }
 
 function packetOpId(payload) {
@@ -470,51 +551,41 @@ export function writeMbrIngressError(rt, model0, channel, reason) {
   });
 }
 
-function bootstrapActorOverrideKey(rt, patch) {
-  const root = rt.getCell(rt.getModel(0), 0, 0, 0);
-  const protectedRootKeys = new Set([
-    'model_type',
-    'sys_worker_id',
-    'sys_worker_role',
-    'mqtt_worker_id',
-    'workspace_manager_worker_id',
-    'mqtt_topic_base',
+function bootstrapActorOverrideKey(_rt, patch) {
+  const allowedTransportLabels = new Map([
+    ['matrix_room_id', 'str'],
+    ['matrix_server', 'matrix.server'],
+    ['matrix_user', 'matrix.user'],
+    ['matrix_passwd', 'matrix.passwd'],
+    ['matrix_token', 'matrix.token'],
+    ['matrix_contuser', 'matrix.contuser'],
+    ['local_ip', 'mqtt.local.ip'],
+    ['local_port', 'mqtt.local.port'],
+    ['global_ip', 'mqtt.global.ip'],
+    ['global_port', 'mqtt.global.port'],
   ]);
-  for (const label of root.labels.values()) {
-    if (label && typeof label.t === 'string' && label.t.startsWith('pin.bus.')) {
-      protectedRootKeys.add(label.k);
-    }
-  }
-  const protectedMounts = new Map();
-  for (const model of rt.models.values()) {
-    for (const cell of model.cells.values()) {
-      for (const label of cell.labels.values()) {
-        if (!label || label.t !== 'model.submtconnection') continue;
-        const location = `${model.id}|${cell.p}|${cell.r}|${cell.c}|${label.k}`;
-        protectedMounts.set(location, label.k);
-      }
-    }
-  }
   const records = patch && Array.isArray(patch.records) ? patch.records : [];
   for (const record of records) {
-    if (!record || (record.op !== 'add_label' && record.op !== 'rm_label')) continue;
-    if (record.t === 'model.submtconnection') return String(record.k || 'model_type');
-    const location = `${record.model_id}|${record.p}|${record.r}|${record.c}|${record.k}`;
-    if (protectedMounts.has(location)) return protectedMounts.get(location);
-    if (record.model_id !== 0 || record.p !== 0 || record.r !== 0 || record.c !== 0) continue;
-    if (protectedRootKeys.has(record.k)) return record.k;
-    if (typeof record.t === 'string' && record.t.startsWith('pin.bus.')) return record.k;
+    if (!record || typeof record !== 'object') return 'invalid_record';
+    const recordKey = typeof record.k === 'string' && record.k
+      ? record.k
+      : `model:${String(record.model_id)}`;
+    if (record.op !== 'add_label') return recordKey;
+    if (record.model_id !== 0 || record.p !== 0 || record.r !== 0 || record.c !== 0) {
+      return recordKey;
+    }
+    if (allowedTransportLabels.get(record.k) !== record.t) return recordKey;
   }
   return '';
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
-function main() {
+export function main(options = {}) {
   const assetRoot = resolvePersistedAssetRoot();
   const repoRoot = path.resolve(import.meta.dirname, '..');
   // 1. Determine patch directory
-  const patchDir = process.argv[2] || process.env.DY_ROLE_PATCH_DIR || '';
+  const patchDir = options.patchDir || process.argv[2] || process.env.DY_ROLE_PATCH_DIR || '';
   if (!assetRoot && !patchDir) {
     logErr('Usage: run_worker_v0.mjs <patch_dir>  or set DY_ROLE_PATCH_DIR');
     process.exitCode = 1;
@@ -629,23 +700,64 @@ function main() {
 
   // 7. Create MQTT client
   const mqttUrl = `mqtt://${mqttHost}:${mqttPort}`;
-  const mqttClient = mqtt.connect(mqttUrl, {
-    username: mqttUser,
-    password: mqttPass,
-    clientId: `dy-worker-${Date.now()}`,
-    reconnectPeriod: 500,
+  const installNetworkBoundaryObservability = options.installNetworkBoundaryObservability
+    || createMbrWorkerNetworkBoundaryObservability;
+  const writeEvidenceLine = options.writeLine || ((line) => process.stdout.write(`${line}\n`));
+  const networkBoundaryObservability = installNetworkBoundaryObservability({
+    service: 'mbr-worker',
+    mqttUrl,
+    matrixHomeserverUrl: matrixConfig.homeserverUrl,
+    writeLine: options.writeLine || ((line) => process.stdout.write(`${line}\n`)),
+    now: options.now || Date.now,
+    setIntervalFn: options.setIntervalFn || setInterval,
+    clearIntervalFn: options.clearIntervalFn || clearInterval,
+    heartbeatIntervalMs: 10000,
+  });
+  const emitPinFlowEvidenceLine = createDePinFlowEvidenceEmitter({
+    producer: 'mbr',
+    writeLine: writeEvidenceLine,
+    now: options.now || Date.now,
+  });
+  const mbrPinFlowWiring = createMbrPinFlowEvidenceWiring({
+    emitEvidence: emitPinFlowEvidenceLine,
+    onEvidenceError: ({ code, stage }) => {
+      logErr(`${code} stage=${stage}`);
+    },
+  });
+  let mqttClient;
+  try {
+    networkBoundaryObservability.recordOutbound(mqttUrl);
+    mqttClient = mqtt.connect(mqttUrl, {
+      username: mqttUser,
+      password: mqttPass,
+      clientId: `dy-worker-${Date.now()}`,
+      reconnectPeriod: 500,
+    });
+  } catch (error) {
+    networkBoundaryObservability.stop();
+    throw error;
+  }
+  const actorAttestationHeartbeat = createDeActorAttestationHeartbeat({
+    attestation: actorAttestation,
+    writeLine: writeEvidenceLine,
+    heartbeatIntervalMs: 10000,
   });
 
   const mqttPublish = (topic, payload) => {
     const opId = payload && typeof payload === 'object' ? (payload.op_id || '') : '';
     log(`mqtt publish topic=${topic} op_id=${opId}`);
-    mqttClient.publish(topic, JSON.stringify(payload));
+    networkBoundaryObservability.recordOutbound(mqttUrl);
+    const publishResult = publishMqttWithAck(mqttClient, topic, payload);
+    return mbrPinFlowWiring.recordControlForward(payload, publishResult);
   };
 
   // 8. Create engine
   const engine = new WorkerEngineV0({ runtime: rt, mgmtAdapter: null, mqttPublish });
   const model0 = rt.getModel(0);
   if (!model0) {
+    actorAttestationHeartbeat.stop();
+    networkBoundaryObservability.stop();
+    try { mqttClient.end(true); } catch (_) { /* */ }
     logErr('Model 0 not found after loading patches');
     process.exitCode = 1;
     return;
@@ -671,6 +783,7 @@ function main() {
   if (matrixRoomId) {
     const filterTypes = matrixEventFilter.split(',').map(s => s.trim());
 
+    networkBoundaryObservability.recordOutbound(matrixConfig.homeserverUrl);
     createMatrixLiveAdapter({
       roomId: matrixRoomId,
       syncTimeoutMs: 20000,
@@ -682,7 +795,12 @@ function main() {
     })
       .then((adapter) => {
         mgmtAdapter = adapter;
-        engine.mgmtAdapter = adapter;
+        engine.mgmtAdapter = {
+          publish: (packet) => mbrPinFlowWiring.publishManagementResponse(
+            adapter.publish.bind(adapter),
+            packet,
+          ),
+        };
 
         adapter.subscribe((event) => {
           const validation = validateUnifiedMatrixEventPacket(event);
@@ -698,7 +816,10 @@ function main() {
             return;
           }
           log(`recv mgmt ${event.type} op_id=${event.op_id}`);
-          const ingressResult = rt.addLabel(model0, 0, 0, 0, { k: 'mbr_mb_in', t: 'pin.bus.mb.in', v: event.payload });
+          const ingressResult = mbrPinFlowWiring.recordManagementIngress(
+            event,
+            () => rt.addLabel(model0, 0, 0, 0, { k: 'mbr_mb_in', t: 'pin.bus.mb.in', v: event.payload }),
+          );
           if (!ingressResult || !ingressResult.applied) {
             writeMbrIngressError(rt, model0, 'matrix', 'bus_write_rejected');
             return;
@@ -709,6 +830,9 @@ function main() {
         log(`mgmt READY room_id=${adapter.room_id}`);
       })
       .catch((err) => {
+        networkBoundaryObservability.stop();
+        actorAttestationHeartbeat.stop();
+        try { mqttClient.end(true); } catch (_) { /* */ }
         logErr(`matrix adapter init failed: ${err && err.stack ? err.stack : err}`);
         process.exitCode = 1;
       });
@@ -743,8 +867,15 @@ function main() {
         log(`drop pre-running mqtt topic=${topic} op_id=${opId}`);
         return;
       }
+      if (!shouldBridgeMbrMqttPacket(validation)) {
+        log(`ignore non-bridge mqtt topic=${topic} role=${validation.message_role} route_kind=${validation.route_kind}`);
+        return;
+      }
       log(`recv mqtt topic=${topic} op_id=${opId}`);
-      const ingressResult = rt.addLabel(model0, 0, 0, 0, { k: 'mbr_cb_in', t: 'pin.bus.cb.in', v: packet.payload });
+      const ingressResult = mbrPinFlowWiring.recordControlResponseIngress(
+        packet,
+        () => rt.addLabel(model0, 0, 0, 0, { k: 'mbr_cb_in', t: 'pin.bus.cb.in', v: packet.payload }),
+      );
       if (!ingressResult || !ingressResult.applied) {
         writeMbrIngressError(rt, model0, 'mqtt', 'bus_write_rejected');
         return;
@@ -761,9 +892,14 @@ function main() {
   });
 
   // 11. Graceful shutdown
-  process.on('SIGINT', () => {
-    try { if (mgmtAdapter && mgmtAdapter.close) mgmtAdapter.close(); } catch (_) { /* */ }
+  let shutdownStarted = false;
+  process.on('SIGINT', async () => {
+    if (shutdownStarted) return;
+    shutdownStarted = true;
+    try { if (mgmtAdapter && mgmtAdapter.close) await mgmtAdapter.close(); } catch (_) { /* */ }
     try { mqttClient.end(true); } catch (_) { /* */ }
+    networkBoundaryObservability.stop();
+    actorAttestationHeartbeat.stop();
     process.exit(0);
   });
 }

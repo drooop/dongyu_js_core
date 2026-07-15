@@ -18,6 +18,11 @@ import rehypeStringify from 'rehype-stringify';
 import { ModelTableRuntime } from '../worker-base/src/index.mjs';
 import { readMatrixBootstrapConfig, readMqttBootstrapConfig } from '../worker-base/src/bootstrap_config.mjs';
 import { applyPersistedAssetEntries, readPersistedAssetManifest, resolvePersistedAssetRoot } from '../worker-base/src/persisted_asset_loader.mjs';
+import {
+  validatePinPayloadEnvelopeExtensionKeys,
+} from '../worker-base/src/pin_payload_envelope_extensions.mjs';
+import { createDePinFlowEvidenceEmitter } from '../worker-base/src/de_pin_flow_evidence.mjs';
+import { createDeNetworkBoundaryObservability } from '../../scripts/lib/de_network_boundary_evidence.mjs';
 import { createLocalBusAdapter } from '../ui-model-demo-frontend/src/local_bus_adapter.js';
 import { buildAstFromCellwiseModel } from '../ui-model-demo-frontend/src/ui_cellwise_projection.js';
 import { buildAstFromSchema } from '../ui-model-demo-frontend/src/ui_schema_projection.js';
@@ -122,6 +127,7 @@ const TRACE_MODEL_ID = -100; // Registered by 0213 as the Matrix debug / bus tra
 const MGMT_BUS_CONSOLE_MODEL_ID = 1036;
 const DESKTOP_FOREGROUND_SHELL_MODEL_ID = -29;
 const DEFAULT_UI_SERVER_V1N_ID = '5/10/28/35/13';
+const DEFAULT_SERVER_SHUTDOWN_STEP_TIMEOUT_MS = 5000;
 const CLIENT_SNAPSHOT_PROFILES = new Set(['bootstrap', 'visible', 'full']);
 const BOOTSTRAP_MODEL0_LABEL_KEYS = new Set([
   'sys_worker_id',
@@ -2505,7 +2511,7 @@ const SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES = new Set([
   'pin.connect.model',
   'ui.egress.binding.v1',
 ]);
-const SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS = new Set([
+const SLIDE_IMPORT_DISALLOWED_LABEL_NAMES = new Set([
   'scope_privileged',
   'helper_executor',
   'owner_apply',
@@ -2781,7 +2787,7 @@ function sanitizeSlideExportName(input, fallback = 'slide-app') {
 function shouldExcludeSlideExportLabel(label) {
   if (!label || typeof label.k !== 'string' || typeof label.t !== 'string') return true;
   if (SLIDE_EXPORT_EXCLUDED_LABEL_KEYS.has(label.k)) return true;
-  if (SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS.has(label.k) || String(label.k).startsWith('run_')) return true;
+  if (SLIDE_IMPORT_DISALLOWED_LABEL_NAMES.has(label.k) || String(label.k).startsWith('run_')) return true;
   if (SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES.has(label.t)) return true;
   if (label.k.startsWith('__host_ingress_') || label.k.startsWith('__host_egress_')) return true;
   if (label.k.startsWith('host_ingress_generated_') || label.k.startsWith('host_egress_generated_')) return true;
@@ -2903,7 +2909,18 @@ function normalizeSlideExportLabelValue(label, actualToTempId) {
     const egressPins = Array.isArray(label.v.egress_pins)
       ? Array.from(new Set(label.v.egress_pins.map((pin) => String(pin || '').trim()).filter(isValidPublicPinName)))
       : [];
-    return { mode, egress_pins: egressPins };
+    const normalized = { mode, egress_pins: egressPins };
+    if (Object.prototype.hasOwnProperty.call(label.v, 'egress_routes')) {
+      normalized.egress_routes = Array.isArray(label.v.egress_routes)
+        ? label.v.egress_routes.map((entry) => isPlainObject(entry) ? { ...entry } : entry)
+        : label.v.egress_routes;
+    }
+    if (Object.prototype.hasOwnProperty.call(label.v, 'envelope_extension_keys')) {
+      normalized.envelope_extension_keys = Array.isArray(label.v.envelope_extension_keys)
+        ? [...label.v.envelope_extension_keys]
+        : label.v.envelope_extension_keys;
+    }
+    return normalized;
   }
   if (label && label.t === 'model.submtconnection' && Number.isInteger(label.v) && actualToTempId.has(label.v)) {
     return actualToTempId.get(label.v);
@@ -3209,6 +3226,22 @@ function validateSlideImportRemoteBusEndpoint(records) {
   };
 }
 
+function classifyDualBusEnvelopeExtensionValidationFailure(validation) {
+  if (validation?.reason === 'invalid_collection') {
+    return 'invalid_dual_bus_model_envelope_extension_keys';
+  }
+  if (validation?.reason === 'too_many_keys') {
+    return 'too_many_dual_bus_model_envelope_extension_keys';
+  }
+  if (validation?.reason === 'duplicate_key') {
+    return `duplicate_dual_bus_model_envelope_extension_key:${validation.key || ''}`;
+  }
+  if (validation?.reason === 'reserved_key') {
+    return `reserved_dual_bus_model_envelope_extension_key:${validation.key || ''}`;
+  }
+  return 'invalid_dual_bus_model_envelope_extension_key';
+}
+
 function validateSlideImportHostEgress(records) {
   const declaration = findRootPayloadLabel(records, SLIDE_IMPORT_DUAL_BUS_LABEL);
   if (!declaration) {
@@ -3228,7 +3261,6 @@ function validateSlideImportHostEgress(records) {
     return { ok: false, code: 'invalid_target', detail: 'dual_bus_model_egress_pins_required' };
   }
   const seenPins = new Set();
-  const entries = [];
   for (const pinName of egressPins) {
     if (!isValidPublicPinName(pinName) || seenPins.has(pinName)) {
       return { ok: false, code: 'invalid_target', detail: 'invalid_dual_bus_model_egress_pin' };
@@ -3244,24 +3276,73 @@ function validateSlideImportHostEgress(records) {
     if (!targetPin || targetPin.t !== 'pin.out') {
       return { ok: false, code: 'invalid_target', detail: `host_egress_target_pin_missing:${pinName}` };
     }
-    entries.push({
-      semantic: pinName,
-      pinName,
-      dualBusDeclaration: {
-        mode,
-        egress_pins: [...egressPins],
-      },
-    });
   }
+
+  const hasEgressRoutes = Object.prototype.hasOwnProperty.call(declaration.v, 'egress_routes');
+  const rawEgressRoutes = hasEgressRoutes ? declaration.v.egress_routes : [];
+  if (!Array.isArray(rawEgressRoutes)) {
+    return { ok: false, code: 'invalid_target', detail: 'invalid_dual_bus_model_egress_routes' };
+  }
+  const normalizedEgressRoutes = [];
+  const routeByPin = new Map();
+  for (const route of rawEgressRoutes) {
+    const routeKeys = isPlainObject(route) ? Object.keys(route).sort() : [];
+    if (
+      !isPlainObject(route)
+      || routeKeys.length !== 2
+      || routeKeys[0] !== 'pin_name'
+      || routeKeys[1] !== 'route_kind'
+      || typeof route.pin_name !== 'string'
+      || typeof route.route_kind !== 'string'
+      || !route.pin_name
+    ) {
+      return { ok: false, code: 'invalid_target', detail: 'invalid_dual_bus_model_egress_route_shape' };
+    }
+    const pinName = route.pin_name;
+    if (routeByPin.has(pinName)) {
+      return { ok: false, code: 'invalid_target', detail: `duplicate_dual_bus_model_egress_route:${pinName}` };
+    }
+    if (!seenPins.has(pinName)) {
+      return { ok: false, code: 'invalid_target', detail: `unknown_dual_bus_model_egress_route_pin:${pinName}` };
+    }
+    if (route.route_kind !== 'control' && route.route_kind !== 'management') {
+      return { ok: false, code: 'invalid_target', detail: `invalid_dual_bus_model_egress_route_kind:${pinName}` };
+    }
+    routeByPin.set(pinName, route.route_kind);
+    normalizedEgressRoutes.push({ pin_name: pinName, route_kind: route.route_kind });
+  }
+
+  const hasEnvelopeExtensionKeys = Object.prototype.hasOwnProperty.call(declaration.v, 'envelope_extension_keys');
+  const rawEnvelopeExtensionKeys = hasEnvelopeExtensionKeys ? declaration.v.envelope_extension_keys : [];
+  const envelopeExtensionValidation = validatePinPayloadEnvelopeExtensionKeys(rawEnvelopeExtensionKeys);
+  if (!envelopeExtensionValidation.ok) {
+    return {
+      ok: false,
+      code: 'invalid_target',
+      detail: classifyDualBusEnvelopeExtensionValidationFailure(envelopeExtensionValidation),
+    };
+  }
+  const normalizedDeclaration = {
+    mode,
+    egress_pins: [...egressPins],
+    ...(hasEgressRoutes ? { egress_routes: normalizedEgressRoutes } : {}),
+    ...(hasEnvelopeExtensionKeys ? { envelope_extension_keys: envelopeExtensionValidation.keys } : {}),
+  };
+  const entries = egressPins.map((pinName) => ({
+    semantic: pinName,
+    pinName,
+    routeKind: routeByPin.get(pinName) || '',
+    envelopeExtensionKeys: [...envelopeExtensionValidation.keys],
+    dualBusDeclaration: normalizedDeclaration,
+  }));
   return {
     ok: true,
     hostEgress: {
       mode,
       egressPins: [...egressPins],
-      declaration: {
-        mode,
-        egress_pins: [...egressPins],
-      },
+      egressRoutes: normalizedEgressRoutes,
+      envelopeExtensionKeys: [...envelopeExtensionValidation.keys],
+      declaration: normalizedDeclaration,
       entries,
     },
   };
@@ -3285,7 +3366,7 @@ function validateSlideImportPayload(payload) {
     if (record.k === 'reply_to' || record.k === 'route.reply_to' || containsRouteReplyTo(record.v)) {
       return { ok: false, code: 'invalid_target', detail: 'bundle_must_not_declare_route_reply_to' };
     }
-    if (SLIDE_IMPORT_FORBIDDEN_LABEL_KEYS.has(record.k) || String(record.k).startsWith('run_')) {
+    if (SLIDE_IMPORT_DISALLOWED_LABEL_NAMES.has(record.k) || String(record.k).startsWith('run_')) {
       return { ok: false, code: 'invalid_target', detail: `forbidden_label_key:${record.k}` };
     }
     if (SLIDE_IMPORT_FORBIDDEN_LABEL_TYPES.has(record.t)) {
@@ -3506,6 +3587,18 @@ function normalizeImportedAdapterRootRef(rootModelRefOrId) {
   if (Number.isInteger(rootModelRefOrId)) {
     return { table_id: 'host', model_id: rootModelRefOrId };
   }
+  if (typeof rootModelRefOrId === 'string') {
+    const value = rootModelRefOrId.trim();
+    const separator = value.lastIndexOf('/');
+    const tableId = separator > 0 ? value.slice(0, separator).trim() : '';
+    const modelIdText = separator > 0 ? value.slice(separator + 1) : '';
+    if (tableId && /^-?(0|[1-9][0-9]*)$/u.test(modelIdText)) {
+      const modelId = Number(modelIdText);
+      if (Number.isSafeInteger(modelId)) {
+        return { table_id: tableId, model_id: modelId };
+      }
+    }
+  }
   if (
     rootModelRefOrId
     && typeof rootModelRefOrId === 'object'
@@ -3526,7 +3619,9 @@ function importedAdapterRootSuffix(rootModelRefOrId) {
   const ref = normalizeImportedAdapterRootRef(rootModelRefOrId);
   if (!ref) return '';
   if (ref.table_id === 'host') return String(ref.model_id);
-  return `${sanitizeSlideAppTableSegment(ref.table_id, 'app')}_${ref.model_id}`;
+  const tableSegment = sanitizeSlideAppTableSegment(ref.table_id, 'app');
+  const tableDigest = crypto.createHash('sha256').update(ref.table_id).digest('hex').slice(0, 12);
+  return `${tableSegment}_${tableDigest}_${ref.model_id}`;
 }
 
 function buildImportedHostIngressKeys(rootModelRefOrId, semantic) {
@@ -3554,16 +3649,29 @@ function buildImportedHostEgressKeys(rootModelRefOrId, semantic) {
   };
 }
 
-function findModel0SubmodelMount(runtime, childModelId) {
+function findModel0SubmodelMount(runtime, childModelRefOrId) {
+  const childRef = normalizeImportedAdapterRootRef(childModelRefOrId);
+  if (!childRef) return null;
   const model0 = runtime.getModel(0);
   if (!model0) return null;
   for (const cell of model0.cells.values()) {
     for (const label of cell.labels.values()) {
-      if (!label || label.t !== 'model.submtconnection') continue;
-      const indexedModelId = Number.isInteger(label.v)
-        ? label.v
-        : (label.v && Number.isInteger(label.v.model_id) ? label.v.model_id : null);
-      if (indexedModelId === childModelId) {
+      if (!label) continue;
+      if (childRef.table_id === 'host' && label.t === 'model.submtconnection') {
+        const indexedModelId = Number.isInteger(label.v)
+          ? label.v
+          : (label.v && Number.isInteger(label.v.model_id) ? label.v.model_id : null);
+        if (indexedModelId === childRef.model_id) {
+          return { p: cell.p, r: cell.r, c: cell.c };
+        }
+      }
+      if (
+        childRef.table_id !== 'host'
+        && label.t === 'model.subtableconnection'
+        && isPlainObject(label.v)
+        && label.v.table_id === childRef.table_id
+        && label.v.root_model_id === childRef.model_id
+      ) {
         return { p: cell.p, r: cell.r, c: cell.c };
       }
     }
@@ -3571,20 +3679,112 @@ function findModel0SubmodelMount(runtime, childModelId) {
   return null;
 }
 
-function ensureModel0SubmodelMount(runtime, childModelId, preferredCell = null) {
-  const existing = findModel0SubmodelMount(runtime, childModelId);
+function ensureModel0SubmodelMount(runtime, childModelRefOrId, preferredCell = null) {
+  const childRef = normalizeImportedAdapterRootRef(childModelRefOrId);
+  if (!childRef) return null;
+  const existing = findModel0SubmodelMount(runtime, childRef);
   if (existing) return existing;
   const model0 = runtime.getModel(0);
   if (!model0) return null;
   const mountCell = preferredCell && Number.isInteger(preferredCell.p) && Number.isInteger(preferredCell.r) && Number.isInteger(preferredCell.c)
     ? preferredCell
-    : { p: 9, r: 0, c: Math.abs(childModelId) };
+    : (childRef.table_id === 'host'
+      ? { p: 9, r: 0, c: Math.abs(childRef.model_id) }
+      : resolveNextWorkspaceMountCell(runtime));
   runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, {
     k: 'model_type',
-    t: 'model.submtconnection',
-    v: { model_id: childModelId, mount_kind: 'host_runtime_adapter' },
+    t: childRef.table_id === 'host' ? 'model.submtconnection' : 'model.subtableconnection',
+    v: childRef.table_id === 'host'
+      ? { model_id: childRef.model_id, mount_kind: 'host_runtime_adapter' }
+      : {
+        table_id: childRef.table_id,
+        root_model_id: childRef.model_id,
+        mount_kind: 'slide_app',
+        owner_principal_id: readRuntimePrincipalOwnerId(runtime),
+      },
   });
   return mountCell;
+}
+
+function findRuntimeSubmodelParentMount(runtime, childRef) {
+  if (!(runtime && runtime.parentChildMap instanceof Map)) return null;
+  for (const entry of runtime.parentChildMap.values()) {
+    if (
+      entry
+      && entry.child
+      && entry.child.table_id === childRef.table_id
+      && entry.child.model_id === childRef.model_id
+      && entry.parent
+      && typeof entry.parent.table_id === 'string'
+      && Number.isInteger(entry.parent.model_id)
+      && entry.hostingCell
+      && Number.isInteger(entry.hostingCell.p)
+      && Number.isInteger(entry.hostingCell.r)
+      && Number.isInteger(entry.hostingCell.c)
+    ) {
+      return entry;
+    }
+  }
+  return null;
+}
+
+function ensureHostEgressRelayPin(runtime, model, p, r, c, key) {
+  const cell = runtime.getCell(model, p, r, c);
+  const existing = cell && cell.labels ? cell.labels.get(key) : null;
+  if (existing) return existing.t === 'pin.out';
+  runtime.addLabel(model, p, r, c, { k: key, t: 'pin.out', v: null });
+  return runtime.getCell(model, p, r, c).labels.get(key)?.t === 'pin.out';
+}
+
+function materializeDeclaredHostEgressSource(runtime, rootModelRefOrId, hostEgress) {
+  const rootRef = normalizeImportedAdapterRootRef(rootModelRefOrId);
+  if (!rootRef || !hostEgress) return null;
+  if (rootRef.table_id !== 'host') {
+    const mountCell = ensureModel0SubmodelMount(runtime, rootRef);
+    return mountCell ? { mountCell, mountPin: hostEgress.pinName } : null;
+  }
+
+  const keys = buildImportedHostEgressKeys(rootRef, hostEgress.semantic);
+  const visited = new Set();
+  let currentRef = rootRef;
+  let currentPin = hostEgress.pinName;
+
+  while (true) {
+    const visitKey = `${currentRef.table_id}/${currentRef.model_id}`;
+    if (visited.has(visitKey)) return null;
+    visited.add(visitKey);
+
+    const parentMount = findRuntimeSubmodelParentMount(runtime, currentRef);
+    if (!parentMount) {
+      const mountCell = ensureModel0SubmodelMount(runtime, currentRef);
+      return mountCell ? { mountCell, mountPin: currentPin } : null;
+    }
+
+    const parentRef = normalizeImportedAdapterRootRef(parentMount.parent);
+    if (!parentRef) return null;
+    if (parentRef.table_id === 'host' && parentRef.model_id === 0) {
+      return { mountCell: { ...parentMount.hostingCell }, mountPin: currentPin };
+    }
+
+    const parentModel = runtime.getModel(parentRef);
+    if (!parentModel) return null;
+    const { p, r, c } = parentMount.hostingCell;
+    if (!ensureHostEgressRelayPin(runtime, parentModel, p, r, c, currentPin)) return null;
+    if (!ensureHostEgressRelayPin(runtime, parentModel, 0, 0, 0, keys.mountRelayPin)) return null;
+    runtime.addLabel(parentModel, 0, 0, 0, {
+      k: keys.mountBridgeKey,
+      t: 'pin.connect.cell',
+      v: [{
+        from: [p, r, c, currentPin],
+        to: [[0, 0, 0, keys.mountRelayPin]],
+      }],
+    });
+    const bridge = runtime.getCell(parentModel, 0, 0, 0).labels.get(keys.mountBridgeKey);
+    if (!bridge || bridge.t !== 'pin.connect.cell') return null;
+
+    currentRef = parentRef;
+    currentPin = keys.mountRelayPin;
+  }
 }
 
 function materializeImportedHostIngressAdapter(runtime, rootModelRefOrId, mountCell, hostIngress) {
@@ -3621,7 +3821,7 @@ function materializeImportedHostIngressAdapter(runtime, rootModelRefOrId, mountC
   return keys;
 }
 
-function materializeImportedHostEgressAdapter(runtime, rootModelRefOrId, mountCell, hostEgress, remoteEndpoint) {
+function materializeImportedHostEgressAdapter(runtime, rootModelRefOrId, mountCell, hostEgress, remoteEndpoint, options = {}) {
   if (!hostEgress) return null;
   const rootRef = normalizeImportedAdapterRootRef(rootModelRefOrId);
   if (!rootRef) return null;
@@ -3653,7 +3853,13 @@ function materializeImportedHostEgressAdapter(runtime, rootModelRefOrId, mountCe
   const endpointModelId = remoteEndpoint.to.model_id;
   const endpointPin = hostEgress.pinName;
   const replyPin = SLIDE_IMPORT_REPLY_PIN;
-  const routeKind = normalizeRemoteEndpointRouteKind(remoteEndpoint) || 'control';
+  const mountPin = typeof options.mountPin === 'string' && options.mountPin
+    ? options.mountPin
+    : hostEgress.pinName;
+  const routeKind = hostEgress.routeKind || normalizeRemoteEndpointRouteKind(remoteEndpoint) || 'control';
+  const envelopeExtensionKeys = Array.isArray(hostEgress.envelopeExtensionKeys)
+    ? [...hostEgress.envelopeExtensionKeys]
+    : [];
   const hostPinType = routeKind === 'management' ? 'pin.bus.mb.out' : 'pin.bus.cb.out';
   const responseTopicValue = responseTopic || '';
   const routeTopicValue = routeTopic || '';
@@ -3666,7 +3872,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelRefOrId, mountCe
   for (const pinName of rootIngressPins) {
     runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: pinName, t: 'pin.in', v: null });
   }
-  runtime.addLabel(model0, mountCell.p, mountCell.r, mountCell.c, { k: hostEgress.pinName, t: 'pin.out', v: null });
+  if (!ensureHostEgressRelayPin(runtime, model0, mountCell.p, mountCell.r, mountCell.c, mountPin)) return null;
   runtime.addLabel(model0, 0, 0, 0, { k: keys.busOutKey, t: hostPinType, v: null });
   runtime.addLabel(model0, 0, 0, 0, { k: keys.model0BridgeIn, t: 'pin.in', v: null });
   runtime.addLabel(model0, 0, 0, 0, {
@@ -3677,7 +3883,11 @@ function materializeImportedHostEgressAdapter(runtime, rootModelRefOrId, mountCe
         `const opId = 'imported_${rootModelId}_' + Date.now() + '_' + Math.random().toString(16).slice(2);`,
         `const mt = (k, t, v, id = 0) => ({ id, p: 0, r: 0, c: 0, k, t, v });`,
         `const payload = Array.isArray(label && label.v) ? label.v : [];`,
-        `const payloadRecords = payload.filter((record) => record && typeof record === 'object' && !Array.isArray(record) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && typeof record.t === 'string' && Object.prototype.hasOwnProperty.call(record, 'v')).map((record) => ({ ...record, id: 1 }));`,
+        `const envelopeExtensionKeys = ${JSON.stringify(envelopeExtensionKeys)};`,
+        `const envelopeExtensionKeySet = new Set(envelopeExtensionKeys);`,
+        `const validRecords = payload.filter((record) => record && typeof record === 'object' && !Array.isArray(record) && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && typeof record.t === 'string' && Object.prototype.hasOwnProperty.call(record, 'v'));`,
+        `const extensionRecords = validRecords.filter((record) => record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && envelopeExtensionKeySet.has(record.k)).map((record) => ({ ...record }));`,
+        `const payloadRecords = validRecords.filter((record) => !(record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && envelopeExtensionKeySet.has(record.k))).map((record) => ({ ...record, id: 1 }));`,
         `const principalLabel = V1N.readLabel(0, 0, 0, 'principal_runtime_key');`,
         `const principalKey = principalLabel && principalLabel.t === 'str' && typeof principalLabel.v === 'string' ? principalLabel.v : '';`,
         `V1N.addLabel('mt_bus_send_in', 'pin.in', [`,
@@ -3703,6 +3913,8 @@ function materializeImportedHostEgressAdapter(runtime, rootModelRefOrId, mountCe
         `  mt('reply_target_pin', 'str', ${JSON.stringify(replyPin)}),`,
         `  ...(principalKey ? [mt('reply_target_principal_key', 'str', principalKey)] : []),`,
         `  mt('payload_model_id', 'int', 1),`,
+        `  mt('envelope_extension_keys', 'json', envelopeExtensionKeys),`,
+        `  ...extensionRecords,`,
         `  ...payloadRecords,`,
         `]);`,
         'return;',
@@ -3721,7 +3933,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelRefOrId, mountCe
     k: keys.model0BridgeRouteKey,
     t: 'pin.connect.cell',
     v: [{
-      from: [mountCell.p, mountCell.r, mountCell.c, hostEgress.pinName],
+      from: [mountCell.p, mountCell.r, mountCell.c, mountPin],
       to: [[0, 0, 0, keys.model0BridgeIn]],
     }],
   });
@@ -3743,7 +3955,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelRefOrId, mountCe
   const mountKeys = Array.from(new Set([
     ...((existingMount && Array.isArray(existingMount.keys)) ? existingMount.keys : []),
     ...rootIngressPins,
-    hostEgress.pinName,
+    mountPin,
   ]));
   runtime.addLabel(rootModel, 0, 0, 0, {
     k: 'host_egress_generated_mount',
@@ -3772,6 +3984,7 @@ function materializeImportedHostEgressAdapter(runtime, rootModelRefOrId, mountCe
         model_id: endpointModelId,
         pin: hostEgress.pinName,
         topic: routeTopic,
+        response_topic: responseTopic,
       },
       reply_pin: replyPin,
       owned_by: 'ui-server-installer',
@@ -3803,50 +4016,80 @@ function normalizeRuntimeRemoteBusEndpoint(value) {
   return normalized;
 }
 
-function readRuntimeHostEgressEntries(runtime, rootModelId) {
-  const rootModel = runtime.getModel(rootModelId);
+function readRuntimeHostEgressEntries(runtime, rootModelRefOrId) {
+  const rootRef = normalizeImportedAdapterRootRef(rootModelRefOrId);
+  if (!rootRef) return [];
+  const rootModel = runtime.getModel(rootRef);
   if (!rootModel) return [];
   const rootCell = runtime.getCell(rootModel, 0, 0, 0);
   const declaration = rootCell.labels.get(SLIDE_IMPORT_DUAL_BUS_LABEL)?.v ?? null;
   if (!isPlainObject(declaration) || declaration.mode !== 'imported_host_egress') return [];
-  const egressPins = Array.isArray(declaration.egress_pins)
-    ? declaration.egress_pins.map((pin) => String(pin || '').trim())
-    : [];
-  const seenPins = new Set();
-  const entries = [];
-  for (const pinName of egressPins) {
-    if (!isValidPublicPinName(pinName) || seenPins.has(pinName)) return [];
-    seenPins.add(pinName);
-    const targetPin = rootCell.labels.get(pinName);
-    if (!targetPin || targetPin.t !== 'pin.out') return [];
-    entries.push({
-      semantic: pinName,
-      pinName,
-      dualBusDeclaration: {
-        mode: declaration.mode,
-        egress_pins: [...egressPins],
-      },
-    });
+  const validationRecords = [{
+    id: rootRef.model_id,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: SLIDE_IMPORT_DUAL_BUS_LABEL,
+    t: 'json',
+    v: declaration,
+  }];
+  for (const pinName of Array.isArray(declaration.egress_pins) ? declaration.egress_pins : []) {
+    const targetPin = typeof pinName === 'string' ? rootCell.labels.get(pinName) : null;
+    if (targetPin) {
+      validationRecords.push({
+        id: rootRef.model_id,
+        p: 0,
+        r: 0,
+        c: 0,
+        k: pinName,
+        t: targetPin.t,
+        v: targetPin.v,
+      });
+    }
   }
-  return entries;
+  const validated = validateSlideImportHostEgress(validationRecords);
+  return validated.ok && validated.hostEgress ? validated.hostEgress.entries : [];
 }
 
 function materializeDeclaredHostEgressAdapters(runtime) {
   const materialized = [];
-  for (const [modelId] of runtime.models) {
-    if (!Number.isInteger(modelId) || modelId <= 0) continue;
-    const rootModel = runtime.getModel(modelId);
+  const modelRefs = [];
+  if (runtime.modelTables instanceof Map) {
+    for (const [tableId, models] of runtime.modelTables) {
+      if (!(models instanceof Map)) continue;
+      for (const [modelId] of models) {
+        if (!Number.isInteger(modelId)) continue;
+        if (tableId === 'host' ? modelId <= 0 : modelId < 0) continue;
+        modelRefs.push({ table_id: tableId, model_id: modelId });
+      }
+    }
+  } else {
+    for (const [modelId] of runtime.models) {
+      if (Number.isInteger(modelId) && modelId > 0) {
+        modelRefs.push({ table_id: 'host', model_id: modelId });
+      }
+    }
+  }
+  for (const rootRef of modelRefs) {
+    const rootModel = runtime.getModel(rootRef);
     if (!rootModel) continue;
     const rootCell = runtime.getCell(rootModel, 0, 0, 0);
     const remoteEndpoint = normalizeRuntimeRemoteBusEndpoint(rootCell.labels.get(SLIDE_IMPORT_REMOTE_BUS_ENDPOINT_LABEL)?.v ?? null);
     if (!remoteEndpoint) continue;
-    const entries = readRuntimeHostEgressEntries(runtime, modelId);
+    const entries = readRuntimeHostEgressEntries(runtime, rootRef);
     if (entries.length === 0) continue;
-    const mountCell = ensureModel0SubmodelMount(runtime, modelId);
-    if (!mountCell) continue;
     for (const entry of entries) {
-      const keys = materializeImportedHostEgressAdapter(runtime, modelId, mountCell, entry, remoteEndpoint);
-      if (keys) materialized.push({ model_id: modelId, pin: entry.pinName });
+      const source = materializeDeclaredHostEgressSource(runtime, rootRef, entry);
+      if (!source) continue;
+      const keys = materializeImportedHostEgressAdapter(
+        runtime,
+        rootRef,
+        source.mountCell,
+        entry,
+        remoteEndpoint,
+        { mountPin: source.mountPin },
+      );
+      if (keys) materialized.push({ table_id: rootRef.table_id, model_id: rootRef.model_id, pin: entry.pinName });
     }
   }
   return materialized;
@@ -4803,13 +5046,12 @@ function hasInvalidTemporaryPayloadStringRecord(payload, key) {
   return Boolean(record && (record.t !== 'str' || typeof record.v !== 'string'));
 }
 
-function hasDuplicateTemporaryPayloadRecordKeys(payload, keys) {
+function hasInvalidPinPayloadEnvelopeRootRecords(payload) {
   if (!Array.isArray(payload)) return false;
-  const watched = new Set(keys);
   const seen = new Set();
   for (const record of payload) {
-    if (!record || !watched.has(record.k)) continue;
-    if (record.id !== 0) continue;
+    if (!record || record.id !== 0) continue;
+    if (record.p !== 0 || record.r !== 0 || record.c !== 0) return true;
     if (seen.has(record.k)) return true;
     seen.add(record.k);
   }
@@ -4818,6 +5060,28 @@ function hasDuplicateTemporaryPayloadRecordKeys(payload, keys) {
 
 function isStrictNonBlankString(value) {
   return typeof value === 'string' && value.length > 0 && value.trim() === value;
+}
+
+function validatePinPayloadTransportMetadata(records) {
+  const busRecord = findTemporaryPayloadRecord(records, 'bus');
+  if (!busRecord) return { ok: false, code: 'missing_bus' };
+  const bus = readTemporaryPayloadString(records, 'bus');
+  if (busRecord.t !== 'str' || (bus !== 'control' && bus !== 'management')) {
+    return { ok: false, code: 'invalid_bus' };
+  }
+  const routeKindRecord = findTemporaryPayloadRecord(records, 'route_kind');
+  if (!routeKindRecord) return { ok: false, code: 'missing_route_kind' };
+  const routeKind = readTemporaryPayloadString(records, 'route_kind');
+  if (routeKindRecord.t !== 'str' || (routeKind !== 'control' && routeKind !== 'management')) {
+    return { ok: false, code: 'invalid_route_kind' };
+  }
+  if (bus !== routeKind) return { ok: false, code: 'bus_route_kind_mismatch' };
+  const timestampRecord = findTemporaryPayloadRecord(records, 'timestamp');
+  if (!timestampRecord) return { ok: false, code: 'missing_timestamp' };
+  if (timestampRecord.t !== 'int' || !Number.isInteger(timestampRecord.v)) {
+    return { ok: false, code: 'invalid_timestamp' };
+  }
+  return { ok: true, bus, routeKind, timestamp: timestampRecord.v };
 }
 
 function parsePinPayloadRecordEnvelope(content) {
@@ -4832,6 +5096,9 @@ function parsePinPayloadRecordEnvelope(content) {
   if (!isTemporaryPayloadRecordArray(records)) {
     return { ok: false, code: 'temporary_modeltable_required' };
   }
+  if (hasInvalidPinPayloadEnvelopeRootRecords(records)) {
+    return { ok: false, code: 'invalid_pin_payload_records' };
+  }
   const kind = readTemporaryPayloadString(records, '__mt_payload_kind');
   if (kind === 'pin_payload.v1') {
     return { ok: false, code: 'legacy_pin_payload_kind_removed' };
@@ -4839,6 +5106,8 @@ function parsePinPayloadRecordEnvelope(content) {
   if (kind !== 'pin_payload.v2') {
     return { ok: false, code: 'invalid_payload_kind' };
   }
+  const transportMetadata = validatePinPayloadTransportMetadata(records);
+  if (!transportMetadata.ok) return transportMetadata;
   const stringMetadataKeys = [
     '__mt_request_id',
     'op_id',
@@ -4858,19 +5127,6 @@ function parsePinPayloadRecordEnvelope(content) {
     'reply_target_pin',
     'reply_target_principal_key',
   ];
-  const metadataKeys = stringMetadataKeys.concat([
-    '__mt_payload_kind',
-    'endpoint_model_id',
-    'origin_model_id',
-    'reply_target_model_id',
-    'payload_model_id',
-    'payload',
-    'timestamp',
-    'bus_out_key',
-  ]);
-  if (hasDuplicateTemporaryPayloadRecordKeys(records, metadataKeys)) {
-    return { ok: false, code: 'invalid_pin_payload_records' };
-  }
   for (const key of stringMetadataKeys) {
     if (hasInvalidTemporaryPayloadStringRecord(records, key)) {
       return { ok: false, code: 'invalid_pin_payload_records' };
@@ -4926,6 +5182,9 @@ function parsePinPayloadRecordEnvelope(content) {
   if (!Number.isInteger(payloadModelId)) {
     return { ok: false, code: 'missing_payload_model_id' };
   }
+  if (payloadModelId <= 0) {
+    return { ok: false, code: 'invalid_payload_model_id' };
+  }
   const payloadRecords = records.filter((record) => record && record.id === payloadModelId);
   if (payloadRecords.length === 0) {
     return { ok: false, code: 'missing_payload_records' };
@@ -4953,7 +5212,22 @@ function parsePinPayloadRecordEnvelope(content) {
     return { ok: false, code: topicContractError };
   }
   const opId = opIdLabel || requestId;
-  return { ok: true, records, endpoint, origin, replyTarget, payloadRecords, payloadModelId, opId, messageRole, topic: topicValue, responseTopic };
+  return {
+    ok: true,
+    records,
+    endpoint,
+    origin,
+    replyTarget,
+    payloadRecords,
+    payloadModelId,
+    opId,
+    messageRole,
+    bus: transportMetadata.bus,
+    routeKind: transportMetadata.routeKind,
+    timestamp: transportMetadata.timestamp,
+    topic: topicValue,
+    responseTopic,
+  };
 }
 
 function upsertTemporaryPayloadRecord(payload, record) {
@@ -5050,9 +5324,14 @@ function parsePrincipalRuntimePinPayload(payload) {
   if (!isTemporaryPayloadRecordArray(records)) {
     return { ok: false, code: 'temporary_modeltable_required' };
   }
+  if (hasInvalidPinPayloadEnvelopeRootRecords(records)) {
+    return { ok: false, code: 'invalid_pin_payload_records' };
+  }
   const kind = readTemporaryPayloadString(records, '__mt_payload_kind');
   if (kind === 'pin_payload.v1') return { ok: false, code: 'legacy_pin_payload_kind_removed' };
   if (kind !== 'pin_payload.v2') return { ok: false, code: 'invalid_payload_kind' };
+  const transportMetadata = validatePinPayloadTransportMetadata(records);
+  if (!transportMetadata.ok) return transportMetadata;
   const nestedPayload = readTemporaryPayloadJson(records, 'payload');
   if (isTemporaryPayloadRecordArray(nestedPayload)) return { ok: false, code: 'nested_payload_removed' };
   const topic = readTemporaryPayloadString(records, 'topic');
@@ -5090,6 +5369,9 @@ function parsePrincipalRuntimePinPayload(payload) {
   if (!Number.isInteger(payloadModelId)) {
     return { ok: false, code: 'missing_payload_model_id' };
   }
+  if (payloadModelId <= 0) {
+    return { ok: false, code: 'invalid_payload_model_id' };
+  }
   const payloadRecords = records.filter((record) => record && record.id === payloadModelId);
   if (payloadRecords.length === 0) {
     return { ok: false, code: 'missing_payload_records' };
@@ -5100,7 +5382,9 @@ function parsePrincipalRuntimePinPayload(payload) {
     messageRole: readTemporaryPayloadString(records, 'message_role'),
     topic,
     responseTopic,
-    routeKind: readTemporaryPayloadString(records, 'route_kind'),
+    bus: transportMetadata.bus,
+    routeKind: transportMetadata.routeKind,
+    timestamp: transportMetadata.timestamp,
     replyTargetPrincipalKey: readTemporaryPayloadString(records, 'reply_target_principal_key'),
     endpoint,
     origin,
@@ -7225,13 +7509,13 @@ function registerImportedHostEgressBridgeFunctions(programEngine, runtime, impor
     if (typeof entry.forwardFunc === 'string' && entry.forwardFunc) functionKeys.push(entry.forwardFunc);
   }
   if (functionKeys.length === 0) return;
-  const sys = firstSystemModel(runtime);
-  if (!sys) return;
+  const functionOwner = runtime.getModel(0);
+  if (!functionOwner) return;
   for (const key of functionKeys) {
-    const code = extractFunctionCode(runtime.getCell(sys, 0, 0, 0).labels.get(key)?.v);
+    const code = extractFunctionCode(runtime.getCell(functionOwner, 0, 0, 0).labels.get(key)?.v);
     if (typeof code === 'string' && code.trim()) {
       programEngine.functions.set(key, code);
-      sys.registerFunction(key);
+      functionOwner.registerFunction(key);
     }
   }
 }
@@ -7796,7 +8080,7 @@ function isRetiredSlideAction(action, targetModelId) {
 }
 
 class ProgramModelEngine {
-  constructor(runtime) {
+  constructor(runtime, options = {}) {
     this.runtime = runtime;
     this.functions = new Map();
     this.interceptCursor = 0;
@@ -7835,6 +8119,101 @@ class ProgramModelEngine {
     this.matrixSuiteHandledRequests = new Set();
     this.matrixChatHandledRequests = new Set();
     this.matrixAdapterInitPromise = null;
+    this.matrixAdapterFactory = typeof options.matrixAdapterFactory === 'function'
+      ? options.matrixAdapterFactory
+      : createMatrixLiveAdapter;
+    this.lifecycleGeneration = 0;
+    this.lifecycleClosing = false;
+    this.onLifecycleStateChanged = null;
+    this.evidenceWriteLine = typeof options.evidenceWriteLine === 'function'
+      ? options.evidenceWriteLine
+      : (line) => process.stdout.write(`${line}\n`);
+    this.evidenceNow = typeof options.evidenceNow === 'function' ? options.evidenceNow : Date.now;
+    this.networkBoundaryObservabilityFactory = typeof options.networkBoundaryObservabilityFactory === 'function'
+      ? options.networkBoundaryObservabilityFactory
+      : createDeNetworkBoundaryObservability;
+    this.networkBoundaryObservability = null;
+    this.emitPinFlowEvidenceLine = createDePinFlowEvidenceEmitter({
+      producer: 'ui-server',
+      writeLine: this.evidenceWriteLine,
+      now: this.evidenceNow,
+    });
+  }
+
+  emitPinFlowEvidence(stage, packet) {
+    try {
+      return this.emitPinFlowEvidenceLine(stage, packet);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  effectiveNetworkDestinations() {
+    const destinations = [];
+    const mqttConfig = readMqttBootstrapConfig(this.runtime);
+    if (mqttConfig && typeof mqttConfig.host === 'string' && mqttConfig.host
+      && Number.isInteger(mqttConfig.port)) {
+      destinations.push(`mqtt://${mqttConfig.host}:${mqttConfig.port}`);
+    }
+    const matrixConfig = readMatrixBootstrapConfig(this.runtime);
+    if (matrixConfig && typeof matrixConfig.homeserverUrl === 'string' && matrixConfig.homeserverUrl) {
+      destinations.push(matrixConfig.homeserverUrl);
+    }
+    return Array.from(new Set(destinations));
+  }
+
+  ensureNetworkBoundaryObservability() {
+    if (this.networkBoundaryObservability || this.lifecycleClosing) return this.networkBoundaryObservability;
+    const effectiveDestinations = this.effectiveNetworkDestinations();
+    if (effectiveDestinations.length === 0) return null;
+    try {
+      this.networkBoundaryObservability = this.networkBoundaryObservabilityFactory({
+        service: 'ui-server',
+        effectiveDestinations,
+        writeLine: this.evidenceWriteLine,
+        now: this.evidenceNow,
+        setIntervalFn: setInterval,
+        clearIntervalFn: clearInterval,
+        heartbeatIntervalMs: 10000,
+      });
+    } catch (_) {
+      this.networkBoundaryObservability = null;
+    }
+    return this.networkBoundaryObservability;
+  }
+
+  recordNetworkOutbound(destination) {
+    const observability = this.ensureNetworkBoundaryObservability();
+    if (!observability || typeof destination !== 'string' || !destination) return null;
+    try {
+      return observability.recordOutbound(destination);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  notifyLifecycleStateChanged() {
+    if (typeof this.onLifecycleStateChanged === 'function') {
+      this.onLifecycleStateChanged();
+    }
+  }
+
+  isLifecycleGenerationActive(generation) {
+    return !this.lifecycleClosing && generation === this.lifecycleGeneration;
+  }
+
+  beginShutdown() {
+    if (!this.lifecycleClosing) {
+      this.lifecycleClosing = true;
+      this.lifecycleGeneration += 1;
+    }
+    this.started = false;
+    if (this.networkBoundaryObservability) {
+      this.networkBoundaryObservability.stop();
+      this.networkBoundaryObservability = null;
+    }
+    this.notifyLifecycleStateChanged();
+    return this.lifecycleGeneration;
   }
 
   refreshMatrixBootstrapConfig() {
@@ -7845,6 +8224,8 @@ class ProgramModelEngine {
   }
 
   async ensureMatrixAdapter() {
+    const lifecycleGeneration = this.lifecycleGeneration;
+    if (!this.isLifecycleGenerationActive(lifecycleGeneration)) return;
     if (typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive()) {
       return;
     }
@@ -7859,7 +8240,7 @@ class ProgramModelEngine {
     }
     try {
       const syncTimeoutMs = readIntEnv('DY_MATRIX_SYNC_TIMEOUT_MS', 20000, 1000);
-      this.matrixAdapter = await createMatrixLiveAdapter({
+      const matrixAdapter = await this.matrixAdapterFactory({
         roomId: this.matrixRoomId,
         peerUserId: this.matrixDmPeerUserId || undefined,
         syncTimeoutMs,
@@ -7868,6 +8249,19 @@ class ProgramModelEngine {
         userId: matrixConfig.userId || undefined,
         password: matrixConfig.password || undefined,
       });
+      if (!this.isLifecycleGenerationActive(lifecycleGeneration)) {
+        try {
+          if (matrixAdapter && typeof matrixAdapter.close === 'function') {
+            await matrixAdapter.close();
+          }
+        } catch (err) {
+          console.warn('[ProgramModelEngine] Late Matrix adapter cleanup failed:', err && err.message ? err.message : err);
+        } finally {
+          this.notifyLifecycleStateChanged();
+        }
+        return;
+      }
+      this.matrixAdapter = matrixAdapter;
       if (this.matrixAdapterUnsub) {
         this.matrixAdapterUnsub();
         this.matrixAdapterUnsub = null;
@@ -7879,25 +8273,34 @@ class ProgramModelEngine {
           console.warn('[ProgramModelEngine] handleDyBusEvent failed:', err && err.message ? err.message : err);
         }
       });
+      this.notifyLifecycleStateChanged();
       console.log('[ProgramModelEngine] Matrix adapter connected, room:', this.matrixRoomId);
     } catch (err) {
       console.warn('[ProgramModelEngine] Matrix init failed (non-fatal):', err.message || err);
       console.warn('[ProgramModelEngine] Program engine will run without Matrix. UI events won\'t reach MBR/MQTT.');
-      this.matrixAdapter = null;
+      if (this.isLifecycleGenerationActive(lifecycleGeneration)) {
+        this.matrixAdapter = null;
+        this.notifyLifecycleStateChanged();
+      }
     }
   }
 
   startMatrixAdapterInit() {
+    if (this.lifecycleClosing) return Promise.resolve(null);
     if (this.matrixAdapter) return Promise.resolve(this.matrixAdapter);
     if (this.matrixAdapterInitPromise) return this.matrixAdapterInitPromise;
-    this.matrixAdapterInitPromise = this.ensureMatrixAdapter()
+    const initPromise = this.ensureMatrixAdapter()
       .catch((err) => {
         console.warn('[ProgramModelEngine] Matrix background init failed:', err && err.message ? err.message : err);
       })
       .finally(() => {
-        this.matrixAdapterInitPromise = null;
+        if (this.matrixAdapterInitPromise === initPromise) {
+          this.matrixAdapterInitPromise = null;
+        }
+        this.notifyLifecycleStateChanged();
       });
-    return this.matrixAdapterInitPromise;
+    this.matrixAdapterInitPromise = initPromise;
+    return initPromise;
   }
 
   matrixSuiteReadRoot(key, fallback = null) {
@@ -8754,12 +9157,16 @@ class ProgramModelEngine {
   }
 
   trackMatrixHostAction(promise) {
+    if (this.lifecycleClosing) {
+      return Promise.resolve(promise).catch(() => {});
+    }
     const tracked = Promise.resolve(promise)
       .catch((err) => {
         console.warn('[ProgramModelEngine] Matrix host action failed:', err && err.message ? err.message : err);
       })
       .finally(() => {
         this.pendingMatrixHostActions.delete(tracked);
+        this.notifyLifecycleStateChanged();
       });
     this.pendingMatrixHostActions.add(tracked);
     return tracked;
@@ -8773,6 +9180,7 @@ class ProgramModelEngine {
   async init() {
     this.refreshFunctionRegistry();
     this.refreshMatrixBootstrapConfig();
+    this.ensureNetworkBoundaryObservability();
     if (typeof this.runtime.isRunLoopActive === 'function' && this.runtime.isRunLoopActive()) {
       this.ensureControlBusAdapter();
       this.startMatrixAdapterInit();
@@ -8781,6 +9189,8 @@ class ProgramModelEngine {
   }
 
   async activateRunning() {
+    if (this.lifecycleClosing) return;
+    this.ensureNetworkBoundaryObservability();
     this.ensureControlBusAdapter();
     this.startMatrixAdapterInit();
   }
@@ -8828,6 +9238,9 @@ class ProgramModelEngine {
         this.outboundMatrixOps.splice(0, this.outboundMatrixOps.length - 200);
       }
     }
+    const matrixConfig = readMatrixBootstrapConfig(this.runtime);
+    this.recordNetworkOutbound(matrixConfig && matrixConfig.homeserverUrl);
+    this.emitPinFlowEvidence('management_outbound_attempt', payload);
     await this.matrixAdapter.publish(payload);
     return true;
   }
@@ -8852,6 +9265,11 @@ class ProgramModelEngine {
       return null;
     }
     return new Promise((resolve, reject) => {
+      const mqttConfig = readMqttBootstrapConfig(this.runtime);
+      if (mqttConfig && typeof mqttConfig.host === 'string' && Number.isInteger(mqttConfig.port)) {
+        this.recordNetworkOutbound(`mqtt://${mqttConfig.host}:${mqttConfig.port}`);
+      }
+      this.emitPinFlowEvidence('control_outbound_attempt', payload);
       this.controlBusClient.publish(topic, JSON.stringify(payload), (err) => {
         if (err) {
           reject(err);
@@ -8863,6 +9281,10 @@ class ProgramModelEngine {
   }
 
   ensureControlBusAdapter() {
+    const lifecycleGeneration = this.lifecycleGeneration;
+    if (!this.isLifecycleGenerationActive(lifecycleGeneration)) {
+      return;
+    }
     if (typeof this.runtime.isRunLoopActive === 'function' && !this.runtime.isRunLoopActive()) {
       return;
     }
@@ -8883,20 +9305,31 @@ class ProgramModelEngine {
     this.controlBusClient = client;
     this.controlBusSubscription = subscription;
     client.on('connect', () => {
+      if (!this.isLifecycleGenerationActive(lifecycleGeneration) || this.controlBusClient !== client) {
+        return;
+      }
       if (this.disableControlBusInbound) {
         this.controlBusReady = true;
+        this.notifyLifecycleStateChanged();
         return;
       }
       client.subscribe(subscription, (err) => {
+        if (!this.isLifecycleGenerationActive(lifecycleGeneration) || this.controlBusClient !== client) {
+          return;
+        }
         if (err) {
           console.warn('[ProgramModelEngine] Control bus subscribe failed:', err && err.message ? err.message : err);
           return;
         }
         this.controlBusReady = true;
+        this.notifyLifecycleStateChanged();
         console.log('[ProgramModelEngine] Control bus adapter connected, subscription:', subscription);
       });
     });
     client.on('message', (topic, buf) => {
+      if (!this.isLifecycleGenerationActive(lifecycleGeneration) || this.controlBusClient !== client) {
+        return;
+      }
       let payload = null;
       try {
         payload = JSON.parse(buf.toString('utf8'));
@@ -8910,6 +9343,7 @@ class ProgramModelEngine {
     client.on('error', (err) => {
       console.warn('[ProgramModelEngine] Control bus adapter error:', err && err.message ? err.message : err);
     });
+    this.notifyLifecycleStateChanged();
   }
 
   handleWorkspaceAssetBundleResponse(parsedEnvelope, packet, topic = '') {
@@ -9063,7 +9497,10 @@ class ProgramModelEngine {
     const uiServerWorkerId = resolveUiServerWorkerId();
     if (parsedEnvelope.replyTarget.worker_id !== uiServerWorkerId || parsedEnvelope.replyTarget.pin !== 'result') return false;
     const bundleResponse = this.handleWorkspaceAssetBundleResponse(parsedEnvelope, payload, topic);
-    if (bundleResponse.matched) return bundleResponse.handled;
+    if (bundleResponse.matched) {
+      if (bundleResponse.handled) this.emitPinFlowEvidence('validated_response_materialized', payload);
+      return bundleResponse.handled;
+    }
     const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.payloadRecords, parsedEnvelope.opId);
     if (!materialization) return false;
     emitTrace(this.runtime, {
@@ -9084,6 +9521,7 @@ class ProgramModelEngine {
       );
       return false;
     }
+    this.emitPinFlowEvidence('validated_response_materialized', payload);
     this.onSnapshotChanged?.();
     return true;
   }
@@ -9321,6 +9759,9 @@ class ProgramModelEngine {
       if (!parsedEnvelope.ok) {
         return;
       }
+      if (parsedEnvelope.bus !== 'management' || parsedEnvelope.routeKind !== 'management') {
+        return;
+      }
       const uiServerWorkerId = resolveUiServerWorkerId();
       const ackValidation = parsedEnvelope.replyTarget.model_id === MGMT_BUS_CONSOLE_MODEL_ID
         && parsedEnvelope.replyTarget.worker_id === uiServerWorkerId
@@ -9361,6 +9802,7 @@ class ProgramModelEngine {
         readTemporaryPayloadString(parsedEnvelope.records, 'topic'),
       );
       if (bundleResponse.matched) {
+        if (bundleResponse.handled) this.emitPinFlowEvidence('validated_response_materialized', content);
         return;
       }
       const materialization = temporaryPayloadToOwnerMaterialization(parsedEnvelope.replyTarget, parsedEnvelope.payloadRecords, opId);
@@ -9378,6 +9820,7 @@ class ProgramModelEngine {
             );
             return;
           }
+          this.emitPinFlowEvidence('validated_response_materialized', content);
           this.onSnapshotChanged?.();
         })
         .catch((err) => {
@@ -10195,11 +10638,12 @@ class ProgramModelEngine {
           continue;
         }
         const packet = packetResult.data;
-        const businessPayload = readTemporaryPayloadJson(packet.payload, 'payload') || [];
+        const parsedPacket = parsePinPayloadRecordEnvelope(packet);
+        const businessPayload = parsedPacket.ok ? parsedPacket.payloadRecords : [];
         if (consoleModel) {
           this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'message_status', t: 'str', v: 'sending' });
-          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'last_sent_text', t: 'str', v: readTemporaryPayloadString(businessPayload, 'message_text') });
-          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'target_user_id', t: 'str', v: readTemporaryPayloadString(businessPayload, 'target_user_id') });
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'last_sent_text', t: 'str', v: readPayloadModelString(businessPayload, 'message_text') });
+          this.runtime.addLabel(consoleModel, 0, 0, 0, { k: 'target_user_id', t: 'str', v: readPayloadModelString(businessPayload, 'target_user_id') });
         }
         const model0 = this.runtime.getModel(0);
         const busValue = pinPayloadPacketToBusValue(packet);
@@ -10602,6 +11046,12 @@ function isUiLocalMutableTarget(target, action = '') {
 
 function createServerState(options) {
   const dbPath = options && options.dbPath ? String(options.dbPath) : null;
+  const requestedShutdownStepTimeoutMs = options && Number.isFinite(options.shutdownStepTimeoutMs)
+    ? Math.floor(options.shutdownStepTimeoutMs)
+    : DEFAULT_SERVER_SHUTDOWN_STEP_TIMEOUT_MS;
+  const shutdownStepTimeoutMs = requestedShutdownStepTimeoutMs > 0
+    ? requestedShutdownStepTimeoutMs
+    : DEFAULT_SERVER_SHUTDOWN_STEP_TIMEOUT_MS;
   const matrixUserLoginImpl = options && typeof options.matrixUserLoginImpl === 'function'
     ? options.matrixUserLoginImpl
     : null;
@@ -11503,7 +11953,20 @@ function createServerState(options) {
 
   const editorEventLog = [];
   const adapter = createLocalBusAdapter({ runtime, eventLog: editorEventLog, mode: 'v1' });
-  programEngine = new ProgramModelEngine(runtime);
+  programEngine = new ProgramModelEngine(runtime, {
+    matrixAdapterFactory: options && typeof options.matrixAdapterFactory === 'function'
+      ? options.matrixAdapterFactory
+      : createMatrixLiveAdapter,
+    evidenceWriteLine: options && typeof options.evidenceWriteLine === 'function'
+      ? options.evidenceWriteLine
+      : undefined,
+    evidenceNow: options && typeof options.evidenceNow === 'function'
+      ? options.evidenceNow
+      : undefined,
+    networkBoundaryObservabilityFactory: options && typeof options.networkBoundaryObservabilityFactory === 'function'
+      ? options.networkBoundaryObservabilityFactory
+      : undefined,
+  });
   runtime.eventLog.setObserver(() => {
     if (!programEngine || runtime.runtimeMode !== 'running') return;
     Promise.resolve().then(() => {
@@ -11830,8 +12293,10 @@ function createServerState(options) {
   }
   const programEngineReady = programEngine.init()
     .then(() => programEngine.tick())
-    .then(() => clearAndRefreshAfterRuntimeBoot())
-    .catch(() => {});
+    .then(() => clearAndRefreshAfterRuntimeBoot());
+  // Mark the background startup promise as observed without changing what
+  // callers of whenReady() receive.
+  programEngineReady.catch(() => {});
 
   function recoverModel100StaleInflight() {
     const model100 = runtime.getModel(100);
@@ -11872,12 +12337,13 @@ function createServerState(options) {
     });
   }
 
-  programEngineReady.then(() => {
+  const serverStartupReady = programEngineReady.then(() => {
     withRuntimePersistenceDisabled(runtime, () => updateDerived({ scope: 'full' }));
     if (typeof programEngine.onSnapshotChanged === 'function') {
       programEngine.onSnapshotChanged();
     }
-  }).catch(() => {});
+  });
+  serverStartupReady.catch(() => {});
 
   function snapshot() {
     return runtime.snapshot();
@@ -13484,11 +13950,274 @@ function createServerState(options) {
     return { applied, rejected };
   }
 
+  let runtimeActivationReady = serverStartupReady;
+  let shutdownPromise = null;
+  let stateClosing = false;
+  let persistenceClosed = false;
+  let cachedShutdownState = null;
+
+  function syncCachedShutdownState() {
+    if (!cachedShutdownState) return;
+    Object.assign(cachedShutdownState, buildShutdownState());
+  }
+
+  programEngine.onLifecycleStateChanged = () => {
+    if (stateClosing) syncCachedShutdownState();
+  };
+
+  function withShutdownStepTimeout(value, stage) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (error, result) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (error) reject(error);
+        else resolve(result);
+      };
+      const timer = setTimeout(() => {
+        const error = new Error(`${stage}_timeout`);
+        error.code = 'server_shutdown_timeout';
+        error.shutdown_stage = stage;
+        finish(error);
+      }, shutdownStepTimeoutMs);
+      Promise.resolve(value).then(
+        (result) => finish(null, result),
+        (error) => finish(error),
+      );
+    });
+  }
+
+  async function waitForProgramEngineWork({ propagateRejection = true } = {}) {
+    while (true) {
+      const pending = new Set();
+      if (programEngine.tickInFlight && typeof programEngine.tickInFlight.then === 'function') {
+        pending.add(programEngine.tickInFlight);
+      }
+      if (programEngine.matrixAdapterInitPromise && typeof programEngine.matrixAdapterInitPromise.then === 'function') {
+        pending.add(programEngine.matrixAdapterInitPromise);
+      }
+      for (const action of programEngine.pendingMatrixHostActions || []) {
+        if (action && typeof action.then === 'function') pending.add(action);
+      }
+      if (pending.size === 0) return;
+      if (propagateRejection) {
+        await Promise.all([...pending]);
+      } else {
+        await Promise.allSettled([...pending]);
+      }
+      await Promise.resolve();
+    }
+  }
+
+  async function whenReady() {
+    await serverStartupReady;
+    while (true) {
+      const observedActivation = runtimeActivationReady;
+      await observedActivation;
+      await waitForProgramEngineWork({ propagateRejection: true });
+      if (observedActivation === runtimeActivationReady) {
+        return { mode: runtime.getRuntimeMode() };
+      }
+    }
+  }
+
+  function forceRuntimeEditModeForShutdown() {
+    runtime.setRunLoopActive(false);
+    runtime.runtimeMode = 'edit';
+    const model0 = runtime.getModel(0);
+    if (model0) {
+      runtime.addLabel(model0, 0, 0, 0, { k: 'runtime_mode', t: 'str', v: 'edit' });
+    }
+  }
+
+  function closeMqttAdapter() {
+    const client = programEngine.controlBusClient;
+    if (!client) {
+      programEngine.controlBusReady = false;
+      programEngine.controlBusSubscription = '';
+      return Promise.resolve();
+    }
+    const closePromise = new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (error = null) => {
+        if (settled) return;
+        settled = true;
+        if (error) {
+          reject(error);
+          return;
+        }
+        try {
+          if (typeof client.removeAllListeners === 'function') client.removeAllListeners();
+        } catch (_) { /* adapter listener cleanup is best-effort after close */ }
+        if (programEngine.controlBusClient === client) {
+          programEngine.controlBusClient = null;
+          programEngine.controlBusReady = false;
+          programEngine.controlBusSubscription = '';
+        }
+        programEngine.notifyLifecycleStateChanged();
+        resolve();
+      };
+      try {
+        const closeResult = client.end(false, {}, finish);
+        if (closeResult && typeof closeResult.then === 'function') {
+          closeResult.then(() => finish(), (error) => finish(error));
+        }
+      } catch (error) {
+        finish(error);
+      }
+    });
+    return withShutdownStepTimeout(closePromise, 'mqtt_close');
+  }
+
+  async function closeMatrixAdapter() {
+    const unsubscribe = programEngine.matrixAdapterUnsub;
+    const adapterToClose = programEngine.matrixAdapter;
+    const failures = [];
+    if (typeof unsubscribe === 'function') {
+      try {
+        await withShutdownStepTimeout(
+          Promise.resolve().then(() => unsubscribe()),
+          'matrix_unsubscribe',
+        );
+        if (programEngine.matrixAdapterUnsub === unsubscribe) {
+          programEngine.matrixAdapterUnsub = null;
+        }
+      } catch (error) {
+        failures.push({ stage: 'matrix_unsubscribe', error });
+      }
+    }
+    try {
+      if (adapterToClose && typeof adapterToClose.close === 'function') {
+        await withShutdownStepTimeout(
+          Promise.resolve().then(() => adapterToClose.close()),
+          'matrix_close',
+        );
+      }
+      if (programEngine.matrixAdapter === adapterToClose) {
+        programEngine.matrixAdapter = null;
+      }
+      programEngine.notifyLifecycleStateChanged();
+    } catch (error) {
+      failures.push({ stage: 'matrix_close', error });
+    }
+    if (failures.length > 0) {
+      const aggregate = new AggregateError(failures.map((failure) => failure.error), 'matrix_adapter_close_failed');
+      aggregate.shutdown_failures = failures;
+      throw aggregate;
+    }
+  }
+
+  function buildShutdownState() {
+    return {
+      mode: runtime.getRuntimeMode(),
+      pending_matrix_host_actions: programEngine.pendingMatrixHostActions.size,
+      mqtt_active: Boolean(programEngine.controlBusClient),
+      matrix_active: Boolean(programEngine.matrixAdapter || programEngine.matrixAdapterUnsub),
+      persistence_closed: persistenceClosed,
+      background_work_pending: Number(Boolean(programEngine.tickInFlight))
+        + Number(Boolean(programEngine.matrixAdapterInitPromise))
+        + programEngine.pendingMatrixHostActions.size,
+    };
+  }
+
+  function appendShutdownFailure(failures, stage, reason) {
+    if (Array.isArray(reason?.shutdown_failures)) {
+      for (const failure of reason.shutdown_failures) {
+        failures.push({
+          stage: failure?.stage || stage,
+          error: failure?.error instanceof Error ? failure.error : new Error(String(failure?.error || reason)),
+        });
+      }
+      return;
+    }
+    failures.push({
+      stage,
+      error: reason instanceof Error ? reason : new Error(String(reason || `${stage}_failed`)),
+    });
+  }
+
+  function shutdown() {
+    if (shutdownPromise) return shutdownPromise;
+    stateClosing = true;
+    programEngine.beginShutdown();
+    runtime.eventLog.setObserver(null);
+    programEngine.onSnapshotChanged = null;
+    forceRuntimeEditModeForShutdown();
+    shutdownPromise = (async () => {
+      const failures = [];
+      let backgroundWorkDrained = false;
+      try {
+        await withShutdownStepTimeout(
+          Promise.allSettled([serverStartupReady, runtimeActivationReady]),
+          'startup_drain',
+        );
+        await withShutdownStepTimeout(
+          waitForProgramEngineWork({ propagateRejection: false }),
+          'background_work_drain',
+        );
+        backgroundWorkDrained = true;
+      } catch (error) {
+        appendShutdownFailure(failures, error?.shutdown_stage || 'background_work_drain', error);
+      }
+      programEngine.tickRequested = false;
+      programEngine.started = false;
+
+      const adapterClosures = await Promise.allSettled([
+        closeMqttAdapter(),
+        closeMatrixAdapter(),
+      ]);
+      if (adapterClosures[0].status === 'rejected') {
+        appendShutdownFailure(failures, 'mqtt_close', adapterClosures[0].reason);
+      }
+      if (adapterClosures[1].status === 'rejected') {
+        appendShutdownFailure(failures, 'matrix_close', adapterClosures[1].reason);
+      }
+      if (backgroundWorkDrained) {
+        programEngine.pendingMatrixHostActions.clear();
+        programEngine.tickInFlight = null;
+        programEngine.notifyLifecycleStateChanged();
+      }
+      programEngine.tickRequested = false;
+
+      if (!persistenceClosed) {
+        const persistence = runtime.persistence;
+        try {
+          if (persistence && typeof persistence.close === 'function') {
+            await withShutdownStepTimeout(
+              Promise.resolve().then(() => persistence.close()),
+              'persistence_close',
+            );
+          }
+          persistenceClosed = true;
+        } catch (error) {
+          appendShutdownFailure(failures, 'persistence_close', error);
+        }
+      }
+      const shutdownState = buildShutdownState();
+      cachedShutdownState = shutdownState;
+      if (failures.length > 0) {
+        const aggregate = new AggregateError(failures.map((failure) => failure.error), 'server_shutdown_failed');
+        aggregate.code = 'server_shutdown_failed';
+        aggregate.failures = failures.map((failure) => ({
+          stage: failure.stage,
+          message: String(failure.error && failure.error.message ? failure.error.message : failure.error),
+        }));
+        aggregate.shutdown_state = shutdownState;
+        throw aggregate;
+      }
+      return shutdownState;
+    })();
+    shutdownPromise.catch(() => {});
+    return shutdownPromise;
+  }
+
   async function activateRuntimeMode(mode) {
+    if (stateClosing) throw new Error('server_state_closing');
     runtime.setRuntimeMode(mode);
     if (mode === 'running') {
       programEngine.activateRunning();
-      programEngineReady
+      runtimeActivationReady = serverStartupReady
         .then(() => programEngine.activateRunning())
         .then(() => programEngine.tick())
         .then(() => {
@@ -13496,10 +14225,8 @@ function createServerState(options) {
           if (typeof programEngine.onSnapshotChanged === 'function') {
             programEngine.onSnapshotChanged();
           }
-        })
-        .catch((err) => {
-          console.warn('[ProgramModelEngine] runtime mode background activation failed:', err && err.message ? err.message : err);
         });
+      runtimeActivationReady.catch(() => {});
     }
     updateDerived({ scope: 'full' });
     return { mode: runtime.getRuntimeMode() };
@@ -13512,10 +14239,13 @@ function createServerState(options) {
     submitEnvelope,
     applyModelTablePatch,
     activateRuntimeMode,
+    whenReady,
+    shutdown,
     ensureSeededSlidInAppSubtables,
     updateDerived,
     refreshMgmtBusConsoleChannels,
     getRuntimeMode: () => runtime.getRuntimeMode(),
+    getShutdownState: () => buildShutdownState(),
     getLastOpId: () => getLastBusEventOpId(),
     getEventError: () => getBusEventErrorValue(),
     cacheUploadedMediaForTest: (uri, item) => cacheUploadedMedia(uri, item),

@@ -54,3 +54,52 @@ export function buildDeActorAttestation({ runtime, sourceFiles = [] } = {}) {
     source_files: Array.isArray(sourceFiles) ? sourceFiles.map((sourceFile) => String(sourceFile)) : [],
   };
 }
+
+export function formatDeActorAttestationLine(attestation) {
+  if (!attestation || typeof attestation !== 'object' || Array.isArray(attestation)) {
+    throw new TypeError('attestation must be an object');
+  }
+  return `${ACTOR_ATTESTATION_MARKER} ${JSON.stringify(attestation)}`;
+}
+
+export function createDeActorAttestationHeartbeat({
+  attestation,
+  writeLine,
+  setTimeoutFn = setTimeout,
+  clearTimeoutFn = clearTimeout,
+  heartbeatIntervalMs = 10000,
+}) {
+  if (typeof writeLine !== 'function') throw new TypeError('writeLine must be a function');
+  if (typeof setTimeoutFn !== 'function' || typeof clearTimeoutFn !== 'function') {
+    throw new TypeError('timer functions are required');
+  }
+  if (!Number.isFinite(heartbeatIntervalMs) || heartbeatIntervalMs <= 0) {
+    throw new TypeError('heartbeatIntervalMs must be positive');
+  }
+  const line = formatDeActorAttestationLine(attestation);
+  const emit = () => {
+    writeLine(line);
+    return line;
+  };
+  let stopped = false;
+  let timer = null;
+  const schedule = () => {
+    if (stopped) return;
+    timer = setTimeoutFn(() => {
+      if (stopped) return;
+      emit();
+      schedule();
+    }, heartbeatIntervalMs);
+    if (timer && typeof timer.unref === 'function') timer.unref();
+  };
+  schedule();
+  return {
+    emit,
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      if (timer !== null) clearTimeoutFn(timer);
+      timer = null;
+    },
+  };
+}

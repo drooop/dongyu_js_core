@@ -2,7 +2,7 @@
 title: "Iteration 0457 Feishu Message API v2 + Local DE Plan"
 doc_type: iteration-plan
 status: approved
-updated: 2026-07-10
+updated: 2026-07-13
 source: ai
 iteration_id: 0457-feishu-message-api-v2-local-de
 id: 0457-feishu-message-api-v2-local-de
@@ -51,6 +51,22 @@ Implement F-01 as a hard cut to formal `pin_payload.v2`, move Feishu resource/da
 - R1 can deliver MQTT packets directly to positive model pins when `mqtt_ingress_pin` is absent.
 - Feishu resource/data/UI/task state and response logic currently live in `runtime.mjs` and write Model 0. This violates the project's Tier 2 and ownership rules even if parser tests pass.
 
+### Execution-discovered Step 7 prerequisite (2026-07-13)
+
+- The existing imported-app host egress adapter is not sufficient for the approved live acceptance:
+  - every declared egress pin inherits one app-level `remote_bus_endpoint_v1.route_kind`, so one imported app cannot exercise both the control and management paths;
+  - every emitted app record is remapped to business payload Model `1`, so required v2 envelope extensions such as `is_need_response` cannot reach envelope Model `0`;
+- Step 7 therefore has a production prerequisite. It remains generic and fill-table-driven:
+  - `dual_bus_model` may declare a validated `egress_routes` override per listed public output pin while `remote_bus_endpoint_v1.route_kind` remains the backward-compatible default;
+  - `dual_bus_model` may declare `envelope_extension_keys`; the generated host adapter passes the declaration into internal `bus_send.v1`, lifts only exact declared root records, and keeps all other records in the business payload;
+  - one shared generic rule module defines the extension-key grammar (`^[a-z][a-z0-9_]*$`), exact reserved keys/prefixes, a maximum of `16` declared keys, and a maximum key length of `64`; both UI Server import and runtime transport must use it;
+  - generic Temporary ModelTable validation rejects duplicate root Cell/key records, so external formal v2 duplicates fail before any actor without naming Feishu fields;
+  - generic internal `bus_send.v1` preserves only safe, declared, unique root extensions and rejects reserved, authority, legacy-routing, non-root, undeclared, duplicate, or records outside Model `0` and its one declared payload model;
+  - generic formal `pin_payload.v2` keeps its existing bundle compatibility, including `bundle_record_id_offset` and inline positive model ids. The prerequisite adds only Model `0` duplicate/non-root structural rejection to that public validator.
+- The legacy negative is a separate deployed public-boundary probe: the verifier publishes the exact removed outer packet to local Mosquitto and requires R1 Model 0 to expose `legacy_feishu_message_api_v1_removed` while Model 3200 state/output remains unchanged. It is not claimed as an imported App-table Model `0` positive-pin rejection.
+- This amendment changes only the generic UI Server adapter, generic runtime transport, and their shared rule module. Model 3200 remains the sole validator/owner of Feishu extension types, required fields, and business behavior, but its current accepted payload schema is not narrowed or extended for this prerequisite; no new `unexpected_payload_model` behavior is added. MBR bridges only management requests/responses between Matrix and the control plane; it never echoes a control response.
+- Step 7 may extend the existing R1 diagnostic log with non-secret, read-only evidence for Model 0 `mqtt_inbound_error`, a stable Model 3200 snapshot hash, and a stable Model 3200 `result` hash. This observability must not add a mutation/read API or alter actor state.
+
 ## Target Ownership and Data Chain
 
 ### Runtime / Tier 1
@@ -79,6 +95,8 @@ Implement F-01 as a hard cut to formal `pin_payload.v2`, move Feishu resource/da
 - Model 0 uses only bus pins, structural declarations, and `pin.connect.cell`; no business `func.js` remains there.
 - Model `-10` owns bridge validation/routing functions and writes its own declared output pins via `V1N.addLabel` / `V1N.removeLabel` semantics.
 - Parent connection pins return output to Model 0 `pin.bus.cb.out` / `pin.bus.mb.out`.
+- Control request/response traffic runs directly between UI Server and R1 on local MQTT. MBR must reject/non-bridge control responses so the UI receives each response exactly once.
+- Management requests run UI Server `mb.out` → MBR → R1 `cb.in`; management responses run R1 `cb.out` → MBR → UI Server `mb.in`, exactly once.
 
 ### WM1 and Test Driver
 
@@ -127,6 +145,7 @@ In scope:
 - Migrate 0442-0452 behavior tests to real actor-patch fixtures and add actor/boundary tests.
 - Add non-secret runtime actor attestations derived from loaded ModelTable state/provenance so deployed identity, role, root form, models, and bus pins can be checked without a test-only mutation API.
 - Rebuild all affected images/assets, deploy locally, and prove real v2 control and management request/response plus deployed v1 rejection.
+- Add the generic host-egress prerequisite above with TDD and independent review before building the live fixture/verifier.
 - Update SSOT/contract/backlog only after deployment acceptance and reviews satisfy the staged closeout gates.
 - Allow an explicitly reported read-only Feishu source check; never write Feishu.
 
@@ -137,6 +156,7 @@ Out of scope:
 - F-06 route autofill and permission directory.
 - F-07 aggregate config/global-MQTT mapping.
 - F-08 dedicated real `add_task_return` PIN behavior.
+- Any Model 3200 schema or behavior change made only to satisfy the generic host-egress prerequisite.
 - The independent outer wrapper `{version:"v1",type:"pin_payload"}` and unrelated historical `*.v1` names/files.
 - Cloud/remote deployment, merge to `dev`, push, or PR creation.
 
@@ -178,6 +198,7 @@ Out of scope:
 - R1 ingress remediation breaks existing endpoints: use a table-driven Model `-10` whitelist/dispatcher and run all existing provider plus live Model 100/3000 regressions.
 - Local baseline still uses remote auth/identity: force `DY_AUTH=0`, local Synapse server name `localhost`, local generated credentials, and bounded no-remote log assertions.
 - Deployment rollback loses prior assets/secrets/images or mutable service data: create and verify pre-0457 image tags, ignored-env/generated-env backups, role assets, UI Server persistence, a consistent Synapse SQLite/PVC snapshot, and Kubernetes secret/deployment snapshots before sync/rebuild; the E2E also uninstalls its test app on success.
+- Host-egress prerequisite becomes a Feishu-specific runtime shortcut: keep route/extension handling declaration-driven and generic, reject reserved fields twice (adapter and runtime), and keep all Feishu type/required-field checks in Model 3200.
 
 ## Alternatives Considered
 

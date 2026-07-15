@@ -1,8 +1,37 @@
 'use strict';
 
 import defaultTableProgramsJson from '../system-models/default_table_programs.json' with { type: 'json' };
+import { publishMqttWithAck } from './mqtt_publish_ack.mjs';
+import { validatePinPayloadEnvelopeExtensionKeys } from './pin_payload_envelope_extensions.mjs';
 
 const HOST_TABLE_ID = 'host';
+const PIN_PAYLOAD_V2_ROOT_METADATA_KEYS = new Set([
+  '__mt_payload_kind',
+  '__mt_request_id',
+  'op_id',
+  'message_role',
+  'bus',
+  'bus_out_key',
+  'route_kind',
+  'topic',
+  'response_topic',
+  'timestamp',
+  'payload',
+  'payload_model_id',
+  'endpoint_worker_id',
+  'endpoint_table_id',
+  'endpoint_model_id',
+  'endpoint_pin',
+  'origin_worker_id',
+  'origin_table_id',
+  'origin_model_id',
+  'origin_pin',
+  'reply_target_worker_id',
+  'reply_target_table_id',
+  'reply_target_model_id',
+  'reply_target_pin',
+  'reply_target_principal_key',
+]);
 
 class EventLog {
   constructor() {
@@ -252,14 +281,21 @@ class MqttClientReal {
   }
 
   publish(topic, payload) {
-    if (!this._client) return;
-    this.trace.record('publish', { topic, payload });
-    try {
-      const msg = typeof payload === 'string' ? payload : JSON.stringify(payload);
-      this._client.publish(topic, msg);
-    } catch (_) {
-      // ignore
-    }
+    if (!this._client) return Promise.reject(new Error('mqtt_client_unavailable'));
+    this.trace.record('publish_attempt', { topic, payload });
+    return publishMqttWithAck(this._client, topic, payload).then(
+      (acknowledgement) => {
+        this.trace.record('publish', { topic, payload });
+        return acknowledgement;
+      },
+      (error) => {
+        this.trace.record('publish_error', {
+          topic,
+          message: String(error && error.message ? error.message : error),
+        });
+        throw error;
+      },
+    );
   }
 
   close() {
@@ -1210,6 +1246,16 @@ class ModelTableRuntime {
     if (!requestIdLabel || requestIdLabel.t !== 'str' || typeof requestIdLabel.v !== 'string' || !requestIdLabel.v) {
       return { ok: false, code: 'invalid_payload', requestId };
     }
+    const model0RootRecords = payload.filter((record) => (
+      record.id === 0
+      && record.p === 0
+      && record.r === 0
+      && record.c === 0
+    ));
+    const envelopeExtensionDeclarations = model0RootRecords.filter((record) => record.k === 'envelope_extension_keys');
+    if (envelopeExtensionDeclarations.length > 1) {
+      return { ok: false, code: 'duplicate_envelope_extension_declaration', requestId };
+    }
     const busOutKeyLabel = this._payloadLabel(payload, 'bus_out_key');
     const nestedPayloadLabel = this._payloadLabel(payload, 'payload');
     const payloadModelIdLabel = this._payloadLabel(payload, 'payload_model_id');
@@ -1227,11 +1273,72 @@ class ModelTableRuntime {
         return { ok: false, code: 'legacy_pin_payload_metadata_removed', requestId };
       }
     }
-    if (this._hasLegacyPinPayloadMetadata(payload)) {
-      return { ok: false, code: 'legacy_pin_payload_metadata_removed', requestId };
-    }
     if (this._hasClientAuthoredAuthorityMetadata(payload)) {
       return { ok: false, code: 'client_authority_metadata_rejected', requestId };
+    }
+    const busSendMetadataKeys = new Set([
+      '__mt_payload_kind',
+      '__mt_request_id',
+      'op_id',
+      'message_role',
+      'bus_out_key',
+      'bus',
+      'route_kind',
+      'topic',
+      'response_topic',
+      'endpoint_worker_id',
+      'endpoint_table_id',
+      'endpoint_model_id',
+      'endpoint_pin',
+      'origin_worker_id',
+      'origin_table_id',
+      'origin_model_id',
+      'origin_pin',
+      'reply_target_worker_id',
+      'reply_target_table_id',
+      'reply_target_model_id',
+      'reply_target_pin',
+      'reply_target_principal_key',
+      'payload_model_id',
+      'timestamp',
+    ]);
+    const seenBusSendMetadataKeys = new Set();
+    for (const record of model0RootRecords) {
+      if (!busSendMetadataKeys.has(record.k)) continue;
+      if (seenBusSendMetadataKeys.has(record.k)) {
+        return { ok: false, code: 'duplicate_bus_send_metadata', requestId };
+      }
+      seenBusSendMetadataKeys.add(record.k);
+    }
+    const envelopeExtensions = model0RootRecords.filter((record) => (
+      !busSendMetadataKeys.has(record.k)
+      && record.k !== 'envelope_extension_keys'
+    ));
+    const seenEnvelopeExtensionKeys = new Set();
+    for (const record of envelopeExtensions) {
+      if (seenEnvelopeExtensionKeys.has(record.k)) {
+        return { ok: false, code: 'duplicate_envelope_extension', requestId };
+      }
+      seenEnvelopeExtensionKeys.add(record.k);
+    }
+    const envelopeExtensionDeclaration = envelopeExtensionDeclarations[0] || null;
+    const envelopeExtensionKeysResult = validatePinPayloadEnvelopeExtensionKeys(
+      envelopeExtensionDeclaration && envelopeExtensionDeclaration.t === 'json'
+        ? envelopeExtensionDeclaration.v
+        : (envelopeExtensionDeclaration ? null : []),
+    );
+    if (!envelopeExtensionKeysResult.ok) {
+      return { ok: false, code: 'invalid_envelope_extension_declaration', requestId };
+    }
+    const declaredEnvelopeExtensionKeys = envelopeExtensionKeysResult.keys;
+    const declaredEnvelopeExtensionKeySet = new Set(declaredEnvelopeExtensionKeys);
+    const legacyMetadataScanPayload = payload.map((record) => (
+      record && declaredEnvelopeExtensionKeySet.has(record.k)
+        ? { ...record, v: null }
+        : record
+    ));
+    if (this._hasLegacyPinPayloadMetadata(legacyMetadataScanPayload)) {
+      return { ok: false, code: 'legacy_pin_payload_metadata_removed', requestId };
     }
     const endpoint = this._endpointFromPayloadRecords(payload, 'endpoint');
     const origin = this._endpointFromPayloadRecords(payload, 'origin', { allowNonHostTable: true, allowNonHostModelZero: true });
@@ -1282,6 +1389,23 @@ class ModelTableRuntime {
     if (!Number.isInteger(payloadModelId) || payloadModelId <= 0) {
       return { ok: false, code: 'missing_payload_model_id', requestId };
     }
+    const model0NonRootRecords = payload.filter((record) => record.id === 0 && (
+      record.p !== 0 || record.r !== 0 || record.c !== 0
+    ));
+    if (model0NonRootRecords.some((record) => declaredEnvelopeExtensionKeySet.has(record.k))) {
+      return { ok: false, code: 'invalid_envelope_extension_placement', requestId };
+    }
+    if (model0NonRootRecords.length > 0) {
+      return { ok: false, code: 'invalid_payload_record_scope', requestId };
+    }
+    if (payload.some((record) => record.id !== 0 && record.id !== payloadModelId)) {
+      return { ok: false, code: 'invalid_payload_record_scope', requestId };
+    }
+    for (const record of envelopeExtensions) {
+      if (!declaredEnvelopeExtensionKeySet.has(record.k)) {
+        return { ok: false, code: 'undeclared_envelope_extension', requestId };
+      }
+    }
     if (payloadRecords.length === 0) {
       return { ok: false, code: 'missing_payload_records', requestId };
     }
@@ -1312,6 +1436,8 @@ class ModelTableRuntime {
       replyTarget,
       busOutKey,
       payload: payloadRecords,
+      envelopeExtensions,
+      envelopeExtensionKeys: declaredEnvelopeExtensionKeys,
       payloadModelId,
       bus,
       routeKind,
@@ -1496,8 +1622,62 @@ class ModelTableRuntime {
         || record.k === 'owner_principal_id'));
   }
 
+  _pinPayloadEnvelopeExtensionKeys(value) {
+    if (!Array.isArray(value)) {
+      return { ok: false, code: 'invalid_envelope_extension_records', keys: [] };
+    }
+    const keys = value
+      .filter((record) => (
+        record
+        && record.id === 0
+        && record.p === 0
+        && record.r === 0
+        && record.c === 0
+        && !PIN_PAYLOAD_V2_ROOT_METADATA_KEYS.has(record.k)
+      ))
+      .map((record) => record.k);
+    const validation = validatePinPayloadEnvelopeExtensionKeys(keys);
+    if (!validation.ok) {
+      return { ok: false, code: 'invalid_envelope_extension_records', keys: [] };
+    }
+    return { ok: true, keys: validation.keys };
+  }
+
+  _valueContainsLegacyPinPayloadMetadataForEnvelopeExtension(value, seen = new WeakSet()) {
+    if (!value) return false;
+    if (Array.isArray(value)) {
+      if (seen.has(value)) return false;
+      seen.add(value);
+      return value.some((item) => this._valueContainsLegacyPinPayloadMetadataForEnvelopeExtension(item, seen));
+    }
+    if (typeof value !== 'object') return false;
+    if (seen.has(value)) return false;
+    seen.add(value);
+    for (const [key, child] of Object.entries(value)) {
+      if (key === 'k' && typeof child === 'string' && this._isLegacyPinPayloadKey(child)) return true;
+      if (this._isLegacyPinPayloadKey(key)) {
+        const ordinaryBusinessRouteField = (key === 'pin' || key === 'route')
+          && (typeof child === 'string' || typeof child === 'number' || typeof child === 'boolean');
+        if (!ordinaryBusinessRouteField) return true;
+        continue;
+      }
+      if (this._valueContainsLegacyPinPayloadMetadataForEnvelopeExtension(child, seen)) return true;
+    }
+    return false;
+  }
+
   _hasLegacyPinPayloadMetadataForPinPayloadRecords(value) {
-    return this._hasLegacyPinPayloadMetadata(value);
+    const declaration = this._pinPayloadEnvelopeExtensionKeys(value);
+    const declaredKeySet = new Set(declaration.ok ? declaration.keys : []);
+    for (const record of Array.isArray(value) ? value : []) {
+      if (!record || typeof record.k !== 'string') return true;
+      if (this._isLegacyPinPayloadKey(record.k)) return true;
+      const containsLegacyMetadata = declaredKeySet.has(record.k)
+        ? this._valueContainsLegacyPinPayloadMetadataForEnvelopeExtension(record.v)
+        : this._valueContainsLegacyPinPayloadMetadata(record.v);
+      if (containsLegacyMetadata) return true;
+    }
+    return false;
   }
 
   _hasInvalidPinPayloadStringMetadata(value, key) {
@@ -1645,6 +1825,21 @@ class ModelTableRuntime {
     if (payloadModelIdLabel.t !== 'int' || !Number.isInteger(payloadModelId) || payloadModelId <= 0) {
       return { ok: false, code: 'invalid_payload_model_id' };
     }
+    const envelopeExtensionKeys = this._pinPayloadEnvelopeExtensionKeys(value);
+    if (!envelopeExtensionKeys.ok) {
+      return { ok: false, code: 'invalid_pin_payload_records' };
+    }
+    const model0RootKeys = new Set();
+    for (const record of value) {
+      if (!record || record.id !== 0) continue;
+      if (record.p !== 0 || record.r !== 0 || record.c !== 0) {
+        return { ok: false, code: 'invalid_pin_payload_records' };
+      }
+      if (model0RootKeys.has(record.k)) {
+        return { ok: false, code: 'invalid_pin_payload_records' };
+      }
+      model0RootKeys.add(record.k);
+    }
     const hasPayloadRecords = value.some((record) => record && record.id === payloadModelId);
     if (!hasPayloadRecords) {
       return { ok: false, code: 'missing_payload_records' };
@@ -1683,7 +1878,7 @@ class ModelTableRuntime {
     return { ok: true, endpoint, origin, replyTarget, payloadRecords, payloadModelId, messageRole, topic, responseTopic, routeKind };
   }
 
-  _buildPinPayloadValue({ opId, payload, payloadModelId = 1, timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, replyTargetPrincipalKey = '', messageRole = 'request', topic = '', responseTopic = '', routeKind = 'control', bus = null }) {
+  _buildPinPayloadValue({ opId, payload, payloadModelId = 1, envelopeExtensions = [], envelopeExtensionKeys = [], timestamp = Date.now(), endpoint = null, origin = null, replyTarget = null, replyTargetPrincipalKey = '', messageRole = 'request', topic = '', responseTopic = '', routeKind = 'control', bus = null }) {
     const requestId = opId || `pin_payload_${Date.now()}`;
     const effectiveRouteKind = routeKind == null ? 'control' : routeKind;
     if (effectiveRouteKind !== 'control' && effectiveRouteKind !== 'management') {
@@ -1695,6 +1890,30 @@ class ModelTableRuntime {
     }
     if (effectiveBus !== effectiveRouteKind) {
       throw new Error('bus_route_kind_mismatch');
+    }
+    const envelopeExtensionKeyValidation = validatePinPayloadEnvelopeExtensionKeys(envelopeExtensionKeys);
+    if (!envelopeExtensionKeyValidation.ok) {
+      throw new Error('invalid_envelope_extension_declaration');
+    }
+    const declaredEnvelopeExtensionKeySet = new Set(envelopeExtensionKeyValidation.keys);
+    const seenEnvelopeExtensionKeys = new Set();
+    for (const record of envelopeExtensions) {
+      if (
+        !record
+        || record.id !== 0
+        || record.p !== 0
+        || record.r !== 0
+        || record.c !== 0
+      ) {
+        throw new Error('invalid_envelope_extension_placement');
+      }
+      if (seenEnvelopeExtensionKeys.has(record.k)) {
+        throw new Error('duplicate_envelope_extension');
+      }
+      if (!declaredEnvelopeExtensionKeySet.has(record.k)) {
+        throw new Error('undeclared_envelope_extension');
+      }
+      seenEnvelopeExtensionKeys.add(record.k);
     }
     const payloadRecords = Array.isArray(payload)
       ? payload.filter((record) => record && record.id === payloadModelId)
@@ -1718,7 +1937,8 @@ class ModelTableRuntime {
       this._mtPayloadRecord('reply_target_pin', 'str', replyTarget && replyTarget.pin ? replyTarget.pin : ''),
       this._mtPayloadRecord('payload_model_id', 'int', payloadModelId),
       this._mtPayloadRecord('timestamp', 'int', timestamp),
-      ...payloadRecords.map((record) => ({ ...record })),
+      ...envelopeExtensions.map((record) => ({ ...record, v: this._clonePayloadValue(record.v) })),
+      ...payloadRecords.map((record) => ({ ...record, v: this._clonePayloadValue(record.v) })),
     ];
     if (typeof replyTargetPrincipalKey === 'string' && replyTargetPrincipalKey) {
       records.push(this._mtPayloadRecord('reply_target_principal_key', 'str', replyTargetPrincipalKey));
@@ -1843,7 +2063,10 @@ class ModelTableRuntime {
         return `bus_in_invalid_write_label_${parsed.code || 'payload'}`;
       }
     }
-    const hasLegacyMetadata = kind && kind.t === 'str' && kind.v === 'pin_payload.v1'
+    const isFormalPinPayload = kind
+      && kind.t === 'str'
+      && (kind.v === 'pin_payload.v1' || kind.v === 'pin_payload.v2');
+    const hasLegacyMetadata = isFormalPinPayload
       ? this._hasLegacyPinPayloadMetadataForPinPayloadRecords(label.v)
       : this._hasLegacyPinPayloadMetadata(label.v);
     if (hasLegacyMetadata) {
@@ -1890,13 +2113,13 @@ class ModelTableRuntime {
     if (this._isMalformedPinPayloadKind(kind)) {
       return 'invalid_payload_kind';
     }
-    const hasLegacyMetadata = kind && kind.t === 'str' && kind.v === 'pin_payload.v1'
-      ? this._hasLegacyPinPayloadMetadataForPinPayloadRecords(label.v)
-      : this._hasLegacyPinPayloadMetadata(label.v);
-    if (hasLegacyMetadata) {
+    const isFormalPinPayload = kind
+      && kind.t === 'str'
+      && (kind.v === 'pin_payload.v1' || kind.v === 'pin_payload.v2');
+    if (isFormalPinPayload && this._hasLegacyPinPayloadMetadataForPinPayloadRecords(label.v)) {
       return 'legacy_pin_payload_metadata_removed';
     }
-    if (kind && kind.t === 'str' && (kind.v === 'pin_payload.v1' || kind.v === 'pin_payload.v2')) {
+    if (isFormalPinPayload) {
       const parsed = this._validatePinPayloadRecords(label.v);
       if (!parsed.ok) return `pin_payload_${parsed.code || 'invalid_payload'}`;
     }
@@ -1923,6 +2146,8 @@ class ModelTableRuntime {
       opId: parsed.requestId,
       payload: parsed.payload,
       payloadModelId: parsed.payloadModelId,
+      envelopeExtensions: parsed.envelopeExtensions,
+      envelopeExtensionKeys: parsed.envelopeExtensionKeys,
       endpoint: parsed.endpoint,
       origin: parsed.origin,
       replyTarget: parsed.replyTarget,
@@ -3684,7 +3909,32 @@ class ModelTableRuntime {
         const topic = externalPayload && externalPayload.type === 'pin_payload'
           ? this._topicForPinPayloadPacket(externalPayload)
           : null;
-        if (topic && externalPayload !== null && externalPayload !== undefined) this.mqttClient.publish(topic, externalPayload);
+        if (topic && externalPayload !== null && externalPayload !== undefined) {
+          const recordPublishFailure = (error) => {
+            this._writeVisibleErrorLabel(
+              model,
+              p,
+              r,
+              c,
+              'split_bus_out_error',
+              'split_bus_mqtt_publish_failed',
+              {
+                detail: String(error && error.message ? error.message : error),
+                pin: label.k,
+                pin_type: resolvedType,
+                topic,
+              },
+            );
+          };
+          try {
+            const publishResult = this.mqttClient.publish(topic, externalPayload);
+            if (publishResult && typeof publishResult.then === 'function') {
+              publishResult.then(() => undefined, recordPublishFailure);
+            }
+          } catch (error) {
+            recordPublishFailure(error);
+          }
+        }
       }
       return;
     }

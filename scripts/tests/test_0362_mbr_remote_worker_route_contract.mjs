@@ -282,7 +282,7 @@ async function test_mbr_does_not_echo_own_control_publish_to_management_bus() {
   return { key: 'mbr_does_not_echo_own_control_publish_to_management_bus', status: 'PASS' };
 }
 
-async function test_mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_default() {
+async function test_mbr_mqtt_inbound_does_not_echo_direct_control_reply() {
   const rt = loadMbrRuntime();
   const replyRecords = pinPayloadRecords({
     opId: '0362_remote_reply',
@@ -301,17 +301,15 @@ async function test_mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_defa
     payload: [mt('display_text', 'str', 'Submitted: from remote')],
   });
   await writeMbrIngress(rt, 'mbr_cb_in', 'pin.bus.cb.in', replyRecords);
-  const cbOut = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_cb_out');
-  const packet = toExternalPinPacket(rt, cbOut);
-  assert.equal(cbOut?.t, 'pin.bus.cb.out', 'MBR must bridge remote replies to control-bus out pin by default');
-  assert.equal(payloadString(packet.payload, 'message_role'), 'response', 'remote reply role must be preserved');
-  assert.equal(payloadString(packet.payload, 'topic'), 'UIPUT/ws/dam/pic/de/U1/2000/result', 'remote reply must publish on response_topic');
-  assert.equal(payloadString(packet.payload, 'response_topic'), 'UIPUT/ws/dam/pic/de/U1/2000/result', 'remote reply must preserve response_topic');
-  assert.equal(payloadString(packet.payload, 'route_kind'), 'control', 'remote reply default route_kind must be preserved');
-  assert.equal(payloadString(packet.payload, 'endpoint_worker_id'), 'U1', 'remote reply endpoint must match reply_target');
-  assert.equal(payloadString(packet.payload, 'reply_target_worker_id'), 'U1', 'remote reply UI Server target stays in payload records');
-  assert.equal(businessRecords(packet.payload).find((record) => record.k === 'display_text')?.v, 'Submitted: from remote', 'remote reply payload must be preserved');
-  return { key: 'mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_default', status: 'PASS' };
+  const root = rt.getCell(rt.getModel(0), 0, 0, 0).labels;
+  assert.equal(root.get('mbr_cb_out')?.v ?? null, null, 'MBR must not echo a direct control reply to MQTT');
+  assert.equal(root.get('mbr_mb_out')?.v ?? null, null, 'direct control reply must not enter the management bus');
+  assert.equal(
+    rt.getCell(rt.getModel(-10), 0, 0, 0).labels.get('mbr_mqtt_error')?.v?.detail,
+    'invalid_response_route',
+    'direct control reply must be rejected visibly when injected into the bridge role',
+  );
+  return { key: 'mbr_mqtt_inbound_does_not_echo_direct_control_reply', status: 'PASS' };
 }
 
 async function test_remote_worker_submit1_receives_endpoint_and_replies_on_response_topic() {
@@ -461,7 +459,7 @@ const tests = [
   test_remote_worker_patches_do_not_keep_raw_result_fallbacks,
   test_mbr_routes_by_topic_and_rejects_missing_endpoint_metadata,
   test_mbr_does_not_echo_own_control_publish_to_management_bus,
-  test_mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_default,
+  test_mbr_mqtt_inbound_does_not_echo_direct_control_reply,
   test_remote_worker_submit1_receives_endpoint_and_replies_on_response_topic,
   test_runtime_rejects_legacy_business_route_record,
   test_remote_worker_rejects_missing_reply_target_without_public_result,

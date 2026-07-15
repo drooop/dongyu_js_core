@@ -2,7 +2,8 @@
 
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { WorkerEngineV0, buildWorkerHostApi, loadSystemPatch } from '../worker_engine_v0.mjs';
+import { WorkerEngineV0, loadSystemPatch } from '../worker_engine_v0.mjs';
+import { pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
@@ -12,25 +13,14 @@ function readJson(pathname) {
   return JSON.parse(fs.readFileSync(pathname, 'utf8'));
 }
 
-function getFunctionCode(label) {
-  if (!label) return '';
-  if (typeof label.v === 'string') return label.v;
-  if (label.v && typeof label.v === 'object' && typeof label.v.code === 'string') return label.v.code;
-  return '';
-}
-
 function loadRuntime() {
   const rt = new ModelTableRuntime();
   loadSystemPatch(rt);
   if (!rt.getModel(-10)) rt.createModel({ id: -10, name: 'system', type: 'system' });
   rt.applyPatch(readJson('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json'), { allowCreateModel: true, trustedBootstrap: true });
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
   return rt;
-}
-
-function runMbrFunction(rt, name) {
-  const sys = rt.getModel(-10);
-  const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get(name)));
-  fn({ hostApi: buildWorkerHostApi(rt) });
 }
 
 function drainMqtt(rt) {
@@ -62,10 +52,6 @@ function payload(text = 'hello') {
   ];
 }
 
-function mt(k, t, v) {
-  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
-}
-
 function pinPayloadRecords({
   opId = 'test_0179_mbr_route_contract_001',
   messageRole = 'request',
@@ -81,31 +67,37 @@ function pinPayloadRecords({
   payloadRecords = payload('hello'),
   timestamp = 1700000000000,
 } = {}) {
-  return [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', opId),
-    mt('op_id', 'str', opId),
-    mt('message_role', 'str', messageRole),
-    mt('endpoint_worker_id', 'str', endpointWorkerId),
-    mt('endpoint_model_id', 'int', endpointModelId),
-    mt('endpoint_pin', 'str', endpointPin),
-    mt('origin_worker_id', 'str', originWorkerId),
-    mt('origin_model_id', 'int', originModelId),
-    mt('origin_pin', 'str', originPin),
-    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
-    mt('reply_target_model_id', 'int', replyTargetModelId),
-    mt('reply_target_pin', 'str', replyTargetPin),
-    mt('payload', 'json', payloadRecords),
-    mt('timestamp', 'int', timestamp),
-  ];
+  return pinPayloadV2Records({
+    opId,
+    messageRole,
+    routeKind: 'management',
+    endpointWorkerId,
+    endpointModelId,
+    endpointPin,
+    originWorkerId,
+    originModelId,
+    originPin,
+    replyTargetWorkerId,
+    replyTargetModelId,
+    replyTargetPin,
+    payloadRecords,
+    timestamp,
+  });
 }
 
-function externalPacket(records) {
-  return { version: 'v1', type: 'pin_payload', payload: records };
+function payloadValue(records, key, id = 0) {
+  return Array.isArray(records)
+    ? records.find((record) => record && record.id === id && record.k === key)?.v
+    : undefined;
 }
 
-function payloadValue(records, key) {
-  return Array.isArray(records) ? records.find((record) => record && record.k === key)?.v : undefined;
+async function waitUntil(predicate, { timeoutMs = 1000, intervalMs = 20 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() <= deadline) {
+    if (predicate()) return true;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return Boolean(predicate());
 }
 
 function assertStrictPacket(packet, message = 'packet') {
@@ -116,15 +108,22 @@ function assertStrictPacket(packet, message = 'packet') {
 }
 
 const rt = loadRuntime();
-const sys = rt.getModel(-10);
-rt.addLabel(sys, 0, 0, 0, {
-  k: 'mbr_mgmt_inbox',
-  t: 'json',
-  v: externalPacket(pinPayloadRecords()),
+const model0 = rt.getModel(0);
+const inputRecords = pinPayloadRecords();
+const ingress = rt.addLabel(model0, 0, 0, 0, {
+  k: 'mbr_mb_in',
+  t: 'pin.bus.mb.in',
+  v: inputRecords,
 });
-runMbrFunction(rt, 'mbr_mgmt_to_mqtt');
+assert.equal(ingress.applied, true, 'current pin_payload.v2 management ingress must be accepted on Model 0');
+assert.equal(
+  await waitUntil(() => payloadValue(rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_out')?.v, 'op_id') === 'test_0179_mbr_route_contract_001'),
+  true,
+  'management ingress must traverse the declared Model 0 -> Model -10 -> Model 0 pin chain',
+);
 const packet = toExternalPacket(rt, 'mbr_cb_out');
 assertStrictPacket(packet, 'control bus out');
+assert.equal(payloadValue(packet.payload, '__mt_payload_kind'), 'pin_payload.v2');
 assert.equal(payloadValue(packet.payload, 'message_role'), 'request');
 assert.equal(payloadValue(packet.payload, 'endpoint_pin'), 'task');
 assert.equal(payloadValue(packet.payload, 'origin_model_id'), 101);
@@ -132,6 +131,7 @@ const published = drainMqtt(rt);
 assert.equal(published.length, 1);
 assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/R1/3000/task');
 assertStrictPacket(published[0].payload, 'published payload');
-assert.equal(payloadValue(payloadValue(published[0].payload.payload, 'payload'), 'input_value'), 'hello');
+const payloadModelId = payloadValue(published[0].payload.payload, 'payload_model_id');
+assert.equal(payloadValue(published[0].payload.payload, 'input_value', payloadModelId), 'hello');
 assert.equal(published[0].payload.records, undefined);
 console.log('PASS test_0179_mbr_route_contract');

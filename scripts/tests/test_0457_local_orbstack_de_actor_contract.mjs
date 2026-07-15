@@ -2,7 +2,9 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import {
   ACTOR_ATTESTATION_MARKER,
   actorCellLabels,
@@ -99,6 +101,48 @@ function dispatcherProbe(endpoint) {
     mt('model_type', 'model.table', 'Data', 1),
     mt('sys_msg_type', 'str', '0457.dispatch.probe', 1),
   ];
+}
+
+function test_local_persisted_asset_sync_includes_model3200_actor_patch() {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'dy-0457-assets-'));
+  try {
+    const result = spawnSync('bash', ['scripts/ops/sync_local_persisted_assets.sh'], {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        LOCAL_PERSISTED_ASSET_ROOT: tempRoot,
+      },
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, `asset sync must pass: ${result.stderr || result.stdout}`);
+    const relativePath = 'roles/remote-worker/patches/15_model3200_feishu_message_api.json';
+    const synced = JSON.parse(readFileSync(join(tempRoot, relativePath), 'utf8'));
+    const source = JSON.parse(readFileSync(resolve(repoRoot, 'deploy/sys-v1ns/remote-worker/patches/15_model3200_feishu_message_api.json'), 'utf8'));
+    assert.deepEqual(synced, source, 'clean local asset sync must copy the exact Model 3200 actor patch');
+
+    const manifest = JSON.parse(readFileSync(join(tempRoot, 'manifest.v0.json'), 'utf8'));
+    const entry = manifest.entries.find((candidate) => candidate?.path === relativePath);
+    assert.deepEqual(entry, {
+      id: 'remote-worker-15_model3200_feishu_message_api',
+      phase: '40-role-positive',
+      path: relativePath,
+      kind: 'patch',
+      scope: ['remote-worker'],
+      authority: 'authoritative',
+      filter: 'full',
+      required: true,
+    });
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function test_local_deploy_never_prints_matrix_token_material() {
+  const source = readFileSync(resolve(repoRoot, 'scripts/ops/deploy_local.sh'), 'utf8');
+  const leakingLines = source
+    .split(/\r?\n/u)
+    .filter((line) => /\becho\b/u.test(line) && /\$(?:\{)?(?:SERVER_TOKEN|MBR_TOKEN)\b/u.test(line));
+  assert.deepEqual(leakingLines, [], 'local deploy logs must never expose full or partial Matrix access tokens');
 }
 
 async function settlePropagation() {
@@ -466,6 +510,41 @@ function test_actor_runners_call_and_output_loaded_attestation() {
   }
 }
 
+async function test_shared_runner_scopes_model3200_diagnostics_to_r1_only() {
+  const { createRoleScopedDeRuntimeDiagnosticHeartbeat } = await import('../lib/de_runtime_diagnostics.mjs');
+  assert.equal(actors.r1.runnerPath, actors.wm1.runnerPath, 'R1 and WM1 must exercise the same guarded runner image path');
+  assert.equal(actors.r1.workerScope, 'remote-worker');
+  assert.equal(actors.wm1.workerScope, 'workspace-manager');
+
+  for (const [name, actor, expectedEnabled] of [
+    ['r1', actors.r1, true],
+    ['wm1', actors.wm1, false],
+  ]) {
+    let factoryCalls = 0;
+    let timerCalls = 0;
+    const lifecycle = createRoleScopedDeRuntimeDiagnosticHeartbeat({
+      workerScope: actor.workerScope,
+      runtime: actor.runtime,
+      writeLine: () => {},
+      diagnosticFactory: () => {
+        factoryCalls += 1;
+        return () => [];
+      },
+      setIntervalFn: () => {
+        timerCalls += 1;
+        return { unref() {} };
+      },
+      clearIntervalFn: () => {},
+      heartbeatIntervalMs: 10000,
+    });
+    assert.equal(lifecycle.enabled, expectedEnabled, `${name}: role-scoped diagnostic state`);
+    lifecycle.start();
+    assert.equal(factoryCalls, expectedEnabled ? 1 : 0, `${name}: diagnostic factory calls`);
+    assert.equal(timerCalls, expectedEnabled ? 1 : 0, `${name}: diagnostic timer calls`);
+    lifecycle.stop();
+  }
+}
+
 function test_mbr_bootstrap_cannot_override_attested_contract_and_has_safe_provenance() {
   const actor = actors.mbr;
   const benignSecret = '0457-benign-bootstrap-secret-must-not-leak';
@@ -478,8 +557,8 @@ function test_mbr_bootstrap_cannot_override_attested_contract_and_has_safe_prove
       p: 0,
       r: 0,
       c: 0,
-      k: '0457_bootstrap_probe',
-      t: 'str',
+      k: 'matrix_token',
+      t: 'matrix.token',
       v: benignSecret,
     }],
   };
@@ -572,6 +651,80 @@ function test_mbr_bootstrap_cannot_override_attested_contract_and_has_safe_prove
       }
     }
   }
+
+  const actorStructureMutations = [
+    {
+      op: 'add_label',
+      model_id: 0,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'review_unattested_func',
+      t: 'func.js',
+      v: 'return;',
+    },
+    {
+      op: 'add_label',
+      model_id: 0,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'review_unattested_route',
+      t: 'pin.connect.cell',
+      v: [],
+    },
+    {
+      op: 'rm_label',
+      model_id: 0,
+      p: 1,
+      r: 0,
+      c: 0,
+      k: 'mbr_cb_ingress',
+    },
+    {
+      op: 'add_label',
+      model_id: -10,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'mbr_mgmt_to_mqtt',
+      t: 'func.js',
+      v: 'return;',
+    },
+    {
+      op: 'add_label',
+      model_id: -10,
+      p: 0,
+      r: 0,
+      c: 0,
+      k: 'mbr_dispatch_wiring',
+      t: 'pin.connect.cell',
+      v: [],
+    },
+  ];
+  for (const [index, mutation] of actorStructureMutations.entries()) {
+    const result = runAttestationOnly(actor, {
+      bootstrapPatch: {
+        version: 'mt.v0',
+        op_id: `0457_forbidden_actor_structure_${index}`,
+        records: [mutation],
+      },
+    });
+    assert.notEqual(result.status, 0, `${mutation.k}: actor structure mutation must fail before attestation`);
+    assert.equal(attestationLine(result), '', `${mutation.k}: rejected actor structure mutation must not emit attestation`);
+    assert.match(
+      String(result.stderr || ''),
+      new RegExp(`bootstrap_patch_overrides_attested_actor:${mutation.k}`),
+      `${mutation.k}: rejection must identify the protected actor field`,
+    );
+    if (typeof mutation.v === 'string') {
+      assert.equal(
+        `${result.stdout}\n${result.stderr}`.includes(mutation.v),
+        false,
+        `${mutation.k}: rejected actor structure value must not leak`,
+      );
+    }
+  }
 }
 
 const tests = [
@@ -588,7 +741,10 @@ const tests = [
   test_r1_early_mqtt_rejections_are_modeltable_visible,
   test_exported_attestation_builder_is_pure_and_loaded_state_derived,
   test_actor_runners_call_and_output_loaded_attestation,
+  test_shared_runner_scopes_model3200_diagnostics_to_r1_only,
   test_mbr_bootstrap_cannot_override_attested_contract_and_has_safe_provenance,
+  test_local_persisted_asset_sync_includes_model3200_actor_patch,
+  test_local_deploy_never_prints_matrix_token_material,
 ];
 
 let failed = 0;

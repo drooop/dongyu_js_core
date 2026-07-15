@@ -26,6 +26,8 @@ const deployCommon = read('scripts/ops/_deploy_common.sh');
 const deployLocal = read('scripts/ops/deploy_local.sh');
 const localEnvExample = read('deploy/env/local.env.example');
 const localWorkers = read('k8s/local/workers.yaml');
+const localSynapse = read('k8s/local/synapse.yaml');
+const localMosquitto = read('k8s/local/mosquitto.yaml');
 
 function envValue(source, key) {
   const prefix = `${key}=`;
@@ -157,6 +159,10 @@ function outputValue(object, outputSpec) {
     process.stdout.write(String((object.status && object.status.readyReplicas) || ''));
     return;
   }
+  if (outputSpec.includes('spec.replicas')) {
+    process.stdout.write(String((object.spec && object.spec.replicas) || ''));
+    return;
+  }
   if (outputSpec.includes('clusterIP')) {
     process.stdout.write(String((object.spec && object.spec.clusterIP) || ''));
     return;
@@ -186,7 +192,13 @@ if (verb === 'get') {
     process.exit(0);
   }
   if (kind === 'deploy' || kind === 'deployment' || kind === 'deployments') {
-    outputValue({ status: { readyReplicas: 1 } }, outputSpec);
+    const extraReplicaDeployment = scenario.startsWith('extra_replica_')
+      ? scenario.slice('extra_replica_'.length)
+      : '';
+    outputValue({
+      spec: { replicas: name === extraReplicaDeployment ? 2 : 1 },
+      status: { readyReplicas: 1 },
+    }, outputSpec);
     process.exit(0);
   }
   if (kind === 'pods' || kind === 'pod') {
@@ -218,7 +230,26 @@ if (verb === 'get') {
     process.exit(0);
   }
   if (kind === 'svc' || kind === 'service' || kind === 'services') {
-    outputValue({ spec: { clusterIP: '10.96.0.10' } }, outputSpec);
+    const isUiNodePort = name === 'ui-server-nodeport';
+    outputValue({
+      spec: {
+        clusterIP: '10.96.0.10',
+        ...(isUiNodePort ? {
+          type: scenario === 'wrong_ui_nodeport_type' ? 'ClusterIP' : 'NodePort',
+          ...(scenario === 'missing_ui_selector'
+            ? {}
+            : { selector: { app: scenario === 'wrong_ui_selector' ? 'other' : 'ui-server' } }),
+          ports: scenario === 'missing_ui_nodeport'
+            ? [{ port: 9000, targetPort: 9000, protocol: 'TCP' }]
+            : [{
+              port: 9000,
+              targetPort: 9000,
+              protocol: scenario === 'wrong_ui_nodeport_protocol' ? 'UDP' : 'TCP',
+              nodePort: scenario === 'wrong_ui_nodeport' ? 30901 : 30900,
+            }],
+        } : {}),
+      },
+    }, outputSpec);
     process.exit(0);
   }
   if (kind === 'endpoints' || kind === 'endpoint') {
@@ -424,6 +455,58 @@ const plannedAllLocalCases = [
     },
   ],
   [
+    'local Synapse listener declares its in-pod service bind explicitly',
+    () => {
+      assert.match(
+        localSynapse,
+        /listeners:\s*[\s\S]*?- port:\s*8008\s*[\s\S]*?bind_addresses:\s*\[["']?0\.0\.0\.0["']?\]/u,
+        'local Synapse must explicitly bind port 8008 to the pod service interface so live boundary inspection does not rely on an implicit default',
+      );
+    },
+  ],
+  [
+    'local Synapse rollout waits for the Matrix HTTP API to become ready',
+    () => {
+      const deployment = localSynapse
+        .split(/^---\s*$/mu)
+        .find((document) => /^kind:\s*Deployment\s*$/mu.test(document)
+          && /metadata:\s*[\s\S]*?name:\s*synapse\s*$/mu.test(document));
+      assert.ok(deployment, 'local Synapse manifest must contain the synapse Deployment');
+      assert.match(
+        deployment,
+        /containers:\s*[\s\S]*?- name:\s*synapse\s*[\s\S]*?readinessProbe:\s*[\s\S]*?httpGet:\s*[\s\S]*?path:\s*\/_matrix\/client\/versions\s*[\s\S]*?port:\s*8008(?:\s|$)/u,
+        'local Synapse Deployment must use an HTTP readinessProbe on /_matrix/client/versions port 8008 so rollout status waits for the real Matrix API',
+      );
+    },
+  ],
+  [
+    'local Synapse bootstrap selects the newest running pod after rollout',
+    () => {
+      assert.match(
+        deployCommon,
+        /latest_running_pod\(\)[\s\S]*?--field-selector=status\.phase=Running[\s\S]*?--sort-by=\.metadata\.creationTimestamp[\s\S]*?-o name[\s\S]*?tail -n 1/u,
+        'the deploy helper must select the newest running pod instead of an arbitrary stale rollout pod',
+      );
+      const uses = deployCommon.match(/latest_running_pod synapse/gu) || [];
+      assert.equal(uses.length, 4, 'readiness, user bootstrap, login and room creation must resolve the current rollout pod');
+      assert.doesNotMatch(
+        deployCommon,
+        /get pods -l app=synapse -o jsonpath='\{\.items\[0\]\.metadata\.name\}'/u,
+        'Synapse bootstrap must not cache the first unordered pod during rollout replacement',
+      );
+    },
+  ],
+  [
+    'local Mosquitto listener declares its in-pod service bind explicitly',
+    () => {
+      assert.match(
+        localMosquitto,
+        /mosquitto\.conf:\s*\|\s*[\s\S]*?listener\s+1883\s+0\.0\.0\.0/u,
+        'local Mosquitto must explicitly bind port 1883 to the pod service interface so live boundary inspection does not rely on an implicit default',
+      );
+    },
+  ],
+  [
     'checker rejects non-OrbStack Kubernetes context',
     () => {
       const result = runBaselineChecker('wrong_k8s_context');
@@ -443,6 +526,39 @@ const plannedAllLocalCases = [
         0,
         `checker must reject a non-OrbStack Docker context; stdout=${result.stdout} stderr=${result.stderr}`,
       );
+    },
+  ],
+  [
+    'checker requires exactly one desired replica for every baseline deployment',
+    () => {
+      for (const deployment of ['mosquitto', 'synapse', 'remote-worker', 'workspace-manager', 'mbr-worker', 'ui-server']) {
+        const result = runBaselineChecker(`extra_replica_${deployment}`);
+        assert.notEqual(
+          result.status,
+          0,
+          `checker must reject deployment/${deployment} configured with replicas=2 even when readyReplicas=1; stdout=${result.stdout} stderr=${result.stderr}`,
+        );
+      }
+    },
+  ],
+  [
+    'checker requires ui-server-nodeport to expose exact TCP NodePort 30900 to the ui-server selector',
+    () => {
+      for (const scenario of [
+        'wrong_ui_nodeport_type',
+        'missing_ui_nodeport',
+        'wrong_ui_nodeport',
+        'wrong_ui_nodeport_protocol',
+        'missing_ui_selector',
+        'wrong_ui_selector',
+      ]) {
+        const result = runBaselineChecker(scenario);
+        assert.notEqual(
+          result.status,
+          0,
+          `checker must reject ${scenario}; stdout=${result.stdout} stderr=${result.stderr}`,
+        );
+      }
     },
   ],
   [

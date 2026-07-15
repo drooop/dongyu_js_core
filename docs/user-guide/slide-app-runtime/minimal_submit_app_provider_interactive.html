@@ -87,12 +87,12 @@
       <div class="grid">
         <div class="card full">
           <h2>真实链路</h2>
-          <div class="node">UI click -> Model 0 control bus -> MBR -> remote provider public pin -> response_topic -> reply_target records -> ui-server -> App table</div>
+          <div class="node">UI click -> Model 0 control bus -> local MQTT -> remote provider public pin -> response_topic -> reply_target records -> ui-server -> App table (MBR no-echo)</div>
           <div class="arrow">ui_bind_json writes value_ref to click_event</div>
           <div class="node amber">click_event -> click_event_wiring -> click_chain -> root_routes -> submit_request -> submit_request_wiring -> handle_submit:in</div>
           <div class="arrow">handle_submit writes business records to submit1 pin.out</div>
           <div class="node blue">host model.subtableconnection boundary writes table-qualified bus payload</div>
-          <div class="arrow">MBR publishes endpoint topic</div>
+          <div class="arrow">UI Server MQTT adapter publishes endpoint topic</div>
           <div class="node">request topic: UIPUT/ws/dam/pic/de/R1/3000/submit1</div>
           <div class="arrow">R1 returns pin_payload.v2 on response_topic with message_role=response</div>
           <div class="node">response topic: use request response_topic, e.g. UIPUT/ws/dam/pic/de/U1/1051/result</div>
@@ -216,6 +216,7 @@
   "payload": [
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "manual_result_app_table_001" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "timestamp", "t": "int", "v": 1700000000000 },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/result" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/result" },

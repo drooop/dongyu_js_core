@@ -7,6 +7,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend/src/ui_cellwise_projection.js';
 import { WorkerEngineV0 } from '../worker_engine_v0.mjs';
+import { pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..');
 const require = createRequire(import.meta.url);
@@ -72,23 +73,21 @@ function packetOpId(packet) {
 }
 
 function makeSplitBusPinPayloadValue(opId, text = 'hello') {
-  return [
-    mtRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mtRecord('__mt_request_id', 'str', opId),
-    mtRecord('op_id', 'str', opId),
-    mtRecord('message_role', 'str', 'request'),
-    mtRecord('endpoint_worker_id', 'str', 'mbr'),
-    mtRecord('endpoint_model_id', 'int', 1036),
-    mtRecord('endpoint_pin', 'str', 'submit'),
-    mtRecord('origin_worker_id', 'str', 'ui-server-test'),
-    mtRecord('origin_model_id', 'int', 1036),
-    mtRecord('origin_pin', 'str', 'submit'),
-    mtRecord('reply_target_worker_id', 'str', 'ui-server-test'),
-    mtRecord('reply_target_model_id', 'int', 1036),
-    mtRecord('reply_target_pin', 'str', 'result'),
-    mtRecord('payload', 'json', [mtRecord('reply_text', 'str', text)]),
-    mtRecord('timestamp', 'int', Date.now()),
-  ];
+  return pinPayloadV2Records({
+    opId,
+    routeKind: 'management',
+    endpointWorkerId: 'mbr',
+    endpointModelId: 1036,
+    endpointPin: 'submit',
+    originWorkerId: 'ui-server-test',
+    originModelId: 1036,
+    originPin: 'submit',
+    replyTargetWorkerId: 'ui-server-test',
+    replyTargetModelId: 1036,
+    replyTargetPin: 'result',
+    payloadRecords: [mtRecord('reply_text', 'str', text)],
+    timestamp: Date.now(),
+  });
 }
 
 function makePinPayloadPacket({
@@ -100,27 +99,38 @@ function makePinPayloadPacket({
   messageRole = 'request',
   timestamp = Date.now(),
 }) {
+  const effectiveEndpoint = messageRole === 'response' ? replyTarget : endpoint;
+  const topic = `UIPUT/ws/dam/pic/de/${effectiveEndpoint.worker_id}/${effectiveEndpoint.model_id}/${effectiveEndpoint.pin}`;
+  const responseTopic = `UIPUT/ws/dam/pic/de/${replyTarget.worker_id}/${replyTarget.model_id}/${replyTarget.pin}`;
   return {
     version: 'v1',
     type: 'pin_payload',
-    payload: [
-      mtRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
-      mtRecord('__mt_request_id', 'str', opId),
-      mtRecord('op_id', 'str', opId),
-      mtRecord('message_role', 'str', messageRole),
-      mtRecord('endpoint_worker_id', 'str', endpoint.worker_id),
-      mtRecord('endpoint_model_id', 'int', endpoint.model_id),
-      mtRecord('endpoint_pin', 'str', endpoint.pin),
-      mtRecord('origin_worker_id', 'str', origin.worker_id),
-      mtRecord('origin_model_id', 'int', origin.model_id),
-      mtRecord('origin_pin', 'str', origin.pin),
-      mtRecord('reply_target_worker_id', 'str', replyTarget.worker_id),
-      mtRecord('reply_target_model_id', 'int', replyTarget.model_id),
-      mtRecord('reply_target_pin', 'str', replyTarget.pin),
-      mtRecord('payload', 'json', payload),
-      mtRecord('timestamp', 'int', timestamp),
-    ],
+    payload: pinPayloadV2Records({
+      opId,
+      messageRole,
+      topic,
+      responseTopic,
+      routeKind: 'management',
+      endpointWorkerId: effectiveEndpoint.worker_id,
+      endpointModelId: effectiveEndpoint.model_id,
+      endpointPin: effectiveEndpoint.pin,
+      originWorkerId: origin.worker_id,
+      originModelId: origin.model_id,
+      originPin: origin.pin,
+      replyTargetWorkerId: replyTarget.worker_id,
+      replyTargetModelId: replyTarget.model_id,
+      replyTargetPin: replyTarget.pin,
+      payloadRecords: payload,
+      timestamp,
+    }),
   };
+}
+
+function packetBusinessPayload(packet) {
+  const payloadModelId = payloadRecord(packet?.payload, 'payload_model_id')?.v;
+  return Number.isInteger(payloadModelId)
+    ? packet.payload.filter((record) => record?.id === payloadModelId)
+    : [];
 }
 
 function makeSnapshot(records, sourceLabels = []) {
@@ -188,7 +198,7 @@ function test_workspace_asset_tree_uses_compact_actions() {
   const deleteLabel = cellLabel(2, 7, 1, 'ui_label');
   const deleteSize = cellLabel(2, 7, 1, 'ui_size');
 
-  assert.equal(actionsLabel?.v, 'Actions', 'Workspace actions column must exist');
+  assert.equal(actionsLabel?.v, 'Act', 'Workspace actions column must use the current compact label');
   assert.ok(Number(actionsWidth?.v) <= 84, 'Workspace actions column must be compact enough to stop covering names');
   assert.equal(actionsFixed, null, 'Workspace actions column must not use fixed overlay in the narrow asset tree');
   assert.equal(sourceVisibleCol, null, 'Workspace source column must not render as a squeezed visible column');
@@ -239,7 +249,7 @@ function test_model1036_declares_local_state_and_source_owned_response_projectio
 
   assert.ok(composerStatus, 'Mgmt Bus Console send status badge missing');
   assert.equal(composerStatus.type, 'StatusBadge', 'send status must use the existing StatusBadge component');
-  assert.equal(composerStatus.bind?.read?.model_id, 1036, 'send status must read Model 1036 local state');
+  assert.equal(composerStatus.bind?.read?.model_id, undefined, 'send status must use the current-model default for Model 1036 local state');
   assert.equal(composerStatus.bind?.read?.k, 'message_status', 'send status must expose send/reject status, not route health');
   return { key: 'model1036_declares_local_state_and_source_owned_response_projection', status: 'PASS' };
 }
@@ -317,17 +327,17 @@ async function test_server_forwards_console_intent_to_matrix() {
 
     assert.equal(result.result, 'ok', 'server must accept valid console send bus_event_v2');
     assert.equal(sent.length, 1, 'server must forward one Matrix packet for console send');
-    assert.equal(sent[0].version, 'v1', 'forwarded packet must use pin_payload v1');
+    assert.equal(sent[0].version, 'v1', 'forwarded packet must use the current external envelope version');
     assert.equal(sent[0].type, 'pin_payload', 'forwarded packet type must be pin_payload');
     assert.deepEqual(Object.keys(sent[0]).sort(), ['payload', 'type', 'version'], 'forwarded packet must not carry loose route/source/pin fields');
-    assert.equal(payloadRecord(sent[0].payload, '__mt_payload_kind')?.v, 'pin_payload.v1', 'forwarded packet must declare outer pin_payload kind');
+    assert.equal(payloadRecord(sent[0].payload, '__mt_payload_kind')?.v, 'pin_payload.v2', 'forwarded packet must declare the v2 ModelTable payload kind');
     assert.equal(payloadRecord(sent[0].payload, 'endpoint_worker_id')?.v, 'mbr', 'forwarded packet endpoint worker must target the MBR user');
     assert.equal(payloadRecord(sent[0].payload, 'endpoint_model_id')?.v, 1036, 'forwarded packet endpoint model must be Mgmt Bus Console');
     assert.equal(payloadRecord(sent[0].payload, 'endpoint_pin')?.v, 'submit', 'forwarded packet endpoint pin must be submit');
     assert.equal(payloadRecord(sent[0].payload, 'reply_target_worker_id')?.v, 'U1', 'forwarded packet reply target worker must be the UI server');
     assert.equal(payloadRecord(sent[0].payload, 'reply_target_model_id')?.v, 1036, 'forwarded packet reply target model must be Mgmt Bus Console');
     assert.equal(payloadRecord(sent[0].payload, 'reply_target_pin')?.v, 'result', 'forwarded packet reply target pin must be result');
-    const businessPayload = payloadRecord(sent[0].payload, 'payload')?.v;
+    const businessPayload = packetBusinessPayload(sent[0]);
     assert.ok(Array.isArray(businessPayload), 'forwarded packet nested payload must remain a ModelTable record array');
     assert.ok(businessPayload.some((record) => record.k === 'target_user_id' && record.v === '@mbr:localhost'), 'forwarded packet must preserve target_user_id in nested payload');
     assert.ok(businessPayload.some((record) => record.k === 'draft' && record.v === 'hello from 0342'), 'forwarded packet must preserve draft text in nested payload');
@@ -513,31 +523,17 @@ async function test_server_projects_mbr_response_from_trace_without_writing_mode
   const state = createServerState({ dbPath: null });
   try {
     state.runtime.setRuntimeMode('running');
-    state.programEngine.handleDyBusEvent({
-      version: 'v1',
-      type: 'pin_payload',
+    state.programEngine.handleDyBusEvent(makePinPayloadPacket({
+      opId: 'mbr_ack_it0342_mbr_ack',
+      messageRole: 'response',
+      origin: { worker_id: 'mbr', model_id: 1036, pin: 'submit' },
+      replyTarget: { worker_id: 'U1', model_id: 1036, pin: 'result' },
       payload: [
-        mtRecord('__mt_payload_kind', 'str', 'pin_payload.v1'),
-        mtRecord('__mt_request_id', 'str', 'mbr_ack_it0342_mbr_ack'),
-        mtRecord('op_id', 'str', 'mbr_ack_it0342_mbr_ack'),
-        mtRecord('message_role', 'str', 'response'),
-        mtRecord('endpoint_worker_id', 'str', 'mbr'),
-        mtRecord('endpoint_model_id', 'int', 1036),
-        mtRecord('endpoint_pin', 'str', 'submit'),
-        mtRecord('origin_worker_id', 'str', 'mbr'),
-        mtRecord('origin_model_id', 'int', 1036),
-        mtRecord('origin_pin', 'str', 'submit'),
-        mtRecord('reply_target_worker_id', 'str', 'U1'),
-        mtRecord('reply_target_model_id', 'int', 1036),
-        mtRecord('reply_target_pin', 'str', 'result'),
-        mtRecord('payload', 'json', [
-          mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.ack.v1'),
-          mtRecord('target_user_id', 'str', '@mbr:localhost'),
-          mtRecord('reply_text', 'str', 'ack from @mbr:localhost: hello'),
-        ]),
-        mtRecord('timestamp', 'int', Date.now()),
+        mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.ack.v1'),
+        mtRecord('target_user_id', 'str', '@mbr:localhost'),
+        mtRecord('reply_text', 'str', 'ack from @mbr:localhost: hello'),
       ],
-    });
+    }));
     await state.programEngine.tick();
     state.clientSnap();
     await wait(80);
@@ -731,8 +727,8 @@ async function test_server_split_bus_matrix_failures_are_observable_and_retryabl
 
     assert.ok(sent.some((packet) => packetOpId(packet) === 'it0342_unavailable_mb_out'), 'unavailable pin must be retryable after Matrix recovers');
     assert.ok(sent.some((packet) => packetOpId(packet) === 'it0342_reject_mb_out'), 'rejected pin must be retryable after Matrix recovers');
-    assert.equal(state.programEngine.bridgedBusOutPorts.get('unavailable_mb_out'), 'it0342_unavailable_mb_out', 'successful retry must mark unavailable pin bridged');
-    assert.equal(state.programEngine.bridgedBusOutPorts.get('reject_mb_out'), 'it0342_reject_mb_out', 'successful retry must mark rejected pin bridged');
+    assert.equal(state.programEngine.bridgedBusOutPorts.get('unavailable_mb_out'), 'request:it0342_unavailable_mb_out', 'successful retry must mark unavailable request pin bridged');
+    assert.equal(state.programEngine.bridgedBusOutPorts.get('reject_mb_out'), 'request:it0342_reject_mb_out', 'successful retry must mark rejected request pin bridged');
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
     delete process.env.DY_AUTH;
@@ -745,62 +741,69 @@ async function test_server_split_bus_matrix_failures_are_observable_and_retryabl
   return { key: 'server_split_bus_matrix_failures_are_observable_and_retryable', status: 'PASS' };
 }
 
-function test_mbr_dispatch_routes_requests_without_local_ack() {
+async function test_mbr_structural_chain_routes_requests_without_local_ack() {
   const rt = new ModelTableRuntime();
   rt.applyPatch(readJson(systemPatchPath), { allowCreateModel: true, trustedBootstrap: true });
   rt.applyPatch(readJson(mbrRolePath), { allowCreateModel: true, trustedBootstrap: true });
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+  const model0 = rt.getModel(0);
   const sys = rt.getModel(-10);
   const root = rt.getCell(sys, 0, 0, 0);
-  const matrixFunc = root.labels.get('mbr_matrix_func')?.v;
-  assert.equal(matrixFunc, 'mbr_mgmt_dispatch', 'MBR Matrix function must dispatch console messages before generic MQTT routing');
+  const model0Root = rt.getCell(model0, 0, 0, 0);
+  const mqttPublished = [];
+  const engine = new WorkerEngineV0({
+    runtime: rt,
+    mqttPublish: (topic, packet) => mqttPublished.push({ topic, packet }),
+  });
 
-  const engine = new WorkerEngineV0({ runtime: rt, mqttPublish: () => {} });
-  const dispatch = (packet) => {
-    rt.rmLabel(sys, 0, 0, 0, 'mbr_mgmt_console_ack_out');
-    rt.rmLabel(rt.getModel(0), 0, 0, 0, 'mbr_mb_out');
+  assert.equal(root.labels.get('mbr_matrix_func'), undefined, 'MBR must not retain the removed manual Matrix dispatcher');
+  assert.equal(root.labels.get('mbr_mb_ingress')?.t, 'pin.in', 'management ingress must be a structural Model -10 pin');
+  assert.equal(root.labels.get('mbr_cb_egress')?.t, 'pin.out', 'control egress must be a structural Model -10 pin');
+
+  const dispatch = async (packet) => {
     rt.rmLabel(sys, 0, 0, 0, 'mbr_mgmt_error');
-    rt.rmLabel(sys, 0, 0, 0, 'run_mbr_mgmt_to_mqtt');
-    rt.addLabel(sys, 0, 0, 0, { k: 'mbr_mgmt_inbox', t: 'json', v: packet });
-    engine.executeFunction(matrixFunc);
+    const beforePublishCount = mqttPublished.length;
+    const ingress = rt.addLabel(model0, 0, 0, 0, {
+      k: 'mbr_mb_in',
+      t: 'pin.bus.mb.in',
+      v: packet.payload,
+    });
+    await wait(20);
+    const forwarded = externalPinPacket(rt, 'mbr_cb_out');
+    engine.tick();
     return {
+      ingress,
+      forwarded,
+      published: mqttPublished.slice(beforePublishCount),
       ack: externalPinPacket(rt, 'mbr_mb_out'),
       error: root.labels.get('mbr_mgmt_error')?.v,
-      routeRequested: root.labels.get('run_mbr_mgmt_to_mqtt')?.v,
     };
   };
   const consolePayload = (opId, payload) => makePinPayloadPacket({ opId, payload });
 
-  const valid = dispatch(consolePayload('it0342_mbr_dispatch', [
+  const valid = await dispatch(consolePayload('it0342_mbr_structural_chain', [
     mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
     mtRecord('target_user_id', 'str', '@mbr:localhost'),
-    mtRecord('draft', 'str', 'hello mbr dispatch'),
+    mtRecord('draft', 'str', 'hello mbr structural chain'),
   ]));
-  assert.equal(valid.ack, null, 'MBR dispatch must not directly emit management-bus responses');
-  assert.equal(valid.error, undefined, 'valid pin_payload requests must not be rejected by MBR dispatch');
-  assert.equal(valid.routeRequested, '1', 'MBR dispatch must hand valid requests to management-to-control forwarding');
-  assert.equal(root.labels.has('mbr_mgmt_inbox'), true, 'MBR dispatch must keep the inbox for mbr_mgmt_to_mqtt forwarding');
+  assert.equal(valid.ingress?.applied, true, 'valid management request must enter the Model 0 management bus pin');
+  assert.equal(packetOpId(valid.forwarded), 'it0342_mbr_structural_chain', 'structural chain must forward the request to control bus out');
+  assert.equal(valid.published.length, 1, 'forwarded request must publish exactly once to MQTT');
+  assert.equal(valid.published[0]?.topic, 'UIPUT/ws/dam/pic/de/mbr/1036/submit', 'forwarded request must preserve its v2 topic');
+  assert.equal(valid.ack, null, 'MBR structural chain must not synthesize a local management-bus ack');
+  assert.equal(valid.error, undefined, 'valid request must not write an MBR transport error');
+  assert.equal(model0Root.labels.get('mbr_cb_out')?.v, null, 'successful publish must acknowledge without deleting the structural control pin');
 
-  const missingTarget = dispatch(consolePayload('it0342_mbr_missing_target', [
+  const missingTarget = await dispatch(consolePayload('it0342_mbr_missing_business_target', [
     mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
-    mtRecord('draft', 'str', 'missing target must reject'),
+    mtRecord('draft', 'str', 'business validation belongs to the endpoint'),
   ]));
-  assert.equal(missingTarget.ack, null, 'MBR dispatch must not locally ack missing target_user_id');
-  assert.equal(missingTarget.error, undefined, 'MBR dispatch must not inspect console business fields');
-  assert.equal(missingTarget.routeRequested, '1', 'MBR dispatch must route valid pin_payload requests regardless of business payload');
+  assert.equal(packetOpId(missingTarget.forwarded), 'it0342_mbr_missing_business_target', 'MBR must route valid envelopes without interpreting business fields');
+  assert.equal(missingTarget.published.length, 1, 'business-field omission must not block transport routing');
+  assert.equal(missingTarget.error, undefined, 'MBR must not write a transport error for endpoint-owned business validation');
 
-  const nonConsoleEndpoint = dispatch(makePinPayloadPacket({
-    opId: 'it0342_mbr_non_console_endpoint',
-    endpoint: { worker_id: 'R1', model_id: 3000, pin: 'submit1' },
-    payload: [
-      mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
-      mtRecord('target_user_id', 'str', '@mbr:localhost'),
-      mtRecord('draft', 'str', 'non-console endpoint must forward'),
-    ],
-  }));
-  assert.equal(nonConsoleEndpoint.ack, null, 'MBR dispatch must not ack non-console endpoints');
-  assert.equal(nonConsoleEndpoint.routeRequested, '1', 'MBR dispatch must hand non-console endpoints to management-to-control forwarding');
-
-  const responseRole = dispatch(makePinPayloadPacket({
+  const responseRole = await dispatch(makePinPayloadPacket({
     opId: 'it0342_mbr_response_role_drop',
     messageRole: 'response',
     payload: [
@@ -808,80 +811,11 @@ function test_mbr_dispatch_routes_requests_without_local_ack() {
       mtRecord('reply_text', 'str', 'response should not route from management inbox'),
     ],
   }));
-  assert.equal(responseRole.ack, null, 'MBR dispatch must not locally ack response packets');
-  assert.equal(responseRole.error, undefined, 'MBR dispatch must silently drop response packets from management inbox');
-  assert.equal(responseRole.routeRequested, undefined, 'MBR dispatch must not route response packets from management inbox');
-
-  const missingTargetRetry = dispatch(consolePayload('it0342_mbr_retry_after_bad_payload', [
-    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
-    mtRecord('target_user_id', 'str', '@not-mbr:localhost'),
-    mtRecord('draft', 'str', 'first bad payload'),
-  ]));
-  assert.equal(missingTargetRetry.ack, null, 'MBR dispatch must not locally ack invalid business targets');
-  assert.equal(missingTargetRetry.routeRequested, '1', 'business-level invalid targets are remote program concerns');
-  const correctedRetry = dispatch(consolePayload('it0342_mbr_retry_after_bad_payload', [
-    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
-    mtRecord('target_user_id', 'str', '@mbr:localhost'),
-    mtRecord('draft', 'str', 'corrected payload retry'),
-  ]));
-  assert.equal(correctedRetry.routeRequested, '1', 'corrected retry with the same op_id must still be routed');
-
-  const invalidTarget = dispatch(consolePayload('it0342_mbr_invalid_target', [
-    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
-    mtRecord('target_user_id', 'str', '@not-mbr:localhost'),
-    mtRecord('draft', 'str', 'invalid target must reject'),
-  ]));
-  assert.equal(invalidTarget.ack, null, 'MBR dispatch must not locally ack non-MBR targets');
-  assert.equal(invalidTarget.error, undefined, 'MBR dispatch must not validate non-MBR targets locally');
-  assert.equal(invalidTarget.routeRequested, '1', 'MBR dispatch must route valid request envelopes only by transport contract');
-
-  const generic = dispatch(consolePayload('it0342_mbr_not_crud', [
-    mtRecord('__mt_payload_kind', 'str', 'generic.crud.v1'),
-  ]));
-  assert.equal(generic.ack, null, 'MBR dispatch must not locally ack generic payloads');
-  assert.equal(generic.error, undefined, 'MBR dispatch must not inspect generic business payloads');
-  assert.equal(generic.routeRequested, '1', 'valid pin_payload requests must be routed even when business kind is generic');
-
-  const malformed = dispatch(consolePayload('it0342_mbr_malformed_send', [
-    { k: '__mt_payload_kind', t: 'str', v: 'mgmt_bus_console.send.v1' },
-    { k: 'target_user_id', t: 'str', v: '@mbr:localhost' },
-    { k: 'draft', t: 'str', v: 'malformed mbr send' },
-  ]));
-  assert.equal(malformed.ack, null, 'MBR dispatch must reject non-ModelTable-record console sends');
-  assert.ok(malformed.error, 'MBR dispatch must record an error for non-ModelTable-record console sends');
-  assert.equal(malformed.error?.detail, 'invalid_pin_payload_records', 'MBR dispatch must require a temporary ModelTable record array');
-
-  const legacyEnvelopeField = dispatch({
-    ...consolePayload('it0342_mbr_legacy_envelope_field', [
-      mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
-      mtRecord('target_user_id', 'str', '@mbr:localhost'),
-      mtRecord('draft', 'str', 'legacy envelope fields must reject'),
-    ]),
-    source_model_id: 1036,
-  });
-  assert.equal(legacyEnvelopeField.ack, null, 'MBR dispatch must reject loose legacy envelope fields');
-  assert.ok(legacyEnvelopeField.error, 'MBR dispatch must record an error for loose legacy envelope fields');
-  assert.equal(legacyEnvelopeField.error?.detail, 'loose_pin_payload_fields_removed', 'loose legacy envelope fields must fail the strict packet contract');
-
-  const legacyRecordField = dispatch(consolePayload('it0342_mbr_legacy_record_field', [
-    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
-    mtRecord('target_user_id', 'str', '@mbr:localhost'),
-    { id: 0, p: 0, r: 0, c: 0, k: 'draft', t: 'str', v: 'legacy record fields must reject', op: 'add_label' },
-  ]));
-  assert.equal(legacyRecordField.ack, null, 'MBR dispatch must reject records carrying legacy op/model_id fields');
-  assert.ok(legacyRecordField.error, 'MBR dispatch must record an error for legacy record fields');
-  assert.equal(legacyRecordField.error?.detail, 'invalid_pin_payload_records', 'legacy record fields must fail the temporary ModelTable contract');
-
-  const missingValueRecord = dispatch(consolePayload('it0342_mbr_missing_value_record', [
-    mtRecord('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
-    mtRecord('target_user_id', 'str', '@mbr:localhost'),
-    mtRecord('draft', 'str', 'records missing v must reject'),
-    { id: 0, p: 0, r: 0, c: 0, k: 'extra', t: 'str' },
-  ]));
-  assert.equal(missingValueRecord.ack, null, 'MBR dispatch must reject records without an explicit v field');
-  assert.ok(missingValueRecord.error, 'MBR dispatch must record an error for records missing v');
-  assert.equal(missingValueRecord.error?.detail, 'invalid_pin_payload_records', 'records missing v must fail the temporary ModelTable contract');
-  return { key: 'mbr_dispatch_routes_requests_without_local_ack', status: 'PASS' };
+  assert.equal(responseRole.forwarded, null, 'response packets must not cross the request-only management ingress');
+  assert.equal(responseRole.published.length, 0, 'response packets on management ingress must not publish to MQTT');
+  assert.equal(responseRole.ack, null, 'MBR must not synthesize an ack for a response on the wrong ingress');
+  assert.equal(responseRole.error?.detail, 'invalid_management_route', 'wrong-role ingress must fail visibly in Model -10');
+  return { key: 'mbr_structural_chain_routes_requests_without_local_ack', status: 'PASS' };
 }
 
 function test_no_browser_or_ui_direct_matrix_path_added() {
@@ -927,7 +861,7 @@ async function main() {
     test_server_projects_mbr_response_from_trace_without_writing_model1036,
     test_server_rejects_malformed_mbr_ack_payloads,
     test_server_split_bus_matrix_failures_are_observable_and_retryable,
-    test_mbr_dispatch_routes_requests_without_local_ack,
+    test_mbr_structural_chain_routes_requests_without_local_ack,
     test_no_browser_or_ui_direct_matrix_path_added,
   ];
   const results = [];

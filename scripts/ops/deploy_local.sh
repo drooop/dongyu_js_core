@@ -119,6 +119,8 @@ echo "=== Step 3: Deploy infrastructure ==="
 kubectl apply -f "$REPO_DIR/k8s/local/namespace.yaml"
 kubectl apply -f "$REPO_DIR/k8s/local/mosquitto.yaml"
 kubectl apply -f "$REPO_DIR/k8s/local/synapse.yaml"
+kubectl -n "$NAMESPACE" rollout restart deployment/synapse
+kubectl -n "$NAMESPACE" rollout restart deployment/mosquitto
 echo "  Waiting for Synapse rollout..."
 kubectl -n "$NAMESPACE" rollout status deployment/synapse --timeout=180s
 kubectl -n "$NAMESPACE" rollout status deployment/mosquitto --timeout=60s
@@ -155,18 +157,17 @@ if [ "$SKIP_MATRIX_BOOTSTRAP" = "1" ]; then
     exit 1
   fi
   echo "  Room: $ROOM_ID"
-  echo "  Server token: ${SERVER_TOKEN:0:10}..."
-  echo "  MBR token: ${MBR_TOKEN:0:10}..."
+  echo "  Matrix access tokens loaded from generated local env"
 else
   register_synapse_users
 
   echo "  Getting access token for @${SERVER_USER}..."
   SERVER_TOKEN=$(get_matrix_token "$SERVER_USER" "$SERVER_PASSWORD")
-  echo "  Server token: ${SERVER_TOKEN:0:10}..."
+  echo "  Server access token obtained"
 
   echo "  Getting access token for @${MBR_USER}..."
   MBR_TOKEN=$(get_matrix_token "$MBR_USER" "$MBR_PASSWORD")
-  echo "  MBR token: ${MBR_TOKEN:0:10}..."
+  echo "  MBR access token obtained"
 
   echo "  Creating DM room..."
   ROOM_ID_RAW="$(create_matrix_room_and_join "$SERVER_TOKEN" "$MBR_TOKEN")"

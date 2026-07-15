@@ -45,12 +45,15 @@ check_exact_contexts() {
 }
 
 check_deploy_ready() {
-  local name="$1" ready
+  local name="$1" desired ready
+  desired="$(kubectl get deploy "$name" -n "$K8S_NS" -o jsonpath='{.spec.replicas}' 2>/dev/null || true)"
   ready="$(kubectl get deploy "$name" -n "$K8S_NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)"
-  if [ "$ready" != "1" ]; then
+  if [ "$desired" != "1" ]; then
+    fail_check "deploy/$name spec.replicas=$desired (expect 1)"
+  elif [ "$ready" != "1" ]; then
     fail_check "deploy/$name readyReplicas=$ready (expect 1)"
   else
-    pass_check "deploy/$name readyReplicas=1"
+    pass_check "deploy/$name replicas=1 and readyReplicas=1"
   fi
 }
 
@@ -62,6 +65,41 @@ check_service_ready() {
   else
     pass_check "svc/$name local endpoint declared"
   fi
+}
+
+check_ui_server_nodeport() {
+  local service_json
+  service_json="$(kubectl get svc ui-server-nodeport -n "$K8S_NS" -o json 2>/dev/null || true)"
+  if [ -z "$service_json" ]; then
+    fail_check "svc/ui-server-nodeport missing"
+    return
+  fi
+  if ! SERVICE_JSON="$service_json" python3 - <<'PY'
+import json
+import os
+
+service = json.loads(os.environ['SERVICE_JSON'])
+spec = service.get('spec') if isinstance(service, dict) else None
+if not isinstance(spec, dict) or spec.get('type') != 'NodePort':
+    raise SystemExit('service_type_not_nodeport')
+if spec.get('selector') != {'app': 'ui-server'}:
+    raise SystemExit('service_selector_not_ui_server')
+ports = spec.get('ports')
+if not isinstance(ports, list) or not any(
+    isinstance(port, dict)
+    and port.get('port') == 9000
+    and port.get('targetPort') == 9000
+    and port.get('protocol') == 'TCP'
+    and port.get('nodePort') == 30900
+    for port in ports
+):
+    raise SystemExit('exact_nodeport_missing')
+PY
+  then
+    fail_check "svc/ui-server-nodeport must select app=ui-server and map TCP 9000:9000 with NodePort 30900"
+    return
+  fi
+  pass_check "svc/ui-server-nodeport app=ui-server TCP NodePort=30900"
 }
 
 check_no_terminating_pods() {
@@ -292,6 +330,7 @@ done
 
 check_service_ready mosquitto
 check_service_ready synapse
+check_ui_server_nodeport
 
 for deploy in remote-worker workspace-manager mbr-worker ui-server; do
   check_no_terminating_pods "$deploy"

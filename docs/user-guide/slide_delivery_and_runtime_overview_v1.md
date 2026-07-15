@@ -2,7 +2,7 @@
 title: "Slide Delivery And Runtime Overview v1"
 doc_type: user-guide
 status: active
-updated: 2026-04-26
+updated: 2026-07-16
 source: ai
 ---
 
@@ -16,7 +16,7 @@ source: ai
 
 - 安装交付和页面运行不是同一条链。
 - 本地 UI 草稿 / overlay 不算正式业务。
-- 正式业务 ingress 默认进入 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in -> pin route -> target`；显式管理语义才使用 `pin.bus.mb.in`。
+- 正式业务 ingress 统一进入 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in -> pin route -> target`；management 仅在目标模型外发时选择 Matrix/Synapse/MBR，`pin.bus.mb.in` 不是浏览器 submit 入口。
 - 前端只渲染和收集事件，不保存业务 truth。
 - 外发和回包必须经过 Model 0 和 owner materialization，不允许前端或 server 绕开主链直接改目标模型。
 
@@ -171,8 +171,10 @@ bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in -> pin route -> target
 当前外发回流链可以压缩成：
 
 ```text
-app root pin.out -> host connection relay -> Model 0 mt_bus_send -> pin.bus.cb.out -> MBR / MQTT -> return packet -> Model 0 -> owner materialization -> target model
+app root pin.out -> host connection relay -> Model 0 mt_bus_send -> pin.bus.cb.out -> local MQTT -> target Worker -> response_topic -> Model 0 -> owner materialization -> target model
 ```
+
+control 默认由 UI Server 与 R1 通过本地 MQTT 直连，MBR no-echo；management 才通过本地 Matrix/Synapse 与 MBR 往返一次。
 
 逐步展开是：
 
@@ -180,9 +182,9 @@ app root pin.out -> host connection relay -> Model 0 mt_bus_send -> pin.bus.cb.o
 2. 需要外发时，app root 写自己的 `pin.out`。
 3. 宿主安装时生成的 host connection relay 接住这个 `pin.out`。
 4. relay 把 payload 转成 Model 0 的 `mt_bus_send` 请求。
-5. Model 0 `mt_bus_send` 构造 `pin_payload v1`。
+5. Model 0 `mt_bus_send` 构造 outer `{version:"v1",type:"pin_payload"}` packet，内部 records 使用 `pin_payload.v2`。
 6. runtime 默认写入 Model 0 `pin.bus.cb.out`。
-7. MBR / MQTT 只消费这条正式外发链；显式管理语义才转入管理总线。
+7. UI Server MQTT adapter 消费默认 control 外发链并直达目标 Worker；显式 management 才转入 Matrix/Synapse 与 MBR。
 8. 外部回包先回到 Model 0。
 9. owner materialization 把回包对应的变化写回目标模型。
 10. 前端收到新 snapshot 后重新投影页面。
@@ -210,7 +212,7 @@ app root pin.out -> host connection relay -> Model 0 mt_bus_send -> pin.bus.cb.o
 如果你要提交业务：
 
 - 本地输入先用 draft / overlay。
-- 明确 submit / send / execute 后再进入 `bus_event_v2 -> Model 0 pin.bus.mb.in`。
+- 明确 submit / send / execute 后，浏览器业务统一进入 `bus_event_v2 -> Model 0 pin.bus.cb.in`；management 由目标模型外发时显式写 `bus=management` 与 `route_kind=management`，再选择 Matrix/Synapse/MBR，不从浏览器直接写 `pin.bus.mb.in`。
 - payload 用临时 ModelTable record array。
 
 如果你要外发：

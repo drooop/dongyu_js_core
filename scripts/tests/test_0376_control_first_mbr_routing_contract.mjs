@@ -451,7 +451,7 @@ function test_worker_engine_rejects_unsafe_payload_topics() {
   return { key: 'worker_engine_rejects_unsafe_payload_topics', status: 'PASS' };
 }
 
-async function test_mbr_control_ingress_uses_model_zero_to_minus10_pin_chain_and_routes_by_topic() {
+async function test_mbr_control_ingress_uses_model_zero_to_minus10_pin_chain_without_control_echo() {
   const rt = loadMbrRuntime();
   const model0Root = rt.getCell(rt.getModel(0), 0, 0, 0).labels;
   assert.equal(model0Root.get('mbr_cb_in')?.t, 'pin.bus.cb.in', 'MBR must declare a control-bus ingress pin on Model 0');
@@ -511,16 +511,14 @@ async function test_mbr_control_ingress_uses_model_zero_to_minus10_pin_chain_and
       originPin: 'bundle_request',
     }),
   });
-  const cbOut = await waitUntil(() => {
-    const label = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_cb_out');
-    return payloadString(label?.v, 'op_id') === '0376_mbr_control_response' ? label : null;
-  });
-  assert.equal(cbOut?.t, 'pin.bus.cb.out', 'control response must traverse Model -10 and write Model 0 control bus out');
-  assert.equal(payloadString(cbOut?.v, 'topic'), topic, 'MBR must preserve payload topic as route truth');
-  assert.equal(payloadString(cbOut?.v, 'route_kind'), 'control', 'v2 control response must preserve explicit route_kind');
-  const { mqttPublished } = drainWorkerEngine(rt);
-  assert.equal(mqttPublished[0]?.topic, topic, 'MBR control output must publish to payload topic');
-  return { key: 'mbr_control_ingress_uses_model_zero_to_minus10_pin_chain_and_routes_by_topic', status: 'PASS' };
+  assert.ok(await waitUntil(() => lastMbrControlIngressError(rt) === 'invalid_response_route'), 'direct control response must reach Model -10 and be rejected as a non-bridge route');
+  const root = rt.getCell(rt.getModel(0), 0, 0, 0).labels;
+  assert.equal(root.get('mbr_cb_out')?.v ?? null, null, 'MBR must not echo a direct control response back to MQTT');
+  assert.equal(root.get('mbr_mb_out')?.v ?? null, null, 'direct control response must not enter the management bus');
+  const drained = drainWorkerEngine(rt);
+  assert.equal(drained.mqttPublished.length, 0, 'direct control response must not be republished to its response topic');
+  assert.equal(drained.mgmtPublished.length, 0, 'direct control response must not be forwarded to Matrix');
+  return { key: 'mbr_control_ingress_uses_model_zero_to_minus10_pin_chain_without_control_echo', status: 'PASS' };
 }
 
 async function test_mbr_control_ingress_routes_management_response_and_rejects_invalid_v2_fields() {
@@ -591,7 +589,7 @@ async function test_mbr_control_ingress_routes_management_response_and_rejects_i
   return { key: 'mbr_control_ingress_routes_management_response_and_rejects_invalid_v2_fields', status: 'PASS' };
 }
 
-async function test_mbr_pin_chain_accepts_provider_bundle_response_modeltable_payload() {
+async function test_mbr_pin_chain_does_not_echo_provider_bundle_control_response() {
   const rt = loadMbrRuntime();
   const model0 = rt.getModel(0);
   const topic = 'UIPUT/ws/dam/pic/de/U1/2000/result';
@@ -607,17 +605,13 @@ async function test_mbr_pin_chain_accepts_provider_bundle_response_modeltable_pa
         extraRecords: providerBundleResponseExtraRecords(),
       }),
   });
-  const cbOut = await waitUntil(() => {
-    const label = rt.getCell(model0, 0, 0, 0).labels.get('mbr_cb_out');
-    return payloadString(label?.v, 'op_id') === 'req_0389_provider_bundle_response' ? label : null;
-  });
-  assert.equal(cbOut?.t, 'pin.bus.cb.out', 'valid provider bundle response must be forwarded by MBR');
-  assert.equal(payloadString(cbOut?.v, 'topic'), topic, 'provider bundle response must publish on response_topic');
-  assert.equal(lastMbrControlIngressError(rt), '', 'valid provider bundle response must not be rejected as legacy metadata');
-  assert.equal(payloadString(cbOut?.v, '__mt_payload_kind'), 'pin_payload.v2', 'forwarded provider response must retain v2 envelope kind');
-  assert.equal(payloadString(cbOut?.v, '__mt_payload_kind', 1), 'slide_app_bundle_response.v1', 'provider business kind must be an inline payload-model record');
-  assert.equal(payloadString(cbOut?.v, 'app_name', 100), '最小 Submit 双总线示例', 'provider bundle records must remain non-nested and offset-addressable');
-  return { key: 'mbr_pin_chain_accepts_provider_bundle_response_modeltable_payload', status: 'PASS' };
+  assert.ok(await waitUntil(() => lastMbrControlIngressError(rt) === 'invalid_response_route'), 'provider bundle control response must reach the non-bridge rejection path');
+  const root = rt.getCell(model0, 0, 0, 0).labels;
+  assert.equal(root.get('mbr_cb_out')?.v ?? null, null, 'provider bundle control response must not be echoed to MQTT');
+  assert.equal(root.get('mbr_mb_out')?.v ?? null, null, 'provider bundle control response must not be forwarded to Matrix');
+  const drained = drainWorkerEngine(rt);
+  assert.equal(drained.mqttPublished.length, 0, 'provider bundle control response must remain direct R1 to UI traffic');
+  return { key: 'mbr_pin_chain_does_not_echo_provider_bundle_control_response', status: 'PASS' };
 }
 
 async function test_mbr_pin_chain_rejects_legacy_label_inside_provider_bundle_payload() {
@@ -686,6 +680,170 @@ async function test_split_bus_dedup_distinguishes_request_and_response_for_same_
   return { key: 'split_bus_dedup_distinguishes_request_and_response_for_same_op_id', status: 'PASS' };
 }
 
+async function test_mbr_structural_bus_out_pin_survives_prior_publish() {
+  const rt = loadMbrRuntime();
+  const model0 = rt.getModel(0);
+  const root = rt.getCell(model0, 0, 0, 0).labels;
+  const mqttPublished = [];
+  const engine = new WorkerEngineV0({
+    runtime: rt,
+    mqttPublish: (topic, payload) => mqttPublished.push({ topic, payload }),
+    mgmtAdapter: { publish: async () => {} },
+  });
+  const controlResponseTopic = 'UIPUT/ws/dam/pic/de/R1/3200/data';
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'mbr_mb_in',
+    t: 'pin.bus.mb.in',
+    v: pinPayloadRecords({
+      opId: '0376_prior_management_request',
+      topic: controlResponseTopic,
+      routeKind: 'management',
+      endpointWorkerId: 'R1',
+      endpointModelId: 3200,
+      endpointPin: 'data',
+    }),
+  });
+  assert.ok(await waitUntil(() => (
+    payloadString(root.get('mbr_cb_out')?.v, 'op_id') === '0376_prior_management_request'
+  )), 'prior management request must reach the structural control bus output');
+  engine.tick();
+  assert.equal(mqttPublished.length, 1, 'prior management request must publish once');
+  assert.equal(root.get('mbr_cb_out')?.t, 'pin.bus.cb.out', 'successful publish must preserve the declared structural bus pin');
+  assert.equal(root.get('mbr_cb_out')?.v, null, 'successful publish must acknowledge the structural bus pin with a null value');
+  assert.equal(rt.busOutPorts.has('mbr_cb_out'), true, 'successful publish must keep the structural bus port registered');
+  const errorsAfterPriorPublish = rt.eventLog.list().filter((event) => event?.label?.k === 'split_bus_out_error').length;
+  engine.tick();
+  engine.tick();
+  assert.equal(mqttPublished.length, 1, 'idle ticks after acknowledgement must not republish the cleared pin');
+  assert.equal(
+    rt.eventLog.list().filter((event) => event?.label?.k === 'split_bus_out_error').length,
+    errorsAfterPriorPublish,
+    'idle ticks after acknowledgement must not report a null pin as an invalid payload',
+  );
+
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'mbr_mb_in',
+    t: 'pin.bus.mb.in',
+    v: pinPayloadRecords({
+      opId: '0376_management_after_control',
+      routeKind: 'management',
+      endpointWorkerId: 'R1',
+      endpointModelId: 3200,
+      endpointPin: 'data',
+      originWorkerId: 'U1',
+      originModelId: 0,
+      originPin: 'data',
+      replyTargetWorkerId: 'U1',
+      replyTargetModelId: 0,
+      replyTargetPin: 'result',
+    }),
+  });
+  assert.ok(await waitUntil(() => (
+    payloadString(root.get('mbr_cb_out')?.v, 'op_id') === '0376_management_after_control'
+  )), 'management request after prior traffic must still reach the structural control bus output');
+  engine.tick();
+  assert.equal(mqttPublished.length, 2, 'management request after prior traffic must publish once');
+  assert.equal(mqttPublished[1]?.topic, 'UIPUT/ws/dam/pic/de/R1/3200/data');
+  assert.equal(root.get('mbr_cb_out')?.t, 'pin.bus.cb.out', 'reused structural bus pin must remain declared after the second publish');
+  assert.equal(root.get('mbr_cb_out')?.v, null, 'reused structural bus pin must be acknowledged after the second publish');
+  assert.equal(
+    rt.eventLog.list().some((event) => event?.reason === 'cell_connection_target_pin_missing'),
+    false,
+    'reusing the declared structural bus pin must not lose the connection target',
+  );
+  return { key: 'mbr_structural_bus_out_pin_survives_prior_publish', status: 'PASS' };
+}
+
+function test_dynamic_split_bus_out_remains_one_shot() {
+  const rt = loadMbrRuntime();
+  const model0 = rt.getModel(0);
+  const root = rt.getCell(model0, 0, 0, 0).labels;
+  const mqttPublished = [];
+  const engine = new WorkerEngineV0({
+    runtime: rt,
+    mqttPublish: (topic, payload) => mqttPublished.push({ topic, payload }),
+  });
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'dynamic_0376_cb_out',
+    t: 'pin.bus.cb.out',
+    v: pinPayloadRecords({
+      opId: '0376_dynamic_one_shot',
+      topic: 'UIPUT/ws/dam/pic/de/R1/3200/data',
+      endpointWorkerId: 'R1',
+      endpointModelId: 3200,
+      endpointPin: 'data',
+    }),
+  });
+  engine.tick();
+  assert.equal(mqttPublished.length, 1, 'dynamic split-bus output must publish exactly once');
+  assert.equal(root.has('dynamic_0376_cb_out'), false, 'dynamic split-bus output must be removed after success');
+  assert.equal(rt.busOutPorts.has('dynamic_0376_cb_out'), false, 'dynamic split-bus output must unregister after success');
+  engine.tick();
+  assert.equal(mqttPublished.length, 1, 'removed dynamic split-bus output must not republish');
+  return { key: 'dynamic_split_bus_out_remains_one_shot', status: 'PASS' };
+}
+
+async function test_structural_management_bus_out_preserves_later_same_key_message() {
+  const rt = loadMbrRuntime();
+  const model0 = rt.getModel(0);
+  const root = rt.getCell(model0, 0, 0, 0).labels;
+  const published = [];
+  let resolveFirst;
+  const firstPublish = new Promise((resolve) => { resolveFirst = resolve; });
+  const engine = new WorkerEngineV0({
+    runtime: rt,
+    mgmtAdapter: {
+      publish: (packet) => {
+        published.push(packet);
+        return published.length === 1 ? firstPublish : Promise.resolve();
+      },
+    },
+  });
+  const responseRecords = (opId, text) => pinPayloadRecords({
+    opId,
+    routeKind: 'management',
+    messageRole: 'response',
+    topic: 'UIPUT/ws/dam/pic/de/U1/1036/result',
+    responseTopic: 'UIPUT/ws/dam/pic/de/U1/1036/result',
+    endpointWorkerId: 'U1',
+    endpointTableId: 'host',
+    endpointModelId: 1036,
+    endpointPin: 'result',
+    originWorkerId: 'mbr',
+    originTableId: 'host',
+    originModelId: 1036,
+    originPin: 'submit',
+    replyTargetWorkerId: 'U1',
+    replyTargetTableId: 'host',
+    replyTargetModelId: 1036,
+    replyTargetPin: 'result',
+    payload: [mt('reply_text', 'str', text)],
+  });
+
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'mbr_mb_out',
+    t: 'pin.bus.mb.out',
+    v: responseRecords('0376_mb_deferred_first', 'first'),
+  });
+  engine.tick();
+  assert.equal(published.length, 1, 'first structural management message must enter the deferred adapter');
+
+  rt.addLabel(model0, 0, 0, 0, {
+    k: 'mbr_mb_out',
+    t: 'pin.bus.mb.out',
+    v: responseRecords('0376_mb_deferred_second', 'second'),
+  });
+  resolveFirst();
+  assert.ok(await waitUntil(() => payloadString(root.get('mbr_mb_out')?.v, 'op_id') === '0376_mb_deferred_second'), 'first completion must not clear the later same-key message');
+
+  engine.tick();
+  assert.ok(await waitUntil(() => published.length === 2), 'later same-key management message must remain publishable');
+  assert.ok(await waitUntil(() => root.get('mbr_mb_out')?.v === null), 'second success must acknowledge the structural management pin');
+  assert.equal(root.get('mbr_mb_out')?.t, 'pin.bus.mb.out', 'structural management pin type must survive both publishes');
+  assert.equal(rt.busOutPorts.has('mbr_mb_out'), true, 'structural management bus port must remain registered');
+  return { key: 'structural_management_bus_out_preserves_later_same_key_message', status: 'PASS' };
+}
+
 async function test_imported_slide_app_default_binding_is_control_bus() {
   return withServerState(async (state) => {
     const model0 = state.runtime.getModel(0);
@@ -706,12 +864,11 @@ async function test_imported_slide_app_default_binding_is_control_bus() {
     const binding = Array.from(rootLabels.values()).find((label) => label && label.t === 'ui.egress.binding.v1');
     assert.equal(binding?.v?.bus, 'control', 'imported app host egress binding must default to control bus');
     assert.equal(binding?.v?.host_pin_type, 'pin.bus.cb.out', 'imported app host egress must default to control bus out');
-    const tableSuffix = importedTableId
-      .toLowerCase()
-      .replace(/[^a-z0-9._-]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 48) || 'app';
-    assert.equal(binding?.v?.host_pin_key, `imported_submit1_${tableSuffix}_${importedId}_bus`, 'host pin key must stay deterministic and table-qualified');
+    assert.match(
+      binding?.v?.host_pin_key || '',
+      new RegExp(`^imported_submit1_.+_[a-f0-9]{12}_${importedId}_bus$`, 'u'),
+      'host pin key must carry the stable table-qualified digest suffix',
+    );
 
     const hostPin = state.runtime.getCell(model0, 0, 0, 0).labels.get(binding.v.host_pin_key);
     assert.equal(hostPin?.t, 'pin.bus.cb.out', 'generated host egress pin must be pin.bus.cb.out');
@@ -853,12 +1010,20 @@ function test_user_guide_documents_payload_topic_as_route_truth() {
     'user guide topic section must not describe endpoint metadata as the route selector',
   );
   assert.ok(
-    text.includes('MBR 转发时只使用消息 payload records 中的 `topic` record 决定目标'),
-    'user guide topic section must say payload topic decides MBR target',
+    text.includes('transport adapter 只使用 payload 内的 `topic` record，不得从 `endpoint_*` 派生 topic'),
+    'user guide control topic section must say payload topic decides the direct transport target',
   );
   assert.ok(
-    text.includes('MBR 只根据 payload 里的 `topic` record 发布到 remote-worker 的控制总线 topic'),
-    'user guide must describe payload topic as the route truth',
+    text.includes('MBR 从管理总线收到请求后，仍只按 payload 里的 `topic` record 转发到目标控制总线 / MQTT'),
+    'user guide management topic section must keep payload topic as MBR route truth',
+  );
+  assert.ok(
+    text.includes('MBR 不参与 control request/response 转发'),
+    'user guide must document direct control routing without MBR',
+  );
+  assert.ok(
+    text.includes('MBR 即使观测到该 response 也不得 republish、echo 或转发到 Matrix'),
+    'user guide must document the control response no-echo rule',
   );
   const resultSection = text.slice(text.indexOf('### 9.2 Result'), text.indexOf('## 10.', text.indexOf('### 9.2 Result')) > 0 ? text.indexOf('## 10.', text.indexOf('### 9.2 Result')) : undefined);
   assert.ok(
@@ -884,11 +1049,14 @@ function test_deploy_bootstrap_writes_ui_server_control_bus_config() {
 const tests = [
   test_worker_engine_publishes_cb_out_to_payload_topic_without_endpoint_fallback,
   test_worker_engine_rejects_unsafe_payload_topics,
-  test_mbr_control_ingress_uses_model_zero_to_minus10_pin_chain_and_routes_by_topic,
+  test_mbr_control_ingress_uses_model_zero_to_minus10_pin_chain_without_control_echo,
   test_mbr_control_ingress_routes_management_response_and_rejects_invalid_v2_fields,
-  test_mbr_pin_chain_accepts_provider_bundle_response_modeltable_payload,
+  test_mbr_pin_chain_does_not_echo_provider_bundle_control_response,
   test_mbr_pin_chain_rejects_legacy_label_inside_provider_bundle_payload,
   test_split_bus_dedup_distinguishes_request_and_response_for_same_op_id,
+  test_mbr_structural_bus_out_pin_survives_prior_publish,
+  test_dynamic_split_bus_out_remains_one_shot,
+  test_structural_management_bus_out_preserves_later_same_key_message,
   test_imported_slide_app_default_binding_is_control_bus,
   test_ui_server_cb_out_publishes_control_bus_not_matrix,
   test_ui_server_cb_out_dedup_distinguishes_request_and_response_for_same_op_id,

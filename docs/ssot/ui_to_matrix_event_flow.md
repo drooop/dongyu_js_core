@@ -2,7 +2,7 @@
 title: "UI 事件到双总线的完整流转机制"
 doc_type: ssot
 status: active
-updated: 2026-05-10
+updated: 2026-07-16
 source: ai
 ---
 
@@ -17,23 +17,27 @@ source: ai
 
 ## 概述
 
-本文档详细说明 UI 事件如何通过 ModelTable、程序模型、控制总线、MBR、MQTT 总线最终到达设备 PIN 的完整链路。显式管理语义可以由 MBR 转入管理总线，但不是同工作区默认路径。
+本文档详细说明 UI 事件如何通过 ModelTable、程序模型和 split bus 最终到达设备 PIN：默认 control 由 UI Server 的 MQTT adapter 直达目标 Worker；显式 management 才通过 Matrix/Synapse 与 MBR。
 
 ## 完整数据流
 
 说明：
 - 程序模型不暴露 direct Matrix send helper。
 - 自 0187 起，UI 侧已不再存在 legacy `mailbox -> forward_ui_events -> direct Matrix send` 默认旁路。
+- 当前正式业务 submit 使用 POST `/bus_event`，body 必须是 `bus_event_v2`；server 校验后写入 Model 0 `(0,0,0)` 的 `pin.bus.cb.in`，再通过 pin route 到目标模型。
+- 所有浏览器 `bus_event_v2` submit 统一先进入 Model 0 `pin.bus.cb.in`，不因后续 transport 选择而改写浏览器 ingress pin。
+- `/ui_event` 只可作为接受同一份 `bus_event_v2` body 的 compatibility URL alias，不构成另一套业务协议。
 - 当前 canonical app-level 外发路径是：
-  - UI 写 mailbox / 模型内本地状态
+  - 目标模型处理经 Model 0 ingress 到达的正式事件
   - 模型内函数或 relay 写 root `pin.out`
   - 逐层 relay 到 Model 0
   - 默认仅 Model 0 `pin.bus.cb.out` / 等价宿主观察点触发控制总线 bridge
-- 系统边界已拆分：同工作区 UI/滑动 App 默认使用 `pin.bus.cb.in` / `pin.bus.cb.out`，显式管理语义使用 `pin.bus.mb.in` / `pin.bus.mb.out`。
-- mailbox 之后的“事件 -> pin ingress / routing”解释属于 Tier 1 runtime；`server` 只负责 transport / adapter。
+- 系统边界已拆分：浏览器业务统一从 `pin.bus.cb.in` 进入目标模型；control 由目标模型外发到 `pin.bus.cb.out`，management 由目标模型外发 payload 显式写 `bus=management` 与 `route_kind=management` 后选择 `pin.bus.mb.out` 和 Matrix/Synapse/MBR。`pin.bus.mb.in` 属于 management transport ingress，不是浏览器 submit 入口。
+- Model 0 之后的“pin ingress / routing”解释属于 Tier 1 runtime；`server` 只负责 envelope 校验与 transport / adapter。
 
-0213 Matrix debug 补充：
-- `matrix_debug_refresh` / `matrix_debug_clear_trace` / `matrix_debug_summarize` 属于 debug surface safe ops。
+历史/debug intent 边界：
+- pre-0326 的 `/ui_event -> Model -1 ui_event mailbox` 只保留为历史/debug intent 说明，不是 current business submit。
+- 0213 的 `matrix_debug_refresh` / `matrix_debug_clear_trace` / `matrix_debug_summarize` 属于 debug surface safe ops。
 - 它们的 canonical path 是：
   - UI 写 `Model -1` mailbox
   - `intent_dispatch_table` 命中 `Model -10` handler
@@ -42,68 +46,42 @@ source: ai
 - 这些动作不得 direct-write business model，不得 direct `sendMatrix`，也不是 `Model 100` submit chain 的替代入口。
 
 ```
-UI 事件 (Browser)
-  ↓ [POST /ui_event]
-后端服务器 (server.mjs)
-  ↓ [submitEnvelope()]
-Mailbox 写入 (Model -1, Cell 0,0,1)
-  ↓ [adapter.consumeOnce() + runtime/app functions]
-本地 dispatch / model relay
-  ↓ [only if explicit route reaches Model 0 egress]
-Model 0 egress function
+正式业务事件 (Browser)
+  ↓ [POST /bus_event, type=bus_event_v2]
+UI Server envelope validator
+  ↓ [temporary ModelTable record array]
+Model 0 pin.bus.cb.in
+  ↓ [pin route]
+目标模型程序
+  ↓ [root pin.out -> host relay -> Model 0 egress]
+Model 0 pin.bus.cb.out
   ↓ [pin.bus.cb.out bridge]
-控制总线消息发送 (MQTT / worker-owned control topic)
-  ↓ [MBR 读取 payload.topic]
-MBR Worker 接收并转发
-  ↓ [MQTT publish]
-MQTT Broker
+UI Server MQTT adapter
+  ↓ [publish payload.topic]
+本地 MQTT Broker
   ↓ [MQTT subscribe]
-远程 Worker PIN_IN
+远程 Worker pin.bus.cb.in
 ```
+
+当且仅当 management 由目标模型外发且 payload 显式携带 `bus=management` 与 `route_kind=management` 时，上述 egress transport 分支改为 `UI Server -> 本地 Matrix/Synapse -> MBR -> 本地 MQTT Broker -> 远程 Worker`；浏览器 ingress 仍统一是 `pin.bus.cb.in`，不得把 management 分支写成另一条浏览器入口或默认 control 路径。
 
 ## 关键组件
 
-### 1. UI 事件提交 (`POST /ui_event`)
-
-**位置**: `packages/ui-model-demo-server/server.mjs:1540`
-
-```javascript
-if (req.method === 'POST' && url.pathname === '/ui_event') {
-  const body = await readJsonBody(req);
-  const envelope = body && body.payload && body.type ? body : body.envelope;
-  const consumeResult = await state.submitEnvelope(envelope);
-  broadcastSnapshot();
-  // 返回 200 OK
-}
-```
+### 1. 正式业务事件提交 (`POST /bus_event`)
 
 **关键点**:
-- 前端发送 envelope（包含 payload 和 type）
-- 后端调用 `submitEnvelope()` 处理
+- 前端发送 `type=bus_event_v2` envelope，`value` 已经是临时 ModelTable record array。
+- 后端完成 current envelope 校验后，把所有浏览器业务统一写入 Model 0 `pin.bus.cb.in`；目标模型处理后，只有外发 payload 显式写 `bus=management` 与 `route_kind=management` 才选择 Matrix/Synapse/MBR。
+- legacy `type=ui_event` 必须拒绝；`/ui_event` compatibility URL 也只能接受当前 `bus_event_v2` body。
 - 成功后触发 client snapshot 投影更新：`/stream` 默认以 `bootstrap` profile 连接，初始事件只发送该 profile 的 `snapshot`；打开滑动 APP 后，客户端用 table-qualified `visibleModelRefs` 明确订阅已加载模型，后续在同一会话和同一 profile 可见范围内优先发送 `snapshot_patch`。
 - 权限变化、patch 过大、profile baseline 缺失或序列不匹配时，服务端必须发送可观察的 reset/recovery，或客户端重新拉取当前 profile 的 `/snapshot`；不得静默扩展为完整模型全集。
 - 无论传输的是完整 `snapshot` 还是 `snapshot_patch`，它们都只是 ModelTable truth 的前端投影，不得作为绕过 ModelTable 的业务写入通道。
 
-### 2. Mailbox 写入 (`submitEnvelope`)
+### 2. Model 0 ingress
 
-**位置**: `packages/ui-model-demo-server/server.mjs:923`
+**浏览器正式入口**: Model 0, p=0, r=0, c=0, t=`pin.bus.cb.in`。`pin.bus.mb.in` 保留给 management transport ingress，不接收浏览器 `bus_event_v2` submit。
 
-```javascript
-async function submitEnvelope(envelopeOrNull) {
-  // 第一步：写入 mailbox
-  setMailboxEnvelope(runtime, envelopeOrNull);
-
-  // 处理各种 action...
-
-  // 最后：adapter 消费 + 程序引擎执行
-  const result = adapter.consumeOnce();
-  updateDerived();
-  await programEngine.tick();
-  return result;
-}
-```
-
-**Mailbox Cell 位置**: Model -1, p=0, r=0, c=1, k='ui_event'
+Model -1 的 `ui_event` mailbox 只属于历史/debug intent，不得作为正式业务入口或 Model 0 pin chain 的替代路径。
 
 ### 3. 程序模型引擎 (`ProgramModelEngine`)
 
@@ -177,7 +155,7 @@ Matrix/MQTT 发送由 `ProgramModelEngine` 观察 Model 0 root split bus out pin
 
 ### 4. 程序模型函数示例
 
-**必需配置**: UI 模型或 imported slide app 在 root 声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`，业务程序只把 Temporary ModelTable records 写到公开 root `pin.out`。UI Server 运行时负责生成 host egress adapter，把 `topic`、`route_kind=control`、`message_role=request`、endpoint、origin、server-owned reply target 和 `payload_model_id` 写成 `pin_payload.v2` records 后经 Model 0 `mt_bus_send` / `pin.bus.cb.out` 外发；不得恢复旧的 Model 0 egress label/function 或 `ctx.getLabel/writeLabel/rmLabel`。
+**必需配置**: UI 模型或 imported slide app 在 root 声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`，业务程序只把 Temporary ModelTable records 写到公开 root `pin.out`。UI Server 运行时负责生成 host egress adapter，把 `topic`、`bus=control`、`route_kind=control`、`message_role=request`、endpoint、origin、server-owned reply target 和 `payload_model_id` 写成 `pin_payload.v2` records 后经 Model 0 `mt_bus_send` / `pin.bus.cb.out` 外发；不得恢复旧的 Model 0 egress label/function 或 `ctx.getLabel/writeLabel/rmLabel`。
 
 ```javascript
 // 示例：业务程序只准备模型表形态 payload，并写到公开 root pin.out。
@@ -192,29 +170,31 @@ V1N.addLabel('submit', 'pin.out', payload);
 - 不再推荐把 mailbox 中的任意 `ui_event` 直接默认转发到 Matrix。
 - 如果某个动作需要外发，必须先在模型定义中声明 `remote_bus_endpoint_v1` 与 `dual_bus_model.egress_pins`；实际回包目标由 UI Server 根据本地 App instance `ModelRef` 写入 `reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin` records，ZIP 内不得声明 `route.reply_to` 或 `reply_target_*`。
 
-### 5. MBR Worker 接收和转发
+### 5. Control 直连与 Management 经 MBR
 
-**位置**: `scripts/run_worker_mbr_v0.mjs`
+**位置**: `scripts/run_worker_v0.mjs`、`scripts/run_worker_remote_v1.mjs`、`packages/ui-model-demo-server/server.mjs`
 
-MBR Worker 监听 Matrix room 的消息，解析 `pin_payload.v2` Temporary ModelTable records，然后：
-1. 读取消息内 `topic` record
-2. 校验 `message_role=request` 和可选 `route_kind`
-3. 校验 topic 正好是 `UIPUT/<ws>/<dam>/<pic>/<de>/<worker_id>/<model_id>/<pin>`
-4. 发布到 MQTT broker；默认控制总线转控制总线，显式 `route_kind=management` 才转管理总线
-5. remote-worker 通过 `pin.bus.cb.in` / root route 接收；remote-worker 回包时发布到 request payload 中的 `response_topic`，且 `message_role=response`
+Control request/response 当前在 UI Server 与 R1 之间通过本地 MQTT 直达，MBR 不桥接、不回显：
+
+```text
+UI Server pin.bus.cb.out -> local MQTT -> R1 pin.bus.cb.in
+R1 pin.bus.cb.out -> local MQTT response_topic -> UI Server pin.bus.cb.in
+```
+
+Management request/response 才通过本地 Matrix/Synapse 与 MBR。MBR 解析 `pin_payload.v2` records，校验 `message_role`、`route_kind=management` 与 `topic`，并在 Matrix management bus 与本地 MQTT control bus 之间各桥接一次。
 
 **现行 product path 约束**：
 - Matrix / MQTT bootstrap 只从 Model 0 `(0,0,0)` 读取，不再使用 `mbr_matrix_room_id` / `mbr_mqtt_host` 这类负数模型旧 transport config。
 - `mbr_cb_dispatch` 必须通过消息体中的 `topic` record 解析目标 topic，并且只接受合法 `message_role` 与 `route_kind`；缺少 topic、目标不合法、或出现旧 `result_topic` / `return_topic` / `route.reply_to` 时必须拒绝并写错误。
 - `mbr_route_<source_model_id>` 不再是当前规约输入面，也不得作为兼容兜底恢复。
 - `runtime_mode=edit` 时，MBR 可以建立 Matrix/MQTT 连接，但入站 Matrix/MQTT 消息必须直接丢弃，不得先写 inbox 再等到 `running` 后补处理。
-- 当前 canonical 业务桥接是 endpoint-addressed `pin_payload.v2`：
-  - Control bus packet -> MBR -> MQTT `UIPUT/<ws>/<dam>/<pic>/<de>/<worker_id>/<model_id>/<pin>`
-  - MQTT control bus response topic -> MBR / UI Server control bus packet -> owner materialization
+- 当前 canonical 路由是 endpoint-addressed `pin_payload.v2`：
+  - control：UI Server -> local MQTT -> R1；response 按 `response_topic` 原路直达 UI Server，MBR no-echo；
+  - management：UI Server -> local Matrix/Synapse -> MBR -> local MQTT -> R1；response 只经 MBR 返回一次。
 
 ## 疏通检查清单
 
-要使默认 UI → control bus → MBR → MQTT 链路工作，必须满足：
+要使默认 UI → local MQTT → R1 control 链路工作，必须满足；只有 management 语义才额外要求 Matrix/MBR：
 
 ### Management bus 配置（仅显式管理语义需要）
 - [x] Matrix homeserver 可达
@@ -230,7 +210,8 @@ MBR Worker 监听 Matrix room 的消息，解析 `pin_payload.v2` Temporary Mode
 
 ### MQTT 配置
 - [x] MQTT broker 可达
-- [x] MBR Worker 已启动并连接
+- [x] UI Server 与目标 remote-worker 已连接本地 MQTT
+- [x] management 验收时 MBR Worker 已启动并同时连接 Matrix/MQTT
 
 ### 程序模型配置
 - [ ] **System Model (-10) 中存在 function label**

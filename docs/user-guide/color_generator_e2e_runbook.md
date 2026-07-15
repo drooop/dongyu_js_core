@@ -1,12 +1,14 @@
 ---
 title: "Color Generator E2E Runbook"
 doc_type: user-guide
-status: active
-updated: 2026-04-21
+status: historical
+updated: 2026-07-16
 source: ai
 ---
 
 # Color Generator E2E Runbook
+
+> Historical 0134/0135 Matrix-first reproduction only. Current Model 100 acceptance is documented in `scripts/ops/README.md` and iteration 0457: control request/response uses direct local MQTT with MBR no-echo, and the current verifier uses `/bus_event` + `bus_event_v2`.
 
 ## 1. 目的
 

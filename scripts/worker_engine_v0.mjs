@@ -139,6 +139,18 @@ export class WorkerEngineV0 {
     this.pendingBusOpIds = new Set();
     this.failedBusOpIds = new Map();
     this.splitBusRetryDelayMs = 1000;
+    this.persistentSplitBusOutPins = new Set();
+    const model0 = this.runtime.getModel(0);
+    if (model0) {
+      const root = this.runtime.getCell(model0, 0, 0, 0);
+      for (const [key, label] of root.labels.entries()) {
+        if (!isSplitBusOutLabel(label) || label.v != null) continue;
+        this.persistentSplitBusOutPins.add(this._splitBusOutPinKey(
+          { model_id: 0, p: 0, r: 0, c: 0 },
+          { ...label, k: key },
+        ));
+      }
+    }
   }
 
   executeFunction(name) {
@@ -249,10 +261,6 @@ export class WorkerEngineV0 {
     return `${event.label.t}:${event.cell.model_id}:${event.cell.p}:${event.cell.r}:${event.cell.c}:${event.label.k}`;
   }
 
-  _clearSplitBusFailure(busOpKey) {
-    if (busOpKey) this.failedBusOpIds.delete(busOpKey);
-  }
-
   _recordSplitBusFailure(busOpKey, code, detail, event, extra = {}) {
     if (busOpKey) {
       this.failedBusOpIds.set(busOpKey, {
@@ -292,18 +300,36 @@ export class WorkerEngineV0 {
     return this._splitBusOpKey({ ...event, label: { ...current, k: event.label.k } }, packet);
   }
 
-  _removeSplitBusOutIfCurrent(model, event, expectedBusOpKey) {
+  _splitBusOutPinKey(cell, label) {
+    if (!cell || !label) return '';
+    return `${cell.model_id}:${cell.p}:${cell.r}:${cell.c}:${label.t}:${label.k}`;
+  }
+
+  _acknowledgeSplitBusOutIfCurrent(model, event, expectedBusOpKey) {
     if (this._currentSplitBusOpKey(model, event) !== expectedBusOpKey) return;
-    this.runtime.rmLabel(model, event.cell.p, event.cell.r, event.cell.c, event.label.k);
+    const pinKey = this._splitBusOutPinKey(event.cell, event.label);
+    if (this.persistentSplitBusOutPins.has(pinKey)) {
+      this.runtime.addLabel(model, event.cell.p, event.cell.r, event.cell.c, {
+        k: event.label.k,
+        t: event.label.t,
+        v: null,
+      });
+    } else {
+      this.runtime.rmLabel(model, event.cell.p, event.cell.r, event.cell.c, event.label.k);
+    }
   }
 
   _processSplitBusOutEvent(event) {
     const model = this.runtime.getModel(0);
     if (!model) return;
+    if (event && event.label && event.label.v == null) {
+      this.persistentSplitBusOutPins.add(this._splitBusOutPinKey(event.cell, event.label));
+      return;
+    }
     const packet = this._packetFromSplitBusOut(event.label);
     const busOpKey = this._splitBusOpKey(event, packet);
     if (busOpKey && this.processedBusOpIds.has(busOpKey)) {
-      this._removeSplitBusOutIfCurrent(model, event, busOpKey);
+      this._acknowledgeSplitBusOutIfCurrent(model, event, busOpKey);
       return;
     }
     if (busOpKey && this.pendingBusOpIds.has(busOpKey)) {
@@ -317,7 +343,7 @@ export class WorkerEngineV0 {
       this._recordSplitBusFailure(
         busOpKey,
         'invalid_split_bus_payload',
-        'ModelTable-shaped pin_payload.v1 required',
+        'ModelTable-shaped pin_payload.v2 required',
         event,
       );
       return;
@@ -326,12 +352,16 @@ export class WorkerEngineV0 {
     if (event.label.t === 'pin.bus.cb.out') {
       const topic = this._mqttTopicForRoute(packet);
       if (topic && this.mqttPublish) {
-        try {
-          this.mqttPublish(topic, packet);
-          this._clearSplitBusFailure(busOpKey);
-          if (busOpKey) this.processedBusOpIds.add(busOpKey);
-          this._removeSplitBusOutIfCurrent(model, event, busOpKey);
-        } catch (err) {
+        const completePublish = () => {
+          if (busOpKey) {
+            this.pendingBusOpIds.delete(busOpKey);
+            this.failedBusOpIds.delete(busOpKey);
+            this.processedBusOpIds.add(busOpKey);
+          }
+          this._acknowledgeSplitBusOutIfCurrent(model, event, busOpKey);
+        };
+        const failPublish = (err) => {
+          if (busOpKey) this.pendingBusOpIds.delete(busOpKey);
           this._recordSplitBusFailure(
             busOpKey,
             'split_bus_mqtt_publish_failed',
@@ -339,6 +369,17 @@ export class WorkerEngineV0 {
             event,
             { topic },
           );
+        };
+        try {
+          const publishResult = this.mqttPublish(topic, packet);
+          if (publishResult && typeof publishResult.then === 'function') {
+            if (busOpKey) this.pendingBusOpIds.add(busOpKey);
+            publishResult.then(completePublish, failPublish);
+          } else {
+            completePublish();
+          }
+        } catch (err) {
+          failPublish(err);
         }
       } else {
         this._recordSplitBusFailure(
@@ -362,7 +403,7 @@ export class WorkerEngineV0 {
               this.failedBusOpIds.delete(busOpKey);
               this.processedBusOpIds.add(busOpKey);
             }
-            this._removeSplitBusOutIfCurrent(model, event, busOpKey);
+            this._acknowledgeSplitBusOutIfCurrent(model, event, busOpKey);
           })
           .catch((err) => {
             if (busOpKey) this.pendingBusOpIds.delete(busOpKey);
