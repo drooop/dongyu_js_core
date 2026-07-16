@@ -248,6 +248,47 @@ async function test_worker_root_generic_bus_in_accepts_formal_numeric_pin_payloa
   }
 }
 
+async function test_explicit_v2_route_metadata_is_required_without_autofill() {
+  const requiredRouteFields = [
+    ['endpoint_worker_id', 'invalid_pin_payload_records'],
+    ['endpoint_table_id', 'missing_endpoint_table_id'],
+    ['endpoint_model_id', 'invalid_pin_payload_records'],
+    ['endpoint_pin', 'invalid_pin_payload_records'],
+    ['origin_worker_id', 'invalid_pin_payload_records'],
+    ['origin_table_id', 'missing_origin_table_id'],
+    ['origin_model_id', 'invalid_pin_payload_records'],
+    ['origin_pin', 'invalid_pin_payload_records'],
+    ['reply_target_worker_id', 'invalid_pin_payload_records'],
+    ['reply_target_table_id', 'missing_reply_target_table_id'],
+    ['reply_target_model_id', 'invalid_pin_payload_records'],
+    ['reply_target_pin', 'invalid_pin_payload_records'],
+  ];
+  for (const [name, Runtime] of runtimeVariants) {
+    for (const [index, [missingKey, expectedCode]] of requiredRouteFields.entries()) {
+      const rt = new Runtime();
+      const records = formalNumericPinPayloadV2Records(`0442_no_autofill_${name}_${missingKey}`)
+        .filter((record) => record.k !== missingKey);
+      const beforeValidation = JSON.parse(JSON.stringify(records));
+      const parsed = rt._validatePinPayloadRecords(records);
+      assert.equal(parsed.ok, false, `${name}/${missingKey}: omitted explicit route field must reject`);
+      assert.equal(parsed.code, expectedCode, `${name}/${missingKey}: exact omitted-field rejection`);
+      assert.equal(parsed.endpoint, undefined, `${name}/${missingKey}: validator must not synthesize endpoint`);
+      assert.equal(parsed.origin, undefined, `${name}/${missingKey}: validator must not synthesize origin`);
+      assert.equal(parsed.replyTarget, undefined, `${name}/${missingKey}: validator must not synthesize reply target`);
+      assert.deepEqual(records, beforeValidation, `${name}/${missingKey}: validation must not mutate or auto-fill the payload`);
+
+      const busKey = `route_missing_${index}`;
+      const result = dispatchControlBus(rt, records, busKey);
+      assert.equal(result.applied, false, `${name}/${missingKey}: Model 0 BUS_IN must fail closed`);
+      assert.equal(
+        rt.getModel(0).getCell(0, 0, 0).labels.has(busKey),
+        false,
+        `${name}/${missingKey}: rejected route must not be stored after an implicit fill`,
+      );
+    }
+  }
+}
+
 const tests = [
   test_model_v1n_is_accepted_at_worker_root,
   test_model_v1n_is_rejected_outside_worker_root,
@@ -255,6 +296,7 @@ const tests = [
   test_worker_root_bus_in_rejects_complete_legacy_feishu_message_api_v1_shape,
   test_worker_root_bus_in_rejects_legacy_shape_with_only_v2_kind,
   test_worker_root_generic_bus_in_accepts_formal_numeric_pin_payload_v2,
+  test_explicit_v2_route_metadata_is_required_without_autofill,
 ];
 
 let failed = 0;

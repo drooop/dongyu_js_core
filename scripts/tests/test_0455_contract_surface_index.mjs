@@ -241,7 +241,6 @@ async function test_contract_manifest_separates_authority_surfaces_and_open_find
     contract.open_findings.map((finding) => [finding.id, finding.class])
   )));
   assert.deepEqual(findingClasses, {
-    'F-01': 'decision_recorded_implementation_pending',
     'F-04': 'decision_recorded_source_correction_pending',
     'F-05': 'decision_recorded_implementation_pending',
     'F-06': 'requires_user_confirmation',
@@ -252,8 +251,9 @@ async function test_contract_manifest_separates_authority_surfaces_and_open_find
   const contractsById = new Map(manifest.contracts.map((contract) => [contract.contract_id, contract]));
   assert.equal(
     contractsById.get('feishu_message_api.input_version').status,
-    'decision_recorded_implementation_pending',
+    'aligned',
   );
+  assert.deepEqual(contractsById.get('feishu_message_api.input_version').open_findings, []);
   assert.equal(
     contractsById.get('model.relationship.naming_and_numeric_subtable').status,
     'decision_recorded_source_correction_pending',
@@ -276,6 +276,86 @@ async function test_contract_manifest_separates_authority_surfaces_and_open_find
   assert.equal(watcher.status, 'aligned');
   assert.deepEqual(watcher.open_findings, []);
   assert.ok(watcher.owner_iterations.includes('0456-feishu-watcher-tls-preflight'));
+
+  const model3200Patch = 'deploy/sys-v1ns/remote-worker/patches/15_model3200_feishu_message_api.json';
+  const currentRuntime = ['packages/worker-base/src/runtime.mjs', 'packages/worker-base/src/runtime.js'];
+  const expectedRouting = {
+    'feishu_message_api.input_version': {
+      implementation_files: [model3200Patch, ...currentRuntime],
+      test_files: [
+        'scripts/tests/test_0442_feishu_current_contract_alignment.mjs',
+        'scripts/tests/test_0457_feishu_message_api_v2_hard_cut.mjs',
+        'scripts/tests/test_0457_feishu_model3200_actor_contract.mjs',
+        'scripts/tests/test_0457_orbstack_e2e_verifier_contract.mjs',
+      ],
+      anchor_terms: {
+        ssot_files: ['pin_payload.v2', 'R1 Model 3200'],
+        implementation_files: ['pin_payload.v2', 'legacy_feishu_message_api_v1_removed'],
+        test_files: [
+          'test_worker_root_bus_in_rejects_complete_legacy_feishu_message_api_v1_shape',
+          'test_generic_v2_requires_exact_transport_envelope',
+          'revision4_live_verified',
+        ],
+      },
+    },
+    'feishu_message_api.response_outbox': {
+      implementation_files: [model3200Patch, ...currentRuntime],
+      test_files: [
+        'scripts/tests/test_0448_feishu_message_api_response_outbox.mjs',
+        'scripts/tests/test_0449_feishu_response_outbox_publish.mjs',
+        'scripts/tests/test_0452_feishu_response_e2e_smoke.mjs',
+        'scripts/tests/test_0457_feishu_model3200_actor_contract.mjs',
+      ],
+      anchor_terms: {
+        ssot_files: ['result:pin.out', 'response_topic'],
+        implementation_files: ['pin_payload.v2', 'response_topic'],
+        test_files: ['test_resource_response_uses_generic_v2_result_and_response_topic'],
+      },
+    },
+    'feishu_message_api.resource_data_ui_task_handlers': {
+      implementation_files: [model3200Patch],
+      test_files: [
+        'scripts/tests/test_0443_feishu_message_api_business_dispatch.mjs',
+        'scripts/tests/test_0444_feishu_task_manager_processor.mjs',
+        'scripts/tests/test_0445_feishu_resource_api_processor.mjs',
+        'scripts/tests/test_0446_feishu_data_api_processor.mjs',
+        'scripts/tests/test_0447_feishu_ui_api_processor.mjs',
+        'scripts/tests/test_0457_feishu_model3200_actor_contract.mjs',
+      ],
+      anchor_terms: {
+        ssot_files: ['ui.refresh_data', 'task_data'],
+        implementation_files: ['ui_action_pending:refresh_data', 'task_action_pending:add_task_return'],
+        test_files: ['test_refresh_data_remains_pending_without_state_or_response', 'task_action_pending:add_task_return'],
+      },
+    },
+    'feishu_message_api.route_autofill_permission': {
+      implementation_files: [model3200Patch, ...currentRuntime],
+      test_files: [
+        'scripts/tests/test_0442_feishu_current_contract_alignment.mjs',
+        'scripts/tests/test_0457_feishu_model3200_actor_contract.mjs',
+      ],
+      anchor_terms: {
+        ssot_files: ['origin_pin', 'endpoint_worker_id'],
+        implementation_files: ['origin_pin', 'endpoint_worker_id'],
+        test_files: [
+          'test_explicit_v2_route_metadata_is_required_without_autofill',
+          'test_generic_v2_requires_exact_transport_envelope',
+        ],
+      },
+    },
+  };
+  for (const [contractId, expected] of Object.entries(expectedRouting)) {
+    const contract = contractsById.get(contractId);
+    for (const [field, value] of Object.entries(expected)) {
+      assert.deepEqual(contract[field], value, `${contractId}.${field} must route to the Revision 4 current contract`);
+    }
+    assert.equal(
+      contract.implementation_files.includes('scripts/lib/feishu_message_api_v1.mjs'),
+      false,
+      `${contractId} must not route current implementation through the retired v1 helper`,
+    );
+  }
+  assert.ok(contractsById.get('feishu_message_api.input_version').owner_iterations.includes('0457-feishu-message-api-v2-local-de'));
 }
 
 async function test_human_and_llm_entries_share_one_contract_and_authority_model() {
@@ -300,13 +380,13 @@ async function test_human_and_llm_entries_share_one_contract_and_authority_model
   assert.match(alignment, /feishu-message-api/u);
   assert.match(alignment, /supporting-source-1/u);
   assert.match(alignment, /supporting-source-2/u);
-  assert.match(alignment, /0456 已裁决但尚未实施的方向/u);
-  assert.match(alignment, /F-01.*pin_payload\.v2.*decision_recorded_implementation_pending/su);
+  assert.match(alignment, /0456 裁决与当前实施状态/u);
+  assert.match(alignment, /F-01.*pin_payload\.v2.*aligned\/completed/su);
   assert.match(alignment, /F-04.*来源笔误.*no alias.*decision_recorded_source_correction_pending/su);
   assert.match(alignment, /F-05.*ModelTable.*projection-only.*decision_recorded_implementation_pending/su);
   assert.match(alignment, /F-08.*真实 PIN 消息.*decision_recorded_implementation_pending/su);
   assert.match(alignment, /F-06.*F-07.*requires_user_confirmation/su);
-  assert.match(alignment, /当前 executable behavior 不变/u);
+  assert.match(alignment, /F-04.*当前 repo 行为无需修改/su);
   assert.match(alignment, /Feishu 写入仍需单独授权/u);
   assert.match(workflow, /Feishu consensus adoption/u);
   assert.match(workflow, /heading diff.*requires_user_confirmation.*Approved iteration.*repo SSOT/su);
@@ -360,7 +440,7 @@ async function test_contract_index_is_byte_stable_and_matches_generated_index_me
 async function test_feishu_backlog_tracks_decided_unresolved_and_completed_items() {
   const backlog = readFileSync(backlogPath, 'utf8');
   const expectedClasses = {
-    'F-01': 'decision_recorded_implementation_pending',
+    'F-01': 'completed',
     'F-04': 'decision_recorded_source_correction_pending',
     'F-05': 'decision_recorded_implementation_pending',
     'F-06': 'requires_user_confirmation',
@@ -380,12 +460,15 @@ async function test_feishu_backlog_tracks_decided_unresolved_and_completed_items
   assert.match(awaiting, /F-07/u);
   assert.doesNotMatch(awaiting, /F-01|F-04|F-05|F-08|F-09/u);
   const decided = backlog.split('## Decisions Recorded — Follow-up Pending')[1]?.split('\n## ')[0] || '';
-  assert.match(decided, /F-01/u);
+  assert.doesNotMatch(decided, /F-01/u);
   assert.match(decided, /F-04/u);
   assert.match(decided, /F-05/u);
   assert.match(decided, /F-08/u);
   const completed = backlog.split('## Completed Items')[1]?.split('\n## ')[0] || '';
+  assert.match(completed, /F-01/u);
   assert.match(completed, /F-09/u);
+  assert.match(backlog, /F-05.*ui_action_pending:refresh_data.*does not write refresh state or produce a response/su);
+  assert.match(backlog, /F-08.*task_action_pending:add_task_return.*generic `result`.*does not count as a real.*PIN/su);
   assert.match(backlog, /还有什么要做/u, 'backlog must document the future query rule');
 }
 

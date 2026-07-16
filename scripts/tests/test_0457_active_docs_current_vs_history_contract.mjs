@@ -436,12 +436,41 @@ function test_alignment_separates_0457_current_from_0442_0450_history() {
   assert.match(history, /`pin_payload\.v1` as the then-current Feishu message API input shape/u);
 }
 
-function test_decision_surface_keeps_closeout_and_followups_open() {
+function test_decision_surface_closes_f01_and_keeps_followups_open() {
   const content = read('docs/ssot/feishu_alignment_decisions_v0.md');
-  assert.match(content, /F-01.*`local_acceptance_passed_closeout_pending`/u);
-  assert.match(content, /F-05.*`decision_recorded_implementation_pending`.*ui_action_pending:refresh_data/u);
-  assert.match(content, /F-08.*`decision_recorded_implementation_pending`.*task_action_pending:add_task_return/u);
-  assert.match(content, /Feishu 写入仍需单独授权/u);
+  const assertDecisionRows = (candidate, label) => {
+    const decisionSection = sectionSlice(
+      candidate,
+      '## 0456 裁决与当前实施状态',
+      '0431 correction:',
+      `${label}: decision surface`,
+    );
+    const rows = decisionSection.split('\n').filter((line) => /^\| F-\d+ \|/u.test(line));
+    const rowsFor = (finding) => rows.filter((line) => line.startsWith(`| ${finding} |`));
+    assert.equal(rowsFor('F-01').length, 1, `${label}: formal F-01 table row must exist exactly once`);
+    assert.match(rowsFor('F-01')[0], /\| F-01 \|.*`pin_payload\.v2`.*`aligned\/completed`/u, `${label}: formal F-01 row must be closed`);
+    assert.equal(rowsFor('F-05').length, 1, `${label}: formal F-05 table row must exist exactly once`);
+    assert.match(rowsFor('F-05')[0], /`decision_recorded_implementation_pending`.*ui_action_pending:refresh_data/u, `${label}: F-05 must remain pending`);
+    assert.equal(rowsFor('F-08').length, 1, `${label}: formal F-08 table row must exist exactly once`);
+    assert.match(rowsFor('F-08')[0], /`decision_recorded_implementation_pending`.*task_action_pending:add_task_return/u, `${label}: F-08 must remain pending`);
+    assert.match(decisionSection, /Feishu 写入仍需单独授权/u, `${label}: Feishu write must remain separately authorized`);
+  };
+
+  assertDecisionRows(content, 'canonical');
+  const f01Row = content.split('\n').find((line) => line.startsWith('| F-01 |'));
+  assert.ok(f01Row, 'F-01 mutation source row must exist');
+  assert.throws(
+    () => assertDecisionRows(content.replace(`${f01Row}\n`, ''), 'missing_f01_row'),
+    /formal F-01 table row/u,
+    'active-doc guard must reject deletion of the formal F-01 decision row',
+  );
+  const revertedF01Row = f01Row.replace('`aligned/completed`', '`local_acceptance_passed_closeout_pending`');
+  assert.notEqual(revertedF01Row, f01Row, 'F-01 pending-state mutation must apply');
+  assert.throws(
+    () => assertDecisionRows(content.replace(f01Row, revertedF01Row), 'reverted_f01_row'),
+    /formal F-01 row must be closed/u,
+    'active-doc guard must reject a reverted formal F-01 decision row even if surrounding prose still says completed',
+  );
 }
 
 function test_payload_contract_preserves_outer_transport_and_hard_cuts_inner_v1() {
@@ -540,7 +569,7 @@ const tests = [
   test_ui_routing_guides_use_current_browser_ingress_and_local_six_de_baseline,
   test_runtime_current_contract_precedes_preserved_v1_history,
   test_alignment_separates_0457_current_from_0442_0450_history,
-  test_decision_surface_keeps_closeout_and_followups_open,
+  test_decision_surface_closes_f01_and_keeps_followups_open,
   test_payload_contract_preserves_outer_transport_and_hard_cuts_inner_v1,
   test_user_and_ops_guides_use_current_mailbox_and_direct_control_path,
   test_all_active_control_guides_and_highest_contract_use_direct_no_echo_truth,

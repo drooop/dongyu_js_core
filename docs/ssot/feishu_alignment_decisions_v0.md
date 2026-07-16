@@ -35,11 +35,11 @@ source: ai
 
 ## 0456 裁决与当前实施状态
 
-以下用户裁决已进入正式采纳决议面。F-01 已由 0457 完成本地实现与 OrbStack live acceptance，但在 full regression、accepted implementation commit 和规定的 closeout reviews 完成前仍不得标为 aligned/completed。其余项目继续保持各自边界。
+以下用户裁决已进入正式采纳决议面。F-01 已由 0457 完成本地实现与 OrbStack live acceptance；冻结候选 `3b2a902` 已获得 runtime、SSOT/docs/compat、deploy/rollback/E2E 三路 Step 11 whole-candidate approval，因此当前 repo 合同关闭为 `aligned/completed`。其余项目继续保持各自边界。
 
 | Finding | 已采纳方向 | 当前状态 |
 |---|---|---|
-| F-01 | 整体 Feishu Message API 输入 envelope 升级到 `pin_payload.v2`。 | `local_acceptance_passed_closeout_pending`；0457 当前公开输入已 hard cut 到 v2，legacy v1 fail closed，R1 Model 3200 拥有业务行为；F-01 尚未完成最终合同关闭。 |
+| F-01 | 整体 Feishu Message API 输入 envelope 升级到 `pin_payload.v2`。 | `aligned/completed`；0457 当前公开输入已 hard cut 到 v2，legacy v1 fail closed，R1 Model 3200 拥有业务行为；未修改 Feishu。 |
 | F-04 | `model.submtconnect` 确认为来源笔误；repo 保持 no alias。 | `decision_recorded_source_correction_pending`；当前 repo 行为无需修改。 |
 | F-05 | `ui.refresh_data` 通过授权的 ModelTable 写入表达状态变化；frontend 保持 projection-only。 | `decision_recorded_implementation_pending`；当前 Model 3200 以 `ui_action_pending:refresh_data` fail closed，不写 refresh state、不产出 response。 |
 | F-08 | `add_task_return` 必须成为真实 PIN 消息。 | `decision_recorded_implementation_pending`；当前 Model 3200 以 `task_action_pending:add_task_return` fail closed，generic `result` 不算真实 `add_task_return` PIN。 |
