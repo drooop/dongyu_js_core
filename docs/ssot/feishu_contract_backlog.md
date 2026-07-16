@@ -2,7 +2,7 @@
 title: "Feishu Contract Backlog"
 doc_type: decision-backlog
 status: active
-updated: 2026-07-16
+updated: 2026-07-17
 source: ai
 ---
 
@@ -14,7 +14,8 @@ Authority boundary: this backlog records open decisions. It is not executable pr
 
 Source baseline:
 
-- Primary report: `docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md`
+- Primary baseline report: `docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md`
+- Revision-14272 evidence: `docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md`
 - Source snapshots: `test_files/feishu_current/0454/state/snapshots/`
 
 ## Awaiting User Confirmation
@@ -22,7 +23,12 @@ Source baseline:
 | ID | Class | Item | Reason | Next action |
 |---|---|---|---|---|
 | F-06 | requires_user_confirmation | Base/DEM/MBR omitted-field auto-fill and permission routing are not implemented. | Current implementation validates explicit fields but does not infer route/permission data from a connection directory. | Confirm the route-directory truth, permission checks, default local/global server selection, and omitted-field materialization before planning implementation. |
-| F-07 | requires_user_confirmation | `config.control`, `config.manage`, `mqtt.global.*`, and `mqtt.global_port` need a canonical decision. | Feishu conceptual labels and repo operational routing labels do not yet have one clear mapping. | Decide whether aggregate config labels become canonical, remain explanatory, or compile into existing split labels; confirm `mqtt.global_port` spelling. |
+| F-07 | requires_user_confirmation | `config.control`, `config.manage`, `mqtt.global.*`, and `mqtt.global_port` need a canonical decision. | Revision `14272` now contains aggregate `config.control` / `config.manage` examples, while repo operational routing still uses split labels; the new evidence strengthens the conflict but does not settle it. | Decide whether aggregate config labels become canonical, remain explanatory, or compile into existing split labels; confirm `mqtt.global_port` spelling. |
+| F-10 | requires_user_confirmation | Revision `14272` introduces `sys_model_type`, `sys_model_size`, and `sys_` / `in_` / `out_` / `log_` / `user_` / `persis_` / `status_` key namespaces. | Current repo contracts use registry-defined keys without adopting this prefix scheme. | Decide whether the namespace scheme is normative, descriptive, or requires a migration/compatibility plan. |
+| F-11 | requires_user_confirmation | Revision `14272` introduces program areas and lifecycle surfaces such as `pin.manage`, `user_set_status`, `CLEAR_BUFFER`, and `sys_func_*`. | Current runtime has no SYS/IN/OUT/LOG/USER/PERSIS/STATUS area model or MNG lifecycle contract. | Define the lifecycle state machine, ownership, commands, failure behavior, and area API before implementation. |
+| F-12 | requires_user_confirmation | Revision `14272` introduces `func.code.python`, `func.code.js`, `func.mode`, and `func.timer.ms`. | Current executable labels remain `func.python` / `func.js`; timer and mode labels are not implemented. | Decide naming, migration, scheduling semantics, and whether the new labels replace or supplement the current labels. |
+| F-13 | requires_user_confirmation | Revision `14272` introduces a log record schema with `log_type`, `log_info`, `log_model_id`, coordinates, function, and timestamp fields. | Current repo defines the `pin.login` / `pin.logout` channel but not this record schema. | Decide required fields, types, ownership, retention, and transport before adopting the schema. |
+| F-14 | requires_user_confirmation | Revision `14272` states that only Flow models can run independently. | Current repo has no approved functional-type capability matrix enforcing that restriction. | Define model-type categories and independent-run capability rules before changing validation or runtime behavior. |
 
 ## Decisions Recorded — Follow-up Pending
 

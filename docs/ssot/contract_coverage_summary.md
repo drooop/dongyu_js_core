@@ -2,7 +2,7 @@
 title: "Contract Coverage Summary"
 doc_type: generated-summary
 status: active
-updated: 2026-07-16
+updated: 2026-07-17
 source: generated
 generated_from: "docs/ssot/contract_surface_manifest.json"
 ---
@@ -11,7 +11,7 @@ generated_from: "docs/ssot/contract_surface_manifest.json"
 
 Generated from `docs/ssot/contract_surface_manifest.json`. This is a routing/coverage view, not product SSOT. Do not edit it directly.
 
-Contract cards: 10
+Contract cards: 14
 
 ## Coverage Table
 
@@ -27,6 +27,10 @@ Contract cards: 10
 | `feishu_source_watch.focused_docs` | aligned | medium | - | `docs/ssot/feishu_source_watch_manifest.json` | `scripts/ops/feishu_source_watch.mjs` | `scripts/tests/test_0441_feishu_source_watch_contract.mjs` | `node scripts/tests/test_0441_feishu_source_watch_contract.mjs`<br>`node --check scripts/ops/feishu_source_watch.mjs` |
 | `feishu_message_api.route_autofill_permission` | requires_user_confirmation | high | `F-06` (requires_user_confirmation) | `docs/ssot/runtime_semantics_modeltable_driven.md` | `deploy/sys-v1ns/remote-worker/patches/15_model3200_feishu_message_api.json`<br>`packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`scripts/tests/test_0457_feishu_model3200_actor_contract.mjs` | `node scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`node scripts/tests/test_0457_feishu_model3200_actor_contract.mjs` |
 | `feishu_config_labels.control_manage_mqtt` | requires_user_confirmation | high | `F-07` (requires_user_confirmation) | `docs/ssot/feishu_alignment_decisions_v0.md` | `packages/worker-base/src/bootstrap_config.mjs` | `scripts/tests/test_0455_contract_surface_index.mjs` | `node scripts/tests/test_0455_contract_surface_index.mjs` |
+| `model.label_key_namespaces` | requires_user_confirmation | high | `F-10` (requires_user_confirmation) | `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md` | `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`scripts/tests/test_0455_contract_surface_index.mjs` | `node scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`node scripts/tests/test_0455_contract_surface_index.mjs` |
+| `program_model.lifecycle_and_function_contract` | requires_user_confirmation | high | `F-11` (requires_user_confirmation)<br>`F-12` (requires_user_confirmation) | `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md` | `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0357_pin_connection_hard_cut.mjs`<br>`scripts/tests/test_0455_contract_surface_index.mjs` | `node scripts/tests/test_0357_pin_connection_hard_cut.mjs`<br>`node scripts/tests/test_0455_contract_surface_index.mjs` |
+| `program_model.log_schema` | requires_user_confirmation | high | `F-13` (requires_user_confirmation) | `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md` | `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0357_pin_connection_hard_cut.mjs`<br>`scripts/tests/test_0455_contract_surface_index.mjs` | `node scripts/tests/test_0357_pin_connection_hard_cut.mjs`<br>`node scripts/tests/test_0455_contract_surface_index.mjs` |
+| `model.functional_type_capability_matrix` | requires_user_confirmation | high | `F-14` (requires_user_confirmation) | `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md` | `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_model_in_out.mjs`<br>`scripts/tests/test_0455_contract_surface_index.mjs` | `node scripts/tests/test_model_in_out.mjs`<br>`node scripts/tests/test_0455_contract_surface_index.mjs` |
 
 ## Contract Cards
 
@@ -181,11 +185,75 @@ Contract cards: 10
 - Source refs: `feishu-model2`
 - SSOT files: `docs/ssot/feishu_alignment_decisions_v0.md`
 - Decision files: `docs/ssot/feishu_contract_backlog.md`
-- Evidence files: `docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md`
+- Evidence files: `docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md`<br>`docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md`
 - Implementation files: `packages/worker-base/src/bootstrap_config.mjs`
 - Test files: `scripts/tests/test_0455_contract_surface_index.mjs`
 - Open findings: `F-07` (requires_user_confirmation)
 - Verification: `node scripts/tests/test_0455_contract_surface_index.mjs`
-- Owner iterations: `0454-feishu-focused-current-diff`<br>`0455-contract-surface-index`
-- Notes: Aggregate config labels and mqtt.global_port spelling remain open; current split-label behavior stays authoritative.
+- Owner iterations: `0454-feishu-focused-current-diff`<br>`0455-contract-surface-index`<br>`0458-feishu-model2-safe-alignment`
+- Notes: Revision 14272 strengthens the aggregate config.control/config.manage conflict evidence, but aggregate semantics and mqtt.global_port spelling remain open; current split-label behavior stays authoritative.
 - Anchor matches: `ssot_files:mqtt.global.*` => `docs/ssot/feishu_alignment_decisions_v0.md`; `implementation_files:mqtt.global.ip` => `packages/worker-base/src/bootstrap_config.mjs`; `test_files:F-07` => `scripts/tests/test_0455_contract_surface_index.mjs`
+
+### model.label_key_namespaces
+
+- Status: `requires_user_confirmation`
+- Risk: `high`
+- Source refs: `feishu-model2`
+- SSOT files: `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`
+- Decision files: `docs/ssot/feishu_contract_backlog.md`
+- Evidence files: `docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md`
+- Implementation files: `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js`
+- Test files: `scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`scripts/tests/test_0455_contract_surface_index.mjs`
+- Open findings: `F-10` (requires_user_confirmation)
+- Verification: `node scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`node scripts/tests/test_0455_contract_surface_index.mjs`
+- Owner iterations: `0458-feishu-model2-safe-alignment`
+- Notes: Current repo behavior uses registry-defined keys such as model_type. Revision 14272 key-prefix namespaces and sys_model_type/sys_model_size are not adopted or enforced.
+- Anchor matches: `ssot_files:model_type` => `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`; `implementation_files:model_type` => `packages/worker-base/src/runtime.mjs`; `test_files:test_model_v1n_is_accepted_at_worker_root` => `scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`scripts/tests/test_0455_contract_surface_index.mjs`; `test_files:model.label_key_namespaces` => `scripts/tests/test_0455_contract_surface_index.mjs`
+
+### program_model.lifecycle_and_function_contract
+
+- Status: `requires_user_confirmation`
+- Risk: `high`
+- Source refs: `feishu-model2`
+- SSOT files: `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`
+- Decision files: `docs/ssot/feishu_contract_backlog.md`
+- Evidence files: `docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md`
+- Implementation files: `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js`
+- Test files: `scripts/tests/test_0357_pin_connection_hard_cut.mjs`<br>`scripts/tests/test_0455_contract_surface_index.mjs`
+- Open findings: `F-11` (requires_user_confirmation)<br>`F-12` (requires_user_confirmation)
+- Verification: `node scripts/tests/test_0357_pin_connection_hard_cut.mjs`<br>`node scripts/tests/test_0455_contract_surface_index.mjs`
+- Owner iterations: `0458-feishu-model2-safe-alignment`
+- Notes: Current runtime recognizes func.js/func.python and the existing PIN contract. Revision 14272 program areas, pin.manage lifecycle, renamed function labels, timer, and mode semantics are not adopted or implemented.
+- Anchor matches: `ssot_files:func.js` => `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`; `ssot_files:func.python` => `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`; `implementation_files:func.js` => `packages/worker-base/src/runtime.mjs`; `implementation_files:func.python` => `packages/worker-base/src/runtime.mjs`; `test_files:pin.log.* must be rejected` => `scripts/tests/test_0357_pin_connection_hard_cut.mjs`; `test_files:program_model.lifecycle_and_function_contract` => `scripts/tests/test_0455_contract_surface_index.mjs`
+
+### program_model.log_schema
+
+- Status: `requires_user_confirmation`
+- Risk: `high`
+- Source refs: `feishu-model2`
+- SSOT files: `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`
+- Decision files: `docs/ssot/feishu_contract_backlog.md`
+- Evidence files: `docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md`
+- Implementation files: `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js`
+- Test files: `scripts/tests/test_0357_pin_connection_hard_cut.mjs`<br>`scripts/tests/test_0455_contract_surface_index.mjs`
+- Open findings: `F-13` (requires_user_confirmation)
+- Verification: `node scripts/tests/test_0357_pin_connection_hard_cut.mjs`<br>`node scripts/tests/test_0455_contract_surface_index.mjs`
+- Owner iterations: `0458-feishu-model2-safe-alignment`
+- Notes: Current repo behavior defines pin.login/pin.logout as the log channel. The revision 14272 log record fields are not adopted, materialized, or retained by the runtime.
+- Anchor matches: `ssot_files:pin.login` => `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`; `ssot_files:pin.logout` => `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`; `implementation_files:pin.login` => `packages/worker-base/src/runtime.mjs`; `implementation_files:pin.logout` => `packages/worker-base/src/runtime.mjs`; `test_files:pin.login must be accepted` => `scripts/tests/test_0357_pin_connection_hard_cut.mjs`; `test_files:program_model.log_schema` => `scripts/tests/test_0455_contract_surface_index.mjs`
+
+### model.functional_type_capability_matrix
+
+- Status: `requires_user_confirmation`
+- Risk: `high`
+- Source refs: `feishu-model2`
+- SSOT files: `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`
+- Decision files: `docs/ssot/feishu_contract_backlog.md`
+- Evidence files: `docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md`
+- Implementation files: `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js`
+- Test files: `scripts/tests/test_model_in_out.mjs`<br>`scripts/tests/test_0455_contract_surface_index.mjs`
+- Open findings: `F-14` (requires_user_confirmation)
+- Verification: `node scripts/tests/test_model_in_out.mjs`<br>`node scripts/tests/test_0455_contract_surface_index.mjs`
+- Owner iterations: `0458-feishu-model2-safe-alignment`
+- Notes: Current runtime supports registered model forms without enforcing the new only-Flow-independent claim. The revision 14272 functional-type capability matrix is not adopted or implemented.
+- Anchor matches: `ssot_files:model.single` => `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`; `implementation_files:model.single` => `packages/worker-base/src/runtime.mjs`; `test_files:model.single should route root pin.in` => `scripts/tests/test_model_in_out.mjs`; `test_files:model.functional_type_capability_matrix` => `scripts/tests/test_0455_contract_surface_index.mjs`
