@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0457 Feishu Message API v2 + Local DE Runlog"
 doc_type: iteration-runlog
-status: active
+status: completed
 updated: 2026-07-16
 source: ai
 iteration_id: 0457-feishu-message-api-v2-local-de
 id: 0457-feishu-message-api-v2-local-de
-phase: phase3
+phase: phase4
 ---
 
 # Iteration 0457 Feishu Message API v2 + Local DE Runlog
@@ -1511,3 +1511,38 @@ bash scripts/ops/verify_model100_submit_roundtrip.sh --base-url http://127.0.0.1
 - The decision guard now scopes itself to the formal 0456 decision section, requires exactly one F-01/F-05/F-08 table row, and validates each row's exact state. Built-in mutations delete the F-01 row and revert only that row to `local_acceptance_passed_closeout_pending`; both must fail even while the surrounding prose still says completed. The canonical active-doc suite remains `15/15` GREEN, while the earlier docs approval is not carried forward.
 - The next fresh three-view Step 12 review targeted this exact eight-file candidate. SSOT/docs, contract evidence, and runtime-routing views all returned `Approved` with no finding, open question, or verification gap. The reviewers independently confirmed the four-card `159/159` set, active-doc `15/15`, 0455 index, generated coverage, docs gate, syntax, and `git diff --check`. These approvals authorize freezing the F-01/index slice; they do not replace the required post-commit whole-candidate final closeout reviews.
 - Post-approval freeze gates were rerun after recording the decision: all 12 unique four-card test files passed `159/159`; active-doc passed `15/15`; 0455 index, 10-card generation, three changed-test syntax checks, Obsidian docs gate, and `git diff --check` all passed. The slice still contains only the eight declared Step 12 paths and is ready for its separate commit.
+
+### Final Post-Step-12 Regression Candidate
+
+- The reviewed eight-file F-01/index slice was committed separately as `6de1df0` (`docs(ssot): close F-01 contract routing [0457]`) on top of accepted implementation `3b2a902`. The commit contains no runtime, image, manifest, actor asset, browser asset, Feishu write, deploy, push, PR, or merge.
+- Two non-overlapping required-test groups then passed against `bc4557e..6de1df0`:
+  - actor/runtime and every `test_0457_*.mjs` contract: `22/22` files, `215/215` reported cases, plus two single-line PASS scripts without numeric totals;
+  - generic transport, bundle compatibility, all 0442-0452 Feishu behavior files, and 0455 index: `18/18` files, `287/287` cases.
+- Two tests initially hit the sandbox's local-listen restriction rather than a product assertion: 0417 could not bind a temporary `127.0.0.1` port, and the Model 100 verifier contract reported `2/9` for the same reason. Each unchanged file passed after local-loopback permission was allowed: 0417 `10/10`, Model 100 verifier `9/9`.
+- Core parser/runtime checks passed: Cell Connect `8/8`, BUS_IN/OUT `7/7`, builtins validation PASS, and all UI AST cases PASS. Frontend production build and package tests passed. Node syntax for all `51` changed `.mjs` files and Bash syntax for all `7` changed `.sh` files passed; active-doc `15/15`, 10-card generation, Obsidian docs gate, and `git diff --check` also passed.
+- Fresh read-only local operations evidence passed:
+  - `check_runtime_baseline.sh` verified exact OrbStack contexts, six one-replica deployments, three services, local Matrix/MQTT/auth, and MBR/R1/WM1 actor assets;
+  - the current prepare script's factual verification syntax is `prepare_0457_local_rollback.sh --verify <backup-dir>`, not `--backup <dir> --verify`; using the code-state syntax verified `/Users/drop/dongyu/backups/0457-predeploy-20260716T002015` and live image aliases;
+  - `rollback_0457_local.sh --backup <backup-dir>` dry-run passed and explicitly changed no image, file, Kubernetes resource, Pod, PVC, or data;
+  - MBR `mbr-worker-67dfcdfcc4-pw9pn`, R1 `remote-worker-7d4c7bdb78-bxtgv`, and WM1 `workspace-manager-5dfbfd8bbb-7kkk5` were Running/Ready with zero restart; their last-two-hour logs contained zero `unhandled rejection`, `MQTT publish error`, `fatal`, or `uncaught` matches;
+  - the live full snapshot reported zero fixture registry/table/mount residue. A bounded read-only scan checked all 11 current UI persistence databases and found no fixture `app_name`, registry ownership entry, or marked subtable ownership descriptor. Two host operational status strings retain the historical app display name, which the reviewed exact cleanup scanner intentionally excludes from ownership residue; the earlier exact table-id persistence cleanup remains Step 11-approved evidence.
+- The final review candidate therefore remains `6de1df0` plus this factual runlog entry. No duplicate rebuild, live E2E, Model 100 run, or browser click was performed because Step 12 changed only docs/tests and the fresh read-only baseline confirms the accepted deployment is unchanged.
+
+### Final Closeout Review Gate
+
+- Three fresh independent reviews targeted the complete `bc4557e..6de1df0` Revision 4 diff plus the frozen final-regression runlog diff `e0b70dfc3ae1e2286688c3c65d9f61af827254c71cb90cc8a01e4f4d31cb53a4`. The 21 unrelated historical working-tree documents were explicitly excluded.
+- SSOT/docs/contract-index view: `Approved`; no finding, open question, or verification gap.
+- Runtime/transport/actor view: `Approved`; no finding, open question, or verification gap. Its independent representative set passed `199/199` and covered the v2 hard cut, outer wrapper, CJS/ESM, Model 3200, control/management no-echo, MQTT ack, evidence, and E2E verifier.
+- Local deploy/rollback/evidence view: `Approved`; no finding, open question, or verification gap. It confirmed the six healthy OrbStack deployments, local Matrix/MQTT/auth, SSOT actors, rollback snapshot/dry-run, logs, cleanup evidence, and the applicability of the accepted live E2E/Model 100/browser evidence after a docs/tests-only Step 12.
+- Result: PASS. F-01 may remain `aligned/completed`, and Phase 4 completion is authorized.
+
+## Completion
+
+Completion Record
+- Accepted implementation commit: `3b2a902`
+- Accepted F-01/index commit: `6de1df0`
+- Branch: `dropx/dev_0457-feishu-message-api-v2-local-de`
+- Result: Completed. Current Feishu Message API input is hard-cut to inner `pin_payload.v2`; generic transport remains in Model 0, Feishu business ownership is R1 Model 3200, and local control/management acceptance uses the SSOT MBR/R1/WM1 actors in OrbStack.
+- Verification: live Revision 4 control/management/v1-negative acceptance, Model 100 submit, real browser flow, rollback preparation, final read-only baseline/dry-run, non-overlapping final contract groups `215/215` and `287/287` plus two single-line PASS scripts, core parser/runtime checks, frontend build/tests, syntax, docs/index gates, and the latest three independent closeout reviews all passed.
+- Decision boundary: F-04 remains source-correction pending with no alias and no Feishu write; F-05/F-08 remain implementation pending; F-06/F-07 remain user-confirmation pending. No Feishu write, remote deployment, rollback apply, push, PR, or merge occurred.
+- Working-tree boundary: the 21 pre-existing historical documentation edits remain unstaged and untouched.
