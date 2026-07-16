@@ -24,13 +24,13 @@ This report is factual iteration evidence, not product SSOT and not an adoption 
 - Author: unknown
 - Previous revision id: unknown
 
-## Reproducible Snapshot Comparison
+## Local Ignored Snapshot Comparison
 
-The old side is the committed 0454 same-format snapshot. The current side was fetched read-only to `/private/tmp/feishu-reprobe-jyn.wfMH0l/watch-state/snapshots/feishu-model2.md` and copied byte-for-byte to the ignored local evidence path `test_files/feishu_current/0458/state/snapshots/feishu-model2.md`; it is not committed as product documentation.
+Both sides are retained only as ignored local evidence under `test_files/`; neither path has ever been tracked by Git, so this full-document comparison is reproducible only on this workstation while those files remain and is not cross-clone evidence. The current side was fetched read-only with TLS verification and copied byte-for-byte to the 0458 local path. The committed focused fixture under `scripts/fixtures/feishu_source_watch/revision-14272-risk-matrix/` is the cross-clone watcher-classification evidence, not a complete source snapshot.
 
 | Side | Path | SHA-256 | Lines | Bytes |
 |---|---|---|---:|---:|
-| old | `test_files/feishu_current/0454/state/snapshots/feishu-model2.md` | `6f3b1803a9d54a05452e93a2ea9c041be424196a64a3931763b1ec571b9e129a` | 4218 | 63694 |
+| old | `test_files/feishu_current/0454/state/snapshots/feishu-model2.md` (ignored local) | `6f3b1803a9d54a05452e93a2ea9c041be424196a64a3931763b1ec571b9e129a` | 4218 | 63694 |
 | current | `test_files/feishu_current/0458/state/snapshots/feishu-model2.md` (ignored) | `bfca935924add0a0227daac8b630ce083a96e3bc956cabb9bfdd75cfacc1aca9` | 5075 | 74997 |
 
 Text diff-stat: `+2269/-1412` lines (`git diff --no-index --numstat`).
@@ -38,9 +38,9 @@ Text diff-stat: `+2269/-1412` lines (`git diff --no-index --numstat`).
 Verification commands used against the two snapshots:
 
 ```bash
-shasum -a 256 test_files/feishu_current/0454/state/snapshots/feishu-model2.md /private/tmp/feishu-reprobe-jyn.wfMH0l/watch-state/snapshots/feishu-model2.md
-wc -l -c test_files/feishu_current/0454/state/snapshots/feishu-model2.md /private/tmp/feishu-reprobe-jyn.wfMH0l/watch-state/snapshots/feishu-model2.md
-git diff --no-index --numstat test_files/feishu_current/0454/state/snapshots/feishu-model2.md /private/tmp/feishu-reprobe-jyn.wfMH0l/watch-state/snapshots/feishu-model2.md
+shasum -a 256 test_files/feishu_current/0454/state/snapshots/feishu-model2.md test_files/feishu_current/0458/state/snapshots/feishu-model2.md
+wc -l -c test_files/feishu_current/0454/state/snapshots/feishu-model2.md test_files/feishu_current/0458/state/snapshots/feishu-model2.md
+git diff --no-index --numstat test_files/feishu_current/0454/state/snapshots/feishu-model2.md test_files/feishu_current/0458/state/snapshots/feishu-model2.md
 ```
 
 ## Pending Contract Findings
