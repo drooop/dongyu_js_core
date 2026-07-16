@@ -1,7 +1,7 @@
 ---
 title: "Iteration 0458 Feishu Model2 Safe Alignment Resolution"
 doc_type: iteration-resolution
-status: draft
+status: approved
 updated: 2026-07-17
 source: ai
 iteration_id: 0458-feishu-model2-safe-alignment

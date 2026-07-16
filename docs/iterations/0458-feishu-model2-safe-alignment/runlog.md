@@ -6,7 +6,7 @@ updated: 2026-07-17
 source: ai
 iteration_id: 0458-feishu-model2-safe-alignment
 id: 0458-feishu-model2-safe-alignment
-phase: phase2
+phase: phase3
 ---
 
 # Iteration 0458-feishu-model2-safe-alignment Runlog
@@ -242,10 +242,23 @@ Review Gate Record
 - Notes: the same pre-flight ordering and repair-state findings apply; Step 2 rollback must also include both trusted-hydration loaders and their tests.
 
 Planning Revision Record
-- Revision: major 4, corrected proposal awaiting user decision.
+- Revision: major 4, user-approved corrected plan.
 - Action: moved the mandatory standard pre-flight before both deploy verification and E2E; separated the automatic full-repair branch from bounded rollback; completed the trusted-hydration rollback set.
 - Gate: `On Hold` under `docs/WORKFLOW.md` because four major revisions exceed the AI auto-approval limit. The earlier user approval of 0457 Revision 4 is not reused for this distinct 0458 plan revision.
-- Required decision: explicit user approval to resume 0458 under this corrected standard-pre-flight sequence.
+- Required decision: satisfied by explicit user approval recorded below.
+
+Review Gate Record
+- Iteration ID: 0458-feishu-model2-safe-alignment
+- Review Date: 2026-07-17
+- Review Type: User / major revision 4 decision
+- Review Index: 16
+- Decision: Approved
+- Notes: user explicitly replied `批准 0458 Major Revision 4`; this approval applies to the corrected standard-pre-flight sequence recorded above and does not adopt any disputed F-07/F-10-F-14 product semantics.
+
+Phase 2 Gate Decision — Major Revision 4
+- Decision: Approved by the required human approver.
+- Execution resumes in Phase 3 from commit `03607b9` only after this exact approval record is committed.
+- Next action: execute the mandatory `ensure` then `check` pre-flight before any fresh deploy verification, and stop immediately if `ensure` enters its automatic repair branch.
 
 ## Living Docs Assessment
 
