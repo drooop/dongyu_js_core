@@ -78,6 +78,7 @@ Each keyword above has an independent table-driven addition/removal test. The he
 - Invalid endpoint directions are rejected through both CJS and ESM entrypoints for both connection declaration types, both bus families, and route-first/pin-first/type-replacement declaration order.
 - Legal bus-in-source and bus-out-destination connections continue to pass existing and new regressions.
 - Rejection codes are stable; rejected labels, prior endpoint labels, route graphs, and persistence remain unchanged except for the required `pin_connection_error` visible failure record.
+- The reserved `pin_connection_error` record survives both the OrbStack SQLite loader and frontend local-storage hydration; trusted hydration bypasses only external authorship of that reserved key and still executes all other label validation.
 - Existing aligned actor, model relationship, old `pin.log.*` rejection, and control/management routing tests remain GREEN.
 - A representative revision-14272 fixture stops on F-07 and every F-10 through F-14 risk family, including escaped function terms, removed protected terms, duplicate-line count changes, and a risk term appearing after the 40-line report limit.
 - A compatible change beside an unchanged risk term does not become a false confirmation stop; removal of a risk term remains visible.

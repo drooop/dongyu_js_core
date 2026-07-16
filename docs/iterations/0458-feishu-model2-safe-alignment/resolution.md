@@ -37,15 +37,20 @@ Keep three slices independently reviewable: runtime direction safety, watcher cl
 - Files:
   - `packages/worker-base/src/runtime.mjs`
   - `packages/worker-base/src/runtime.js` (verification-only CJS shim unless exports change)
+  - `packages/worker-base/src/program_model_loader.js`
+  - `packages/ui-model-demo-frontend/src/local_persistence.js`
   - `docs/ssot/runtime_semantics_modeltable_driven.md`
   - `docs/ssot/pin_connection_contract_v2.md`
   - `docs/ssot/label_type_registry.md`
+  - `scripts/tests/test_0425_persistence_table_key_contract.mjs` (trusted SQLite hydration round trip)
 - Verification:
   - `node scripts/tests/test_0357_pin_connection_hard_cut.mjs`
   - `node scripts/tests/test_0432_subtable_connection_runtime_contract.mjs`
   - `node scripts/tests/test_0457_local_orbstack_de_actor_contract.mjs`
   - `node scripts/tests/test_0376_control_first_mbr_routing_contract.mjs`
-- Acceptance: the later invalid declaration is rejected with the frozen reason, prior valid state remains, the rejected route/endpoint is not stored or registered, `pin_connection_error:json` records the failure in ModelTable, and existing connection/model/actor routing stays GREEN through both module entrypoints.
+  - `node scripts/tests/test_0425_persistence_table_key_contract.mjs`
+  - `node packages/ui-model-demo-frontend/scripts/validate_persistence_local.mjs`
+- Acceptance: the later invalid declaration is rejected with the frozen reason, prior valid state remains, the rejected route/endpoint is not stored or registered, `pin_connection_error:json` records the failure in ModelTable and survives both real persistence hydration paths, and existing connection/model/actor routing stays GREEN through both module entrypoints. The trusted hydration entry may bypass only reserved-key authorship; structural, placement, payload, and direction validation remain active.
 - Rollback: revert runtime and the three current documentation changes together.
 
 ## Step 3 - Fix Watcher Risk Classification

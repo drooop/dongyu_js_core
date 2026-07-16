@@ -155,9 +155,9 @@ Conflict behavior:
 
 ### 3.3 连接规则
 
-- `pin.in` ↔ `pin.out` 互连；`pin.login` ↔ `pin.logout` 互连。
+- 普通数据端口按 `pin.in` ↔ `pin.out` 互连；`pin.login` ↔ `pin.logout` 互连。
 - 数据通道与日志通道不可混连。
-- 同层级内 `in` 只连 `out`。
+- 普通端口同层级内 `in` 只连 `out`。系统总线是明确例外：bus-in 只作为 source 接入内部目标，bus-out 只作为 target 接收内部 source；不得反向套用普通端口规则。
 - 子模型对外连接只通过 (0,0,0) 的边界端口。
 
 ---
@@ -171,10 +171,15 @@ Conflict behavior:
 
 `pin.connect.model` 已从 0356 目标合同中移除。跨模型通信必须通过父侧 `model.submtconnection` Cell 暴露的父模型内 Cell 引脚、子模型 root `(0,0,0)` 的边界引脚，以及父模型内 `pin.connect.cell` 完成。
 
+系统总线方向硬约束：`pin.bus.cb.in` / `pin.bus.mb.in` 只能作为连接 source，`pin.bus.cb.out` / `pin.bus.mb.out` 只能作为连接 target。该规则同时校验 route 声明和 endpoint add/replace，且与声明顺序无关。反向连接分别以 `bus_in_connection_destination_forbidden` / `bus_out_connection_source_forbidden` 拒绝，并写入 `pin_connection_error:json`；被拒绝的声明不得改变既有 label、路由图或 persistence。已有真实函数的 `{funcName}:in|out|logout` 保持函数端点优先；没有真实函数的同形 key 仍须按 raw endpoint role 校验。
+
+`pin_connection_error` 是 runtime-reserved key：外部 `addLabel` 写入必须以 `runtime_error_label_reserved` 拒绝。runtime 内部错误路径和持久化 loader 的 trusted `hydrateLabel` 可经同一 `addLabel` pipeline 写入；hydration 只绕过 reserved-key authorship，label type、placement、结构值、方向等其他校验仍必须执行，loader 不得 fallback 到外部 `addLabel`。合法 label type replacement 必须同步清除被替换 route graph 或 bus registry/subscription，不得保留 stale state。
+
 `pin.connect.label` 端点规则：
 
 - 端点直接使用同一个 Cell 内的引脚 key。
 - 可连接当前 Cell 上的 `pin.in` / `pin.out` / `pin.login` / `pin.logout`。
+- 在软件工人 Model 0 `(0,0,0)`，可连接 `pin.bus.cb.*` / `pin.bus.mb.*`，但必须服从系统总线方向硬约束。
 - 可连接当前 Cell 上函数自动拥有的 `{funcName}:in` / `{funcName}:out` / `{funcName}:logout`。
 - 不允许 `(self, x)` / `(func, f:in)` / numeric prefix。
 - 不允许引用其他 Cell 或其他 model id。
@@ -183,6 +188,7 @@ Conflict behavior:
 
 - 端点必须是同一模型内 `[p,r,c,"pinName"]`。
 - `"pinName"` 必须是目标 Cell 上声明的 Cell 引脚 key。
+- Model 0 `(0,0,0)` 的 `pin.bus.cb.*` / `pin.bus.mb.*` 可以作为端点，但必须服从系统总线方向硬约束。
 - 不允许在 `pin.connect.cell` 中直接引用函数引脚。
 - 函数触发必须先到函数所在 Cell 的普通引脚，再由该 Cell 的 `pin.connect.label` 转给函数引脚。
 
