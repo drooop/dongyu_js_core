@@ -1,7 +1,7 @@
 ---
 title: "Iteration 0458 Feishu Model2 Safe Alignment Resolution"
 doc_type: iteration-resolution
-status: approved
+status: draft
 updated: 2026-07-17
 source: ai
 iteration_id: 0458-feishu-model2-safe-alignment
@@ -51,7 +51,7 @@ Keep three slices independently reviewable: runtime direction safety, watcher cl
   - `node scripts/tests/test_0425_persistence_table_key_contract.mjs`
   - `node packages/ui-model-demo-frontend/scripts/validate_persistence_local.mjs`
 - Acceptance: the later invalid declaration is rejected with the frozen reason, prior valid state remains, the rejected route/endpoint is not stored or registered, `pin_connection_error:json` records the failure in ModelTable and survives both real persistence hydration paths, and existing connection/model/actor routing stays GREEN through both module entrypoints. The trusted hydration entry may bypass only reserved-key authorship; structural, placement, payload, and direction validation remain active.
-- Rollback: revert runtime and the three current documentation changes together.
+- Rollback: revert `runtime.mjs`, both trusted-hydration loaders, the 0357 and 0425 tests, and the three current documentation changes together; do not leave a loader calling a removed `hydrateLabel` entrypoint.
 
 ## Step 3 - Fix Watcher Risk Classification
 
@@ -112,18 +112,19 @@ Keep three slices independently reviewable: runtime direction safety, watcher cl
   - `node scripts/ops/validate_obsidian_docs_gate.mjs`;
   - `git diff --check` and staged-diff completeness checks.
 - Local rollback/deploy sequence:
-  1. require exact Docker/Kubernetes context `orbstack`; run the baseline check; capture SHA-256 fingerprints without printing secret values for the complete `deploy/env/local.generated.env`, `DY_MATRIX_ROOM_ID`, canonical `.data` of `ui-server-secret` and `mbr-worker-secret`, worker ConfigMaps, and the Synapse/Mosquitto pod UIDs;
+  1. require exact Docker/Kubernetes context `orbstack`; capture recovery-only SHA-256 fingerprints without printing secret values for the complete `deploy/env/local.generated.env`, `DY_MATRIX_ROOM_ID`, canonical `.data` of `ui-server-secret` and `mbr-worker-secret`, worker ConfigMaps, and the Synapse/Mosquitto pod UIDs; this recovery capture is not claimed as deploy verification;
   2. record current image IDs, then run `docker tag dy-ui-server:v1 dy-ui-server:pre-0458-2aefec0`, `docker tag dy-mbr-worker:v2 dy-mbr-worker:pre-0458-2aefec0`, and `docker tag dy-remote-worker:v3 dy-remote-worker:pre-0458-2aefec0`;
-  3. run only `docker build --no-cache -f k8s/Dockerfile.ui-server -t dy-ui-server:v1 .`, `docker build --no-cache -f k8s/Dockerfile.remote-worker -t dy-remote-worker:v3 .`, and `docker build --no-cache -f k8s/Dockerfile.mbr-worker -t dy-mbr-worker:v2 .`; do not run `deploy_local.sh`, `ensure_runtime_baseline.sh`, any manifest apply, asset sync, Matrix bootstrap, or Secret update;
-  4. run `kubectl -n dongyu rollout restart deployment/ui-server deployment/mbr-worker deployment/remote-worker deployment/workspace-manager`, wait for each exact rollout, and rerun `bash scripts/ops/check_runtime_baseline.sh`; require all six deployments Ready and require the complete generated-env, room-ID, both Secret-data, worker ConfigMap, and Synapse/Mosquitto pod-UID fingerprints to equal their pre-build values;
-  5. run `node scripts/test_e2e_0457_feishu_message_api_v2_orbstack.mjs`, `node scripts/tests/test_0377_workspace_manager_de_contract.mjs`, and the existing local actor contracts;
-  6. on any build, rollout, state-fingerprint, or acceptance failure, restore with `docker tag dy-ui-server:pre-0458-2aefec0 dy-ui-server:v1`, `docker tag dy-mbr-worker:pre-0458-2aefec0 dy-mbr-worker:v2`, and `docker tag dy-remote-worker:pre-0458-2aefec0 dy-remote-worker:v3`; restart only `deployment/ui-server`, `deployment/mbr-worker`, `deployment/remote-worker`, and `deployment/workspace-manager`; rerun rollout status plus the baseline check; keep 0458 incomplete.
+  3. run only `docker build --no-cache -f k8s/Dockerfile.ui-server -t dy-ui-server:v1 .`, `docker build --no-cache -f k8s/Dockerfile.remote-worker -t dy-remote-worker:v3 .`, and `docker build --no-cache -f k8s/Dockerfile.mbr-worker -t dy-mbr-worker:v2 .`; do not directly run `deploy_local.sh`, any manifest apply, asset sync, Matrix bootstrap, or Secret update;
+  4. declare the next operations as `deploy` verification in the runlog; run the exact mandatory pre-flight `bash scripts/ops/ensure_runtime_baseline.sh` followed by `bash scripts/ops/check_runtime_baseline.sh`, require `ensure` to print `baseline already healthy`, then run `kubectl -n dongyu rollout restart deployment/ui-server deployment/mbr-worker deployment/remote-worker deployment/workspace-manager`, wait for each exact rollout, and rerun `bash scripts/ops/check_runtime_baseline.sh`; require all six deployments Ready and require the complete generated-env, room-ID, both Secret-data, worker ConfigMap, and Synapse/Mosquitto pod-UID fingerprints to equal their recovery captures;
+  5. declare the live script as `e2e` in the runlog, rerun the exact mandatory `ensure` then `check` pre-flight, require the healthy no-repair branch, and only then run `node scripts/test_e2e_0457_feishu_message_api_v2_orbstack.mjs`, `node scripts/tests/test_0377_workspace_manager_de_contract.mjs`, and the existing local actor contracts immediately after the valid pre-flight;
+  6. on an ordinary build, bounded-rollout, state-fingerprint, or acceptance failure that did not invoke automatic repair, restore with `docker tag dy-ui-server:pre-0458-2aefec0 dy-ui-server:v1`, `docker tag dy-mbr-worker:pre-0458-2aefec0 dy-mbr-worker:v2`, and `docker tag dy-remote-worker:pre-0458-2aefec0 dy-remote-worker:v3`; restart only `deployment/ui-server`, `deployment/mbr-worker`, `deployment/remote-worker`, and `deployment/workspace-manager`; rerun the mandatory pre-flight and rollout checks; keep 0458 incomplete;
+  7. if either `ensure` invocation prints `baseline unhealthy; running one local repair deploy`, classify it as an unbounded local-state incident: allow the mandated repair command to finish, do not run E2E, do not apply the bounded three-image rollback to the repaired baseline, invalidate all prior deploy/E2E evidence, capture fresh non-secret state deltas, set 0458 On Hold, and require a separate recovery review before any further mutation.
 - State-fingerprint commands use `shasum -a 256`; `kubectl ... -o json | jq -cS` canonicalizes only the selected `.data` or pod-UID fields before hashing. Only hashes and the non-secret room identity comparison are recorded. Because the bounded path never calls `save_generated_env`, whole-file equality is required and no generated timestamp is rewritten.
 - Living-doc assessment: explicitly review runtime semantics, user guide, execution governance, tier conformance, alignment decisions, PIN contract, label registry, `docs/handover/dam-worker-guide.md`, backlog, and contract index; record changed/no-change reasons.
 - Conformance record: state Tier 1 interpreter placement, unchanged model/data owner and Tier 2 behavior, tightened invalid direction only, and preserved legal bus-in -> routing -> target / target -> routing -> bus-out chains.
 - Review: independent runtime, watcher/security, and authority/docs views; any finding resets the approval sequence after remediation.
 - Commit order: planning gate; runtime direction safety; watcher/routing/report; iteration closeout.
-- Acceptance: all checks and fresh local OrbStack acceptance PASS, three latest closeout reviews are Approved, iteration registry is Completed, unrelated dirty docs remain untouched, and no Feishu write/remote deploy/merge/push/PR occurred.
+- Acceptance: all checks and fresh local OrbStack acceptance PASS after the mandatory standard pre-flight, three latest closeout reviews are Approved, iteration registry is Completed, unrelated dirty docs remain untouched, and no Feishu write/remote deploy/merge/push/PR occurred.
 - Rollback: revert accepted logical commits in reverse order; current disputed Feishu behavior remains unadopted.
 
 ## Notes

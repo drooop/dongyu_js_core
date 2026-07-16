@@ -210,6 +210,62 @@ Implementation Re-review Record
 - `bash scripts/ops/check_runtime_baseline.sh`: PASS for exact `orbstack` contexts, all six Ready deployments, local Mosquitto/Synapse, local Matrix bootstrap, local auth, actor assets, and no terminating app pods.
 - Pre-build fingerprints were captured for the complete generated env, room identity, both Secret data sets, three worker ConfigMaps, and Synapse/Mosquitto pod identities; post-build equality remains pending.
 
+### Runtime Authority Correction — Major Revision 4
+
+- A post-rollout live E2E technically returned `revision4_live_verified`, but it was preceded only by `check_runtime_baseline.sh`. Under `CLAUDE.md` `RUNTIME_BASELINE`, every `scripts/test_e2e_*.mjs` result is invalid unless the exact mandatory `ensure_runtime_baseline.sh` then `check_runtime_baseline.sh` pre-flight ran first. This result is therefore diagnostic only and is not counted as acceptance.
+- The earlier 0458 plan also prohibited `ensure_runtime_baseline.sh`, which a lower-priority iteration document cannot use to override `CLAUDE.md`. Phase 3 execution is paused before closeout while plan/resolution return to Phase 2 review.
+- Major revision 4 removes that conflict without changing runtime, watcher, Feishu, actor, image, or routing scope. After the bounded rollout and state-equality proof, the exact standard pre-flight is mandatory. The current `ensure` implementation checks first and is non-mutating on a healthy baseline; the approved path requires its `baseline already healthy` branch. If it enters automatic repair, the bounded state proof is invalid and E2E stops pending fresh review.
+- No `ensure`, new E2E, browser action, Feishu write, remote deploy, merge, push, or PR is executed until this fourth major revision receives explicit user approval.
+
+Review Gate Record
+- Iteration ID: 0458-feishu-model2-safe-alignment
+- Review Date: 2026-07-17
+- Review Type: AI-assisted / governance-workflow major revision 4
+- Review Index: 13
+- Decision: Change Requested
+- Notes: revision 4 exceeded the three-major-revision cap and therefore requires On Hold plus explicit human judgment; deploy verification also preceded the mandatory pre-flight.
+
+Review Gate Record
+- Iteration ID: 0458-feishu-model2-safe-alignment
+- Review Date: 2026-07-17
+- Review Type: AI-assisted / runtime-deploy major revision 4
+- Review Index: 14
+- Decision: Change Requested
+- Notes: move the exact `ensure` then `check` pre-flight before deploy verification and define the automatic repair branch as an unbounded state incident rather than using the bounded rollback.
+
+Review Gate Record
+- Iteration ID: 0458-feishu-model2-safe-alignment
+- Review Date: 2026-07-17
+- Review Type: AI-assisted / scope-rollback major revision 4
+- Review Index: 15
+- Decision: Change Requested
+- Notes: the same pre-flight ordering and repair-state findings apply; Step 2 rollback must also include both trusted-hydration loaders and their tests.
+
+Planning Revision Record
+- Revision: major 4, corrected proposal awaiting user decision.
+- Action: moved the mandatory standard pre-flight before both deploy verification and E2E; separated the automatic full-repair branch from bounded rollback; completed the trusted-hydration rollback set.
+- Gate: `On Hold` under `docs/WORKFLOW.md` because four major revisions exceed the AI auto-approval limit. The earlier user approval of 0457 Revision 4 is not reused for this distinct 0458 plan revision.
+- Required decision: explicit user approval to resume 0458 under this corrected standard-pre-flight sequence.
+
 ## Living Docs Assessment
 
-Pending Phase 3.
+### Updated
+
+- `docs/ssot/runtime_semantics_modeltable_driven.md`: bus endpoint direction and trusted persistence hydration are Tier 1 runtime semantics.
+- `docs/ssot/pin_connection_contract_v2.md`: records legal bus endpoint positions, order-independent rejection, stable reasons, and stale-state cleanup.
+- `docs/ssot/label_type_registry.md`: distinguishes ordinary PIN direction from system-bus direction and records the reserved visible-error contract.
+- `docs/ssot/feishu_contract_backlog.md`: strengthens F-07 evidence and records unresolved F-10 through F-14.
+- `docs/ssot/contract_surface_manifest.json`: adds the four required high-risk routing cards and strengthened F-07 evidence.
+- `docs/ssot/contract_coverage_summary.md`: regenerated as a derived view, not product SSOT.
+
+### Reviewed — No Change Required
+
+- `docs/user-guide/modeltable_user_guide.md`: current examples already use legal bus-in to internal-route and internal-route to bus-out paths and defer exact PIN semantics to current SSOT; no user workflow, topic, or payload contract changed.
+- `CLAUDE.md` and `docs/WORKFLOW.md`: this revision restores compliance with their existing rules; it does not change execution authority or governance.
+- `docs/ssot/tier_boundary_and_conformance_testing.md`: this is a Tier 1 interpreter constraint; model placement, data ownership, and Tier 2 behavior remain unchanged.
+- `docs/ssot/feishu_alignment_decisions_v0.md`: no new adoption decision was made; F-10 through F-14 remain `requires_user_confirmation`, and F-07 received evidence only.
+- `docs/handover/dam-worker-guide.md`: this historical guide already defers to current SSOT and already uses bus-in as source and bus-out as destination.
+
+### Conformance Record
+
+The direction check belongs in Tier 1 because it validates structural PIN interpretation and route-graph integrity. It does not move business behavior, change model/data ownership, or add Tier 2 semantics. Legal `bus-in -> routing -> target` and `source -> routing -> bus-out` chains remain unchanged; only reversed system-bus connections are rejected. The 21 pre-existing unstaged documentation changes remain outside 0458 and untouched.

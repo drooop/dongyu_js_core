@@ -1,7 +1,7 @@
 ---
 title: "Iteration 0458 Feishu Model2 Safe Alignment Plan"
 doc_type: iteration-plan
-status: approved
+status: draft
 updated: 2026-07-17
 source: ai
 iteration_id: 0458-feishu-model2-safe-alignment
@@ -86,7 +86,8 @@ Each keyword above has an independent table-driven addition/removal test. The he
 - Backlog and contract index route F-10 through F-14 as `requires_user_confirmation` through four exact cards: `model.label_key_namespaces` -> F-10; `program_model.lifecycle_and_function_contract` -> F-11/F-12; `program_model.log_schema` -> F-13; `model.functional_type_capability_matrix` -> F-14. All four use `risk_level=high`.
 - Watcher, runtime, contract-index, docs, syntax, and diff gates pass.
 - Pre-change local images are tagged, affected images are rebuilt and restarted through a bounded OrbStack-only application path that does not run the full deploy script, all six local deployments are Ready, and the existing control/management/legacy-negative E2E plus WM1 contract pass against the rebuilt runtime.
-- Three consecutive independent planning reviews approve Phase 3, and three independent closeout reviews approve the final bounded change.
+- Every deploy verification and live E2E is preceded in the same execution window by the exact mandatory `ensure_runtime_baseline.sh` then `check_runtime_baseline.sh` pre-flight from `CLAUDE.md`. The healthy-path `ensure` must report `baseline already healthy`; if it enters its repair-deploy branch, the bounded candidate and prior fingerprints are invalidated, no bounded rollback is attempted, and execution stops for a fresh recovery review.
+- Because this is major planning revision 4, explicit user approval is required before Phase 3 can resume; AI auto-approval cannot lift the On Hold state. Three independent closeout reviews must still approve the final bounded change.
 
 ## Inputs
 
