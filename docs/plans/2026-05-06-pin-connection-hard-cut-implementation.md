@@ -9,7 +9,7 @@ source: ai
 
 # PIN Connection Hard-Cut Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Implement the 0356 PIN Connection Contract v2 without compatibility aliases or fallback paths.
 

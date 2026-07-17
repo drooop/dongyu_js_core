@@ -8,7 +8,7 @@ source: ai
 
 # Hard-Cut Closeout Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** 完成本次 hard-cut program 的最后收尾，让 `cellwise.ui.v1` 成为唯一 authoring source，`pin/owner-materialization` 成为唯一 business write 路径，并拿到可靠的本地浏览器证据。
 

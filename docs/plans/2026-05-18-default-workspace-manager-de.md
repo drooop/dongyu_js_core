@@ -8,7 +8,7 @@ source: ai
 
 # Default Workspace Manager DE Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Add a default Workspace Manager DE with one DEM worker and expose its first slide app through the existing UI-Server host/control-bus path.
 

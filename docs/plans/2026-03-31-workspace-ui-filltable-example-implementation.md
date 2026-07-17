@@ -8,7 +8,7 @@ source: ai
 
 # Workspace UI Fill-Table Example Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Add a preloaded Workspace example that is built from ModelTable UI labels, mounts as a sibling app in the Workspace sidebar, and can switch between remote dual-bus mode and local program-model mode purely through fill-table edits.
 

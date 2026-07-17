@@ -8,7 +8,7 @@ source: ai
 
 # Imported Slide App Host Ingress Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Add the first runtime-backed implementation of host-owned ingress for imported slide apps, using v1 root-relative boundary pin declarations and automatic Model 0 routing.
 

@@ -8,7 +8,7 @@ source: ai
 
 # Mgmt Bus Console And Slide Flow Design
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Implement the approved management bus console surface and align slide app process docs with the current Model 0 ingress truth.
 

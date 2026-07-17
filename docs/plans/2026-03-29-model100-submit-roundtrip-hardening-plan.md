@@ -8,7 +8,7 @@ source: ai
 
 # Model100 Submit Roundtrip Hardening Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** 让颜色生成器（Model 100）重新符合当前 hard-cut 主线：浏览器按钮可用，submit 去程/回程按正式链路工作，truth 与 scene/lifecycle 投影一致，并拿到本地浏览器证据。
 
