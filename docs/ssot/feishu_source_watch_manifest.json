@@ -1,6 +1,6 @@
 {
-  "schema": "feishu_source_watch_manifest.v1",
-  "authority_note": "Feishu documents are meeting-consensus source input; repository SSOT changes still require iteration review.",
+  "schema": "feishu_source_watch_manifest.v2",
+  "authority_note": "UpstreamConsensus documents define company consensus. DerivedView and SupportingSource entries have no independent decision authority. Repository SSOT remains the executable contract until an approved iteration adopts an upstream change.",
   "confirmation_policy": {
     "compatible_change": "adopt_plan_update",
     "conflict_or_unclear_change": "requires_user_confirmation",
@@ -10,6 +10,8 @@
     {
       "id": "main",
       "role": "Main",
+      "authority_class": "DerivedView",
+      "derives_from": ["feishu-model2", "feishu-message-api"],
       "title": "软件工人模型2（整理改写版 v0）",
       "url": "https://bob3y2gxxp.feishu.cn/wiki/Wurow8wi2iFyJqkDu81cyySQnlf",
       "source_type": "wiki",
@@ -30,6 +32,8 @@
     {
       "id": "rules",
       "role": "Rules",
+      "authority_class": "DerivedView",
+      "derives_from": ["feishu-model2", "feishu-message-api"],
       "title": "软件工人模型2-标签与连接规则 v0",
       "url": "https://bob3y2gxxp.feishu.cn/wiki/QnzqwrqRgiUOjUkzTA3chrVfnBd",
       "source_type": "wiki",
@@ -53,6 +57,8 @@
     {
       "id": "examples",
       "role": "Examples",
+      "authority_class": "DerivedView",
+      "derives_from": ["feishu-model2", "feishu-message-api"],
       "title": "软件工人模型2-完整模型表示例 v0",
       "url": "https://bob3y2gxxp.feishu.cn/wiki/LlBKwio3MiaIEBkLnaOcfzx4nuh",
       "source_type": "wiki",
@@ -73,6 +79,8 @@
     {
       "id": "planning",
       "role": "Planning",
+      "authority_class": "DerivedView",
+      "derives_from": ["feishu-model2", "feishu-message-api"],
       "title": "软件工人模型2-Tier2实现与模型ID规划 v0",
       "url": "https://bob3y2gxxp.feishu.cn/wiki/RazQwQpPjiZXtZkBIoocZq9Unuc",
       "source_type": "wiki",
@@ -93,6 +101,8 @@
     {
       "id": "feishu-model2",
       "role": "FocusedSource",
+      "authority_class": "UpstreamConsensus",
+      "derives_from": [],
       "title": "软件工人模型2",
       "url": "https://bob3y2gxxp.feishu.cn/wiki/JYNWwQOOjiWcOLktv07cBvIVnOh",
       "source_type": "wiki",
@@ -120,6 +130,8 @@
     {
       "id": "feishu-message-api",
       "role": "FocusedSource",
+      "authority_class": "UpstreamConsensus",
+      "derives_from": [],
       "title": "软件工人消息API文档",
       "url": "https://bob3y2gxxp.feishu.cn/wiki/WBZjwY3DSil6pAkQ8DZcpsrWnUf",
       "source_type": "wiki",
@@ -141,6 +153,20 @@
         "废弃",
         "延后"
       ]
+    }
+  ],
+  "supporting_source_slots": [
+    {
+      "id": "supporting-source-1",
+      "authority_class": "SupportingSource",
+      "status": "identity_pending",
+      "watch_enabled": false
+    },
+    {
+      "id": "supporting-source-2",
+      "authority_class": "SupportingSource",
+      "status": "identity_pending",
+      "watch_enabled": false
     }
   ]
 }

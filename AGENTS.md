@@ -10,6 +10,12 @@ Authority: `CLAUDE.md` is the highest execution constraint. This file is repo-lo
 本仓库是 ModelTable-driven runtime + UI demo + worker orchestration 的混合仓库。
 执行约束以 `CLAUDE.md` 为唯一最高优先级，`AGENTS.md` 仅做分层导航与本地工作提示。
 
+## LLM ENTRY
+- 本文件是 LLM entry；Human entry 为 `docs/README.md`。
+- 两个入口共享同一套 repo 产品合同，不得分别维护产品语义。
+- 合同定位先看 `docs/ssot/contract_surface_manifest.json`，但该文件只是 routing index，不是产品 SSOT。
+- Feishu 采纳边界看 `docs/ssot/feishu_alignment_decisions_v0.md`；Feishu 变化必须经过 iteration 才能进入当前可执行合同。
+
 ## REPO-LOCAL COLLABORATION
 - Scope:
   - 本节补充本仓库里的默认协作方式、汇报方式与信息搜集边界。
@@ -78,7 +84,8 @@ Authority: `CLAUDE.md` is the highest execution constraint. This file is repo-lo
 | 运行时语义/边界 | `docs/ssot/runtime_semantics_modeltable_driven.md` | mailbox, BUS_IN/OUT, CELL_CONNECT invariants |
 | 标签注册表 | `docs/ssot/label_type_registry.md` | authoritative label.t registry + placement rules |
 | 宿主能力边界 | `docs/ssot/host_ctx_api.md` | negative-model ctx API rules |
-| Feishu 对齐裁决与协作文档组 | `docs/ssot/feishu_alignment_decisions_v0.md` | contains the 4 maintained Feishu docs, their URLs, purposes, and maintenance chain |
+| Feishu 对齐裁决与协作文档组 | `docs/ssot/feishu_alignment_decisions_v0.md` | records 2 UpstreamConsensus, 4 DerivedView, 2 pending SupportingSource, and the adoption boundary |
+| 合同路由与覆盖索引 | `docs/ssot/contract_surface_manifest.json` | routes source/SSOT/implementation/tests/open decisions; not product SSOT |
 | Runtime 内核实现 | `packages/worker-base/src/runtime.js`, `packages/worker-base/src/runtime.mjs` | dual CJS/ESM must stay behavior-aligned |
 | UI 渲染契约 | `packages/ui-renderer/src/renderer.mjs` | host adapter contract, event normalization |
 | 前端入口 | `packages/ui-model-demo-frontend/src/main.js` | local/remote mode bootstrap |
@@ -87,6 +94,7 @@ Authority: `CLAUDE.md` is the highest execution constraint. This file is repo-lo
 | 部署前置检查 | `scripts/ops/check_runtime_baseline.sh`, `scripts/ops/ensure_runtime_baseline.sh` | ensure script may mutate/deploy |
 
 ## CONVENTIONS
+- Feishu authority model: 2 UpstreamConsensus + 4 DerivedView + 2 pending SupportingSource；精确 ID、派生关系和 fetch 状态以 `docs/ssot/feishu_source_watch_manifest.json` 为准。
 - Authority: `CLAUDE.md` > docs SSOT/charter/workflow > other docs.
 - `docs/handover/**`, `docs/roadmaps/**`, `docs/logs/**` are non-normative unless explicitly promoted; do not use them to override `CLAUDE.md` or `docs/ssot/**`.
 - Planning gate: no plan -> no code change; no Approved -> no execution.

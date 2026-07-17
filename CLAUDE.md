@@ -9,8 +9,21 @@ DOC_PRIORITY  high → low
 7  docs/ITERATIONS.md                                 (iteration registry)
 8  docs/ssot/execution_governance_ultrawork_doit.md   (governance)
 9  docs/ssot/*.md  docs/roadmaps/*.md  docs/user-guide/*.md
+   (`docs/ssot/*.md` excludes routing indexes, generated summaries, decision backlogs,
+   and evidence-only artifacts unless a higher-priority document explicitly promotes them)
 
 lower doc MUST NOT override higher doc.
+
+AUTHORITY_SCOPE
+
+- `DOC_PRIORITY` defines document conflict precedence. Only entries explicitly classified as
+  executable contracts participate in repository execution authority; directory placement alone
+  does not grant SSOT authority.
+- Human entry (`docs/README.md`) and LLM entry (`AGENTS.md` / this file) share the same product SSOT; entry documents MUST NOT create parallel product semantics.
+- `docs/ssot/contract_surface_manifest.json` is a routing/coverage index, not product SSOT.
+- `docs/ssot/feishu_alignment_decisions_v0.md` records adoption decisions from Feishu company consensus.
+- Feishu `UpstreamConsensus` can define company intent, but it changes the executable repository contract only through an Approved iteration.
+- Feishu `DerivedView`, `SupportingSource`, generated summaries, backlogs, and iteration evidence have no independent authority to override repo SSOT.
 
 
 HARD_RULES

@@ -2,7 +2,7 @@
 title: "Iteration Workflow"
 doc_type: governance
 status: active
-updated: 2026-05-10
+updated: 2026-07-10
 source: ai
 ---
 
@@ -140,6 +140,17 @@ Review Gate Record
 - reserved model ids / reserved cells
 
 指南入口：`docs/user-guide/modeltable_user_guide.md`
+
+### Feishu consensus adoption
+
+Feishu `UpstreamConsensus` 变更按以下判断规则处理：
+
+- 条件：source watcher 发现 heading diff。
+- 动作：将变更分类为 compatible 或 `requires_user_confirmation`，并把影响路由到 contract id、repo SSOT、实现和测试。
+- 停止条件：未得到用户/团队确认，或没有 Approved iteration 时，不得更新 repo SSOT、实现或 Feishu 派生视图。
+- 验证：Approved iteration 必须记录来源 baseline、采纳决议、repo SSOT diff、验证命令和 PASS/FAIL；之后才允许刷新 `DerivedView`。
+
+授权边界彼此独立：批准权威模型、批准本地 repo 编辑、批准 Feishu 编辑不是同一种授权。任何 Feishu 写入仍需用户明确授权。
 
 ### Living Docs Review（必须评估）
 
