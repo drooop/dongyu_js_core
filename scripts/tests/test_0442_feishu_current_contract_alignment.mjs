@@ -1,5 +1,9 @@
-import assert from 'node:assert';
+import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import {
+  DEFAULT_TOPIC_BASE,
+  pinPayloadV2Records,
+} from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const cjsRuntime = require('../../packages/worker-base/src/runtime.js');
@@ -10,17 +14,40 @@ const runtimeVariants = [
   ['esm', esmRuntime.ModelTableRuntime],
 ];
 
-function latestReason(rt) {
-  const events = rt.eventLog.list();
-  return events.length ? events[events.length - 1].reason : null;
-}
+const LEGACY_REJECTION_REASON = 'bus_in_legacy_feishu_message_api_v1_removed';
+
+const legacyModel0LabelKeys = [
+  'feishu_message_api_last_type',
+  'feishu_message_api_last_family',
+  'feishu_message_api_last_action',
+  'feishu_message_api_last_result',
+  'feishu_message_api_response_out',
+  'feishu_message_api_response_last_result',
+  'feishu_resource_manager_catalog',
+  'feishu_resource_manager_last_result',
+  'feishu_data_manager_store',
+  'feishu_data_manager_last_result',
+  'feishu_ui_manager_state',
+  'feishu_ui_manager_last_result',
+  'feishu_task_manager_tasks',
+  'feishu_task_manager_last_result',
+];
+
+const legacyInterceptTypes = [
+  'feishu_message_api_dispatch',
+  'feishu_message_api_response_outbox',
+  'feishu_resource_manager_event',
+  'feishu_data_manager_event',
+  'feishu_ui_manager_event',
+  'feishu_task_manager_event',
+];
 
 function latestRejectedReason(rt) {
   const events = rt.eventLog.list();
   for (let index = events.length - 1; index >= 0; index -= 1) {
-    if (events[index].result === 'rejected') return events[index].reason;
+    if (events[index]?.result === 'rejected') return events[index].reason ?? null;
   }
-  return latestReason(rt);
+  return null;
 }
 
 function assertRejected(rt, result, reason, message) {
@@ -32,7 +59,7 @@ function mt(k, t, v, id = '0', p = 0, r = 0, c = 0) {
   return { id, p, r, c, k, t, v };
 }
 
-function feishuResourceRequestMessage() {
+function completeLegacyFeishuMessageApiV1Records() {
   return [
     mt('model_type', 'model.subtable', 'Data'),
     mt('model_type', 'model.single', 'Data.Single', '0', 0, 0, 1),
@@ -48,56 +75,92 @@ function feishuResourceRequestMessage() {
       max_c: 2,
     }, '0', 0, 1, 0),
     mt('route_kind', 'str', 'control', '0', 0, 1, 0),
-    mt('origin_pin', 'str', 'UIPUT/ws/dam/pic/de/U1/0.2000/result', '0', 0, 1, 0),
-    mt('endpoint_pin', 'str', 'UIPUT/ws/dam/pic/de/R1/0.3000/submit1', '0', 0, 1, 0),
-    mt('response_pin', 'str', 'UIPUT/ws/dam/pic/de/U1/0.2000/result', '0', 0, 1, 0),
+    mt('origin_pin', 'str', `${DEFAULT_TOPIC_BASE}/U1/2000/result`, '0', 0, 1, 0),
+    mt('endpoint_pin', 'str', `${DEFAULT_TOPIC_BASE}/R1/3200/resource`, '0', 0, 1, 0),
+    mt('response_pin', 'str', `${DEFAULT_TOPIC_BASE}/U1/2000/result`, '0', 0, 1, 0),
     mt('model_type', 'model.single', 'Data.Single', '0', 0, 1, 1),
     mt('message_server', 'str', 'local', '0', 0, 1, 1),
     mt('between', 'str', 'DEM_V1N', '0', 0, 1, 1),
     mt('model_type', 'model.subtableconnection', 1, '0', 0, 2, 0),
     mt('model_type', 'model.subtable', 'Data', '0.1'),
     mt('model_name', 'model.name', 'payload', '0.1'),
-    mt('sys_msg_type', 'str', 'resource.request', '0.1'),
+    mt('sys_msg_type', 'str', 'resource.report', '0.1'),
+    mt('type', 'str', 'UI', '0.1', 0, 0, 1),
+    mt('resource', 'list', ['UI.app1'], '0.1', 0, 0, 1),
   ];
 }
 
-function withEnvelopeLabel(records, key, value) {
-  return records.map((record) => (
-    record.id === '0' && record.p === 0 && record.r === 1 && record.c === 0 && record.k === key
-      ? { ...record, v: value }
+function legacyShapeWithOnlyKindChangedToV2() {
+  return completeLegacyFeishuMessageApiV1Records().map((record) => (
+    record.id === '0'
+      && record.p === 0
+      && record.r === 0
+      && record.c === 1
+      && record.k === '__mt_payload_kind'
+      ? { ...record, v: 'pin_payload.v2' }
       : record
   ));
 }
 
-function withControlBusLabel(records, key, value) {
-  return records.map((record) => (
-    record.id === '0' && record.p === 0 && record.r === 1 && record.c === 1 && record.k === key
-      ? { ...record, v: value }
-      : record
-  ));
+function formalNumericPinPayloadV2Records(opId) {
+  return pinPayloadV2Records({
+    opId,
+    endpointWorkerId: 'R1',
+    endpointTableId: 'host',
+    endpointModelId: 100,
+    endpointPin: 'submit',
+    topic: `${DEFAULT_TOPIC_BASE}/R1/100/submit`,
+    responseTopic: `${DEFAULT_TOPIC_BASE}/U1/2000/result`,
+    routeKind: 'control',
+    originWorkerId: 'U1',
+    originTableId: 'host',
+    originModelId: 2000,
+    originPin: 'send',
+    replyTargetWorkerId: 'U1',
+    replyTargetTableId: 'host',
+    replyTargetModelId: 2000,
+    replyTargetPin: 'result',
+    payloadModelId: 1,
+    payloadRecords: [
+      { id: 1, p: 0, r: 0, c: 0, k: 'model_type', t: 'model.table', v: 'Data' },
+      { id: 1, p: 0, r: 0, c: 0, k: 'sys_msg_type', t: 'str', v: 'resource.report' },
+      { id: 1, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'generic-v2' },
+    ],
+    timestamp: 1700000004420,
+  });
 }
 
-function withPayloadSysMsgType(records, sysMsgType) {
-  return records.map((record) => (
-    record.id === '0.1' && record.k === 'sys_msg_type'
-      ? { ...record, v: sysMsgType }
-      : record
-  ));
+function dispatchControlBus(rt, records, key = 'in3') {
+  return rt.addLabel(rt.getModel(0), 0, 0, 0, {
+    k: key,
+    t: 'pin.bus.cb.in',
+    v: records,
+  });
 }
 
-function feishuTaskMessage(endpointPin = 'UIPUT/ws/dam/pic/de/R1/0.3000/add_task') {
-  return withPayloadSysMsgType(
-    withEnvelopeLabel(feishuResourceRequestMessage(), 'endpoint_pin', endpointPin),
-    'task_data',
+function legacyFeishuObservability(rt) {
+  const root = rt.getModel(0)?.getCell(0, 0, 0);
+  return {
+    labels: legacyModel0LabelKeys.filter((key) => root?.labels?.has(key)),
+    intercepts: rt.intercepts.list()
+      .map((entry) => entry?.type)
+      .filter((type) => legacyInterceptTypes.includes(type)),
+  };
+}
+
+function assertLegacyRejectedWithoutModel0SideEffects(rt, records, message) {
+  const result = dispatchControlBus(rt, records);
+  assertRejected(rt, result, LEGACY_REJECTION_REASON, message);
+  assert.equal(
+    rt.getModel(0).getCell(0, 0, 0).labels.has('in3'),
+    false,
+    `${message}: rejected BUS_IN must not be stored`,
   );
-}
-
-function feishuManageMessage() {
-  return [
-    ...withEnvelopeLabel(feishuResourceRequestMessage(), 'route_kind', 'manage'),
-    mt('send_user', 'str', '@drop:dongyudigital.com', '0', 0, 1, 1),
-    mt('receive_user', 'str', '@mbr:dongyudigital.com', '0', 0, 1, 1),
-  ];
+  assert.deepEqual(
+    legacyFeishuObservability(rt),
+    { labels: [], intercepts: [] },
+    `${message}: rejected legacy input must not produce Feishu Model0 side effects`,
+  );
 }
 
 async function test_model_v1n_is_accepted_at_worker_root() {
@@ -143,134 +206,86 @@ async function test_numeric_subtableconnection_is_normalized_from_feishu_input()
   }
 }
 
-async function test_feishu_pin_payload_v1_child_table_payload_is_parsed() {
-  const api = await import('../lib/feishu_message_api_v1.mjs');
-  const parsed = api.parseFeishuPinPayloadV1(feishuResourceRequestMessage());
-  assert.equal(parsed.ok, true, 'Feishu pin_payload.v1 message must parse');
-  assert.equal(parsed.kind, 'pin_payload.v1');
-  assert.equal(parsed.payloadTableId, '0.1');
-  assert.equal(parsed.routeKind, 'control');
-  assert.equal(parsed.isNeedResponse, true);
-  assert.equal(parsed.sysMsgType, 'resource.request');
-  assert.equal(parsed.payloadRecords.length, 3);
-}
-
-async function test_feishu_message_api_recognizes_documented_sys_msg_types() {
-  const api = await import('../lib/feishu_message_api_v1.mjs');
-  for (const value of [
-    'resource.report',
-    'resource.request',
-    'resource.result',
-    'data.save_modeltable',
-    'data.load_modeltable',
-    'data.save_flow',
-    'data.load_flow',
-    'ui.update_data',
-    'ui.tmp_data',
-    'ui.form_data',
-    'ui.refresh_data',
-    'task_data',
-  ]) {
-    assert.equal(api.isDocumentedFeishuSysMsgType(value), true, `${value} must be recognized`);
+async function test_worker_root_bus_in_rejects_complete_legacy_feishu_message_api_v1_shape() {
+  for (const [name, Runtime] of runtimeVariants) {
+    assertLegacyRejectedWithoutModel0SideEffects(
+      new Runtime(),
+      completeLegacyFeishuMessageApiV1Records(),
+      `${name}: complete legacy 0/0.1 Feishu Message API v1 shape must be removed`,
+    );
   }
-  assert.equal(api.isDocumentedFeishuSysMsgType('resource.unknown'), false, 'unknown sys_msg_type must fail closed');
 }
 
-async function test_feishu_message_api_rejects_unknown_sys_msg_type() {
-  const api = await import('../lib/feishu_message_api_v1.mjs');
-  const parsed = api.parseFeishuPinPayloadV1(withPayloadSysMsgType(feishuResourceRequestMessage(), 'resource.unknown'));
-  assert.equal(parsed.ok, false, 'unknown sys_msg_type must reject the message');
-  assert.equal(parsed.code, 'unknown_sys_msg_type');
-}
-
-async function test_feishu_message_api_rejects_invalid_bus_metadata() {
-  const api = await import('../lib/feishu_message_api_v1.mjs');
-  const parsed = api.parseFeishuPinPayloadV1(withControlBusLabel(feishuResourceRequestMessage(), 'message_server', 'remote'));
-  assert.equal(parsed.ok, false, 'invalid message_server must reject the message');
-  assert.equal(parsed.code, 'invalid_message_server');
-}
-
-async function test_feishu_message_api_accepts_manage_route_users() {
-  const api = await import('../lib/feishu_message_api_v1.mjs');
-  const parsed = api.parseFeishuPinPayloadV1(feishuManageMessage());
-  assert.equal(parsed.ok, true, 'manage route with documented users must parse');
-  assert.equal(parsed.routeKind, 'manage');
-  assert.equal(parsed.sendUser, '@drop:dongyudigital.com');
-  assert.equal(parsed.receiveUser, '@mbr:dongyudigital.com');
-}
-
-async function test_feishu_message_api_recognizes_documented_task_pins() {
-  const api = await import('../lib/feishu_message_api_v1.mjs');
-  for (const value of [
-    'add_task',
-    'add_task_return',
-    'edit_task',
-    'delete_task',
-    'receive_task',
-    'finish_task',
-    'archive_task',
-  ]) {
-    assert.equal(api.isDocumentedFeishuTaskPin(value), true, `${value} must be recognized`);
+async function test_worker_root_bus_in_rejects_legacy_shape_with_only_v2_kind() {
+  for (const [name, Runtime] of runtimeVariants) {
+    assertLegacyRejectedWithoutModel0SideEffects(
+      new Runtime(),
+      legacyShapeWithOnlyKindChangedToV2(),
+      `${name}: changing only legacy payload kind to v2 must not bypass the hard cut`,
+    );
   }
-  assert.equal(api.isDocumentedFeishuTaskPin('restore_task'), false, 'unknown task pin must fail closed');
 }
 
-async function test_feishu_message_api_rejects_task_data_unknown_task_pin() {
-  const api = await import('../lib/feishu_message_api_v1.mjs');
-  const parsed = api.parseFeishuPinPayloadV1(feishuTaskMessage('UIPUT/ws/dam/pic/de/R1/0.3000/restore_task'));
-  assert.equal(parsed.ok, false, 'task_data must target a documented task pin');
-  assert.equal(parsed.code, 'unknown_task_pin');
-}
-
-async function test_worker_root_bus_in_accepts_feishu_pin_payload_v1_records() {
+async function test_worker_root_generic_bus_in_accepts_formal_numeric_pin_payload_v2() {
   for (const [name, Runtime] of runtimeVariants) {
     const rt = new Runtime();
-    const model0 = rt.getModel(0);
-    const result = rt.addLabel(model0, 0, 0, 0, {
-      k: 'in3',
-      t: 'pin.bus.cb.in',
-      v: feishuResourceRequestMessage(),
-    });
-    assert.equal(result.applied, true, `${name}: worker root bus in must accept Feishu pin_payload.v1 records`);
+    const records = formalNumericPinPayloadV2Records(`0442_formal_numeric_v2_${name}`);
+    assert.equal(
+      records.every((record) => Number.isInteger(record.id)
+        && Number.isInteger(record.p)
+        && Number.isInteger(record.r)
+        && Number.isInteger(record.c)),
+      true,
+      `${name}: formal v2 must use numeric ModelTable coordinates`,
+    );
+    const result = dispatchControlBus(rt, records);
+    assert.equal(result.applied, true, `${name}: generic Model0 BUS_IN must accept formal numeric pin_payload.v2`);
+    assert.deepEqual(
+      legacyFeishuObservability(rt),
+      { labels: [], intercepts: [] },
+      `${name}: generic formal v2 must not trigger removed Feishu Model0 behavior`,
+    );
   }
 }
 
-async function test_worker_root_bus_in_rejects_unknown_feishu_sys_msg_type() {
+async function test_explicit_v2_route_metadata_is_required_without_autofill() {
+  const requiredRouteFields = [
+    ['endpoint_worker_id', 'invalid_pin_payload_records'],
+    ['endpoint_table_id', 'missing_endpoint_table_id'],
+    ['endpoint_model_id', 'invalid_pin_payload_records'],
+    ['endpoint_pin', 'invalid_pin_payload_records'],
+    ['origin_worker_id', 'invalid_pin_payload_records'],
+    ['origin_table_id', 'missing_origin_table_id'],
+    ['origin_model_id', 'invalid_pin_payload_records'],
+    ['origin_pin', 'invalid_pin_payload_records'],
+    ['reply_target_worker_id', 'invalid_pin_payload_records'],
+    ['reply_target_table_id', 'missing_reply_target_table_id'],
+    ['reply_target_model_id', 'invalid_pin_payload_records'],
+    ['reply_target_pin', 'invalid_pin_payload_records'],
+  ];
   for (const [name, Runtime] of runtimeVariants) {
-    const rt = new Runtime();
-    const model0 = rt.getModel(0);
-    const result = rt.addLabel(model0, 0, 0, 0, {
-      k: 'in3',
-      t: 'pin.bus.cb.in',
-      v: withPayloadSysMsgType(feishuResourceRequestMessage(), 'resource.unknown'),
-    });
-    assertRejected(rt, result, 'bus_in_unknown_sys_msg_type', `${name}: unknown Feishu sys_msg_type must fail closed at bus ingress`);
-  }
-}
+    for (const [index, [missingKey, expectedCode]] of requiredRouteFields.entries()) {
+      const rt = new Runtime();
+      const records = formalNumericPinPayloadV2Records(`0442_no_autofill_${name}_${missingKey}`)
+        .filter((record) => record.k !== missingKey);
+      const beforeValidation = JSON.parse(JSON.stringify(records));
+      const parsed = rt._validatePinPayloadRecords(records);
+      assert.equal(parsed.ok, false, `${name}/${missingKey}: omitted explicit route field must reject`);
+      assert.equal(parsed.code, expectedCode, `${name}/${missingKey}: exact omitted-field rejection`);
+      assert.equal(parsed.endpoint, undefined, `${name}/${missingKey}: validator must not synthesize endpoint`);
+      assert.equal(parsed.origin, undefined, `${name}/${missingKey}: validator must not synthesize origin`);
+      assert.equal(parsed.replyTarget, undefined, `${name}/${missingKey}: validator must not synthesize reply target`);
+      assert.deepEqual(records, beforeValidation, `${name}/${missingKey}: validation must not mutate or auto-fill the payload`);
 
-async function test_worker_root_bus_in_rejects_invalid_feishu_bus_metadata() {
-  for (const [name, Runtime] of runtimeVariants) {
-    const rt = new Runtime();
-    const model0 = rt.getModel(0);
-    const result = rt.addLabel(model0, 0, 0, 0, {
-      k: 'in3',
-      t: 'pin.bus.cb.in',
-      v: withControlBusLabel(feishuResourceRequestMessage(), 'message_server', 'remote'),
-    });
-    assertRejected(rt, result, 'bus_in_invalid_message_server', `${name}: invalid Feishu message_server must fail closed at bus ingress`);
-  }
-}
-
-async function test_worker_root_bus_in_rejects_task_data_unknown_task_pin() {
-  for (const [name, Runtime] of runtimeVariants) {
-    const rt = new Runtime();
-    const model0 = rt.getModel(0);
-    const result = rt.addLabel(model0, 0, 0, 0, {
-      k: 'in3',
-      t: 'pin.bus.cb.in',
-      v: feishuTaskMessage('UIPUT/ws/dam/pic/de/R1/0.3000/restore_task'),
-    });
-    assertRejected(rt, result, 'bus_in_unknown_task_pin', `${name}: task_data must fail closed on undocumented task pins`);
+      const busKey = `route_missing_${index}`;
+      const result = dispatchControlBus(rt, records, busKey);
+      assert.equal(result.applied, false, `${name}/${missingKey}: Model 0 BUS_IN must fail closed`);
+      assert.equal(
+        rt.getModel(0).getCell(0, 0, 0).labels.has(busKey),
+        false,
+        `${name}/${missingKey}: rejected route must not be stored after an implicit fill`,
+      );
+    }
   }
 }
 
@@ -278,17 +293,10 @@ const tests = [
   test_model_v1n_is_accepted_at_worker_root,
   test_model_v1n_is_rejected_outside_worker_root,
   test_numeric_subtableconnection_is_normalized_from_feishu_input,
-  test_feishu_pin_payload_v1_child_table_payload_is_parsed,
-  test_feishu_message_api_recognizes_documented_sys_msg_types,
-  test_feishu_message_api_rejects_unknown_sys_msg_type,
-  test_feishu_message_api_rejects_invalid_bus_metadata,
-  test_feishu_message_api_accepts_manage_route_users,
-  test_feishu_message_api_recognizes_documented_task_pins,
-  test_feishu_message_api_rejects_task_data_unknown_task_pin,
-  test_worker_root_bus_in_accepts_feishu_pin_payload_v1_records,
-  test_worker_root_bus_in_rejects_unknown_feishu_sys_msg_type,
-  test_worker_root_bus_in_rejects_invalid_feishu_bus_metadata,
-  test_worker_root_bus_in_rejects_task_data_unknown_task_pin,
+  test_worker_root_bus_in_rejects_complete_legacy_feishu_message_api_v1_shape,
+  test_worker_root_bus_in_rejects_legacy_shape_with_only_v2_kind,
+  test_worker_root_generic_bus_in_accepts_formal_numeric_pin_payload_v2,
+  test_explicit_v2_route_metadata_is_required_without_autofill,
 ];
 
 let failed = 0;

@@ -2,7 +2,7 @@
 title: "Slide App Runtime Developer Guide"
 doc_type: user-guide
 status: active
-updated: 2026-07-06
+updated: 2026-07-16
 source: ai
 ---
 
@@ -43,13 +43,15 @@ bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in -> pin route -> target
 ```text
 UI event
 -> UI-Server Model 0 pin.bus.cb.in
--> MBR / control-bus route
+-> 默认 control 路径由 UI Server 经本地 MQTT 直达目标 Worker
 -> Workspace-Manager-DE 的 DEM Model 0 pin.bus.cb.in
 -> DEM 程序模型处理
--> control-bus response
+-> local MQTT control-bus response（MBR no-echo）
 -> UI-Server
 -> 更新本地挂载 APP 的投影标签
 ```
+
+只有显式 `route_kind=management` 才通过本地 Matrix/Synapse 与 MBR 往返一次。
 
 未来 PICS-DE 也使用同一模式。PICS-DE 负责创建 DE / DEM / V1N；UI-Server 不直接承担创建者职责。
 
@@ -247,7 +249,7 @@ my-slide-app.zip
 
 Workspace Manager 的安装按钮不再从 UI Server 本地模型复制 `source_model_id`。它只读取 Workspace Manager DEM ModelTable 维护的资产索引；实际 APP bundle 必须由 provider worker 返回，并在 UI Server 校验 response 与 pending install 完全匹配后才会 materialize 为本地安装实例。
 
-RemoteWorker provider-owned bundle 的最小返回形态是：response packet 外层仍是 `pin_payload.v2`，业务 records 是 `slide_app_bundle_response.v1`，其中用 `bundle_payload` 或同一 Temporary ModelTable array 中的 offset records 承载真正的 App records。无论采用哪种承载方式，最终被安装的 bundle payload 都必须和 ZIP 的 `app_payload.json` 一样通过同一套 validator。
+RemoteWorker provider-owned bundle 的最小返回形态是：外层 transport packet 仍是 `{ "version": "v1", "type": "pin_payload", "payload": [...] }`，内部 records 的 `__mt_payload_kind = pin_payload.v2`，业务 records 是 `slide_app_bundle_response.v1`。真正的 App records 必须出现在同一 Temporary ModelTable record array 中，并用 `bundle_record_id_offset` 与 response metadata 区分；不得嵌入 `bundle_payload.v`。最终被安装的 App records 必须和 ZIP 的 `app_payload.json` 一样通过同一套 validator。
 
 当前实现中，工作区管理器页面展示的“可安装滑动 APP”来自 Workspace Manager DEM 模型表中的 `asset_catalog_json`。这份目录只是索引：它说明某个资产由哪个 DE / Worker 提供、安装时应向哪个 provider endpoint 请求 bundle、安装后运行时应走哪个业务 endpoint。UI Server 不把这份目录当成 APP payload truth。
 
@@ -410,7 +412,7 @@ target func.js
 -> Model 0 mt_bus_send_in
 -> Model 0 mt_bus_send
 -> Model 0 pin.bus.cb.out
--> MBR / MQTT
+-> local MQTT -> target Worker（默认 control）
 ```
 
 关键点：
@@ -419,7 +421,7 @@ target func.js
 - 宿主安装器知道这个 APP 由哪个 Model 0 parent-side `model.subtableconnection` connection/index Cell 索引。
 - 宿主 relay 把 app root `pin.out` 转成 Model 0 的 `mt_bus_send_in`。
 - `mt_bus_send` 再默认写 `pin.bus.cb.out`。
-- MBR / MQTT 默认只消费 Model 0 `pin.bus.cb.out`。显式管理语义才使用 `pin.bus.mb.out`。
+- 默认 control 由 UI Server MQTT adapter 消费 Model 0 `pin.bus.cb.out` 并直达目标 Worker，MBR 不 echo；显式 management 才使用 `pin.bus.mb.out` 并经 Matrix/Synapse 与 MBR。
 
 因此，开发者要写的是“我这个 APP 的业务完成后产生了什么 payload”，不是“我怎样直接发 Matrix 消息”。
 
@@ -444,5 +446,5 @@ target func.js
 当前要区分：
 
 - 本地 UI 草稿可以留在前端或 overlay。
-- 正式业务默认必须进入 Model 0 `pin.bus.cb.in`；显式管理语义才进入 `pin.bus.mb.in`。
+- 所有浏览器正式业务必须进入 Model 0 `pin.bus.cb.in`；management 只在目标模型外发时由 `bus=management` / `route_kind=management` 选择 Matrix/Synapse/MBR，浏览器不直接进入 `pin.bus.mb.in`。
 - 后端目标 cell 的实际变化，是 `mt_bus_receive` / `mt_write` 等模型表链路处理后的结果，不是浏览器直接改出来的结果。

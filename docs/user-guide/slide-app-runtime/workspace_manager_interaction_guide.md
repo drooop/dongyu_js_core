@@ -2,7 +2,7 @@
 title: "How To Interact With Workspace Manager"
 doc_type: user-guide
 status: active
-updated: 2026-07-01
+updated: 2026-07-16
 source: codex
 ---
 
@@ -61,7 +61,7 @@ mqtt_topic_base = UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>
 UIPUT/ws/dam/pic/de/R1/3100/bundle_request
 ```
 
-这个完整 topic 会写入临时 ModelTable payload 的 `topic` label，用于 MBR 转发。UI Server 同时生成 `response_topic = <mqtt_topic_base>/<host-transport-worker>/<host-transport-model>/<reply-pin>` 用于回包投递。若这次请求来自安装后的 App instance，payload 还必须带 `origin_table_id` 与 `reply_target_table_id`；真正 materialize 回哪张 App table 由 `reply_target_table_id + reply_target_model_id` 决定，而不是由 `response_topic` 的 model 段决定。完整 topic 可以投影成 `provider_bundle_topic` 给界面显示，但不能把 `provider_bundle_topic` 当作目录真源。
+这个完整 topic 会写入临时 ModelTable payload 的 `topic` label，作为 UI Server control MQTT adapter 与 management MBR bridge 共用的 transport routing truth。UI Server 同时生成 `response_topic = <mqtt_topic_base>/<host-transport-worker>/<host-transport-model>/<reply-pin>` 用于回包投递。若这次请求来自安装后的 App instance，payload 还必须带 `origin_table_id` 与 `reply_target_table_id`；真正 materialize 回哪张 App table 由 `reply_target_table_id + reply_target_model_id` 决定，而不是由 `response_topic` 的 model 段决定。完整 topic 可以投影成 `provider_bundle_topic` 给界面显示，但不能把 `provider_bundle_topic` 当作目录真源。
 
 ### 2.2 安装后业务运行 topic
 
@@ -276,6 +276,7 @@ provider 返回时也必须使用完整的 `pin_payload.v2` packet。`id = 0` �
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 1051 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "slide_import_result" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "timestamp", "t": "int", "v": 1700000000000 },
   { "id": 1, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "slide_app_bundle_response.v1" },
   { "id": 1, "p": 0, "r": 0, "c": 0, "k": "asset_id", "t": "str", "v": "r1-minimal-submit" },
   { "id": 1, "p": 0, "r": 0, "c": 0, "k": "bundle_record_id_offset", "t": "int", "v": 100 },
@@ -294,8 +295,10 @@ Workspace Manager 安装按钮
 -> UI Server 读取 Workspace Manager asset row
 -> 用 mqtt_topic_base + provider endpoint 拼出 topic
 -> Model 0 bus out 发出 slide_app_bundle_request.v1
--> MBR 按 payload.topic 转发
+-> provider_route_kind=control: UI Server local MQTT adapter 直达 provider worker
+-> provider_route_kind=management: UI Server 经 Matrix/Synapse 与 MBR 转到 local MQTT，再到 provider worker
 -> provider worker 返回 slide_app_bundle_response.v1
+-> response 按原 route kind 返回：control 直达 UI Server，management 只经 MBR 一次
 -> UI Server 校验 pending install state
 -> 校验 bundle_record_id_offset 指向的 bundle records
 -> materialize 成新的本地滑动 APP 模型

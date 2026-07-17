@@ -2,7 +2,7 @@
 title: "Current Local and Remote Project Address Record"
 doc_type: user-guide
 status: active
-updated: 2026-04-21
+updated: 2026-07-16
 source: ai
 ---
 
@@ -55,9 +55,9 @@ source: ai
 | 类型 | 当前记录 | 来源 | 说明 |
 |---|---|---|---|
 | Kubernetes namespace | `dongyu` | `deploy/env/local.env.example` / `deploy/env/cloud.env.example` / `k8s/*` | 本地和 cloud manifest 当前都使用该 namespace。 |
-| Local test Matrix homeserver | `https://matrix.dongyudigital.com` | `deploy/env/local.env.example` / `0395` | 本地测试默认通过远端 Matrix server 传输。 |
-| Local test Matrix server name | `synapse.dongyudigital.com` | `deploy/env/local.env.example` / `0395` | 本地测试默认 Matrix user id 后缀。 |
-| Cloud Matrix server name | `dongyu.local` | `deploy/env/cloud.env.example` / `0165` runlog Matrix Room | cloud baseline 口径。 |
+| Local test Matrix homeserver | `http://synapse.dongyu.svc.cluster.local:8008` | `deploy/env/local.env.example` / `scripts/ops/check_runtime_baseline.sh` | 本地测试的 management bus 只使用 OrbStack 集群内 Synapse。 |
+| Local test Matrix server name | `localhost` | `deploy/env/local.env.example` / `scripts/ops/check_runtime_baseline.sh` | 本地测试 Matrix user id 的 server-name 后缀。 |
+| Cloud Matrix server name | `synapse.dongyudigital.com` | `deploy/env/cloud.env.example` | cloud/remote 环境口径，不作为本地 acceptance 地址。 |
 
 ## 6. 使用建议
 

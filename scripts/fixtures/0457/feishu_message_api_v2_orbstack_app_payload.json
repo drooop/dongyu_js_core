@@ -1,0 +1,186 @@
+[
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "model_type",
+    "t": "model.table",
+    "v": "UI.0457Revision4LocalV2Acceptance"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "app_name",
+    "t": "str",
+    "v": "0457 Revision 4 Local V2 Acceptance"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "slide_app_summary",
+    "t": "str",
+    "v": "Local OrbStack acceptance fixture for control and management pin_payload.v2 round trips."
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "source_worker",
+    "t": "str",
+    "v": "it0457-revision4-local-acceptance"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "revision4_fixture_marker",
+    "t": "str",
+    "v": "it0457-revision4-local-v2-acceptance.v1"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "revision4_fixture_digest",
+    "t": "str",
+    "v": "d0337e0439862ba11bdfaef330270b79c6488b31e1ee30856ff508b37feb82ee"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "slide_capable",
+    "t": "bool",
+    "v": true
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "slide_surface_type",
+    "t": "str",
+    "v": "workspace.page"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "from_user",
+    "t": "str",
+    "v": "@ui:localhost"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "to_user",
+    "t": "str",
+    "v": "@mbr:localhost"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "ui_authoring_version",
+    "t": "str",
+    "v": "cellwise.ui.v1"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "ui_root_node_id",
+    "t": "str",
+    "v": "it0457_revision4_root"
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "remote_bus_endpoint_v1",
+    "t": "json",
+    "v": {
+      "transport": "mqtt",
+      "route_kind": "control",
+      "to": {
+        "worker_id": "R1",
+        "model_id": 3200
+      }
+    }
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "dual_bus_model",
+    "t": "json",
+    "v": {
+      "mode": "imported_host_egress",
+      "egress_pins": [
+        "resource",
+        "data"
+      ],
+      "egress_routes": [
+        {
+          "pin_name": "resource",
+          "route_kind": "control"
+        },
+        {
+          "pin_name": "data",
+          "route_kind": "management"
+        }
+      ],
+      "envelope_extension_keys": [
+        "is_need_response",
+        "message_server",
+        "between",
+        "send_user",
+        "receive_user",
+        "custom_trace"
+      ]
+    }
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "resource",
+    "t": "pin.out",
+    "v": null
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "data",
+    "t": "pin.out",
+    "v": null
+  },
+  {
+    "id": 0,
+    "p": 0,
+    "r": 0,
+    "c": 0,
+    "k": "result",
+    "t": "pin.in",
+    "v": null
+  }
+]

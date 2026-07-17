@@ -1,0 +1,734 @@
+{
+  "version": "mt.v0",
+  "op_id": "remote_worker_r1_feishu_message_api_v2",
+  "description": "R1 Model 3200 Feishu Message API v2 actor and dispatcher routes",
+  "records": [
+    {
+      "op": "create_model",
+      "model_id": 3200,
+      "name": "feishu_message_api_r1",
+      "type": "service"
+    },
+    {
+      "op": "rm_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_write_req"
+    },
+    {
+      "op": "rm_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_write_result"
+    },
+    {
+      "op": "rm_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_bus_send_in"
+    },
+    {
+      "op": "rm_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mt_bus_receive_in"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": "Flow"
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "resource",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "data",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "ui",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "add_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "add_task_return",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "edit_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "delete_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "receive_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "finish_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "archive_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "feishu_message_api_routes",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "resource",
+          "to": ["feishu_message_api_schema:in"]
+        },
+        {
+          "from": "data",
+          "to": ["feishu_message_api_schema:in"]
+        },
+        {
+          "from": "ui",
+          "to": ["feishu_message_api_schema:in"]
+        },
+        {
+          "from": "add_task",
+          "to": ["feishu_message_api_schema:in"]
+        },
+        {
+          "from": "add_task_return",
+          "to": ["feishu_message_api_schema:in"]
+        },
+        {
+          "from": "edit_task",
+          "to": ["feishu_message_api_schema:in"]
+        },
+        {
+          "from": "delete_task",
+          "to": ["feishu_message_api_schema:in"]
+        },
+        {
+          "from": "receive_task",
+          "to": ["feishu_message_api_schema:in"]
+        },
+        {
+          "from": "finish_task",
+          "to": ["feishu_message_api_schema:in"]
+        },
+        {
+          "from": "archive_task",
+          "to": ["feishu_message_api_schema:in"]
+        },
+        {
+          "from": "feishu_message_api_schema:out",
+          "to": ["feishu_task_manager:in"]
+        },
+        {
+          "from": "feishu_task_manager:out",
+          "to": ["feishu_resource_manager:in"]
+        },
+        {
+          "from": "feishu_resource_manager:out",
+          "to": ["feishu_data_manager:in"]
+        },
+        {
+          "from": "feishu_data_manager:out",
+          "to": ["feishu_ui_manager:in"]
+        },
+        {
+          "from": "feishu_ui_manager:out",
+          "to": ["feishu_message_api_response_contract:in"]
+        },
+        {
+          "from": "feishu_message_api_response_contract:out",
+          "to": ["result"]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "feishu_message_api_schema",
+      "t": "func.js",
+      "v": {
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst sourcePin = label && typeof label.sourcePin === 'string' ? label.sourcePin : '';\nconst hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);\nconst exactKeys = 'c,id,k,p,r,t,v';\nconst isRecord = (record) => record && typeof record === 'object' && !Array.isArray(record) && Object.keys(record).sort().join(',') === exactKeys && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0 && hasOwn(record, 'v');\nconst at = (id, key) => records.find((record) => isRecord(record) && record.id === id && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null;\nconst root = (key) => at(0, key);\nconst readRootString = (key) => { const record = root(key); return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v && record.v.length > 0 ? record.v : ''; };\nconst readRootInt = (key) => { const record = root(key); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst mt = (k, t, v, id = 0) => ({ id, p: 0, r: 0, c: 0, k, t, v });\nconst reject = (code, detail = {}) => { V1N.addLabel('feishu_message_api_last_result', 'json', { status: 'rejected', code, pin: sourcePin, ...detail }); return undefined; };\nif (records.length === 0 || !records.every(isRecord)) return reject('invalid_record_shape');\nconst isNeedResponseRecord = root('is_need_response');\nif (!isNeedResponseRecord) return reject('missing_is_need_response');\nif (isNeedResponseRecord.t !== 'bool' || typeof isNeedResponseRecord.v !== 'boolean') return reject('invalid_is_need_response');\nconst messageServerRecord = root('message_server');\nif (messageServerRecord && (messageServerRecord.t !== 'str' || (messageServerRecord.v !== 'local' && messageServerRecord.v !== 'global'))) return reject('invalid_message_server');\nconst betweenRecord = root('between');\nif (betweenRecord && (betweenRecord.t !== 'str' || (betweenRecord.v !== 'WSM_DEM' && betweenRecord.v !== 'DEM_V1N'))) return reject('invalid_between');\nconst routeKind = readRootString('route_kind');\nconst sendUserRecord = root('send_user');\nconst receiveUserRecord = root('receive_user');\nconst isValidUserRecord = (record) => !record || (record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v && record.v.length > 0);\nif (!isValidUserRecord(sendUserRecord)) return reject('invalid_send_user');\nif (!isValidUserRecord(receiveUserRecord)) return reject('invalid_receive_user');\nconst sendUser = readRootString('send_user');\nconst receiveUser = readRootString('receive_user');\nif (routeKind === 'management' && !sendUserRecord) return reject('missing_send_user');\nif (routeKind === 'management' && !receiveUserRecord) return reject('missing_receive_user');\nconst payloadModelId = readRootInt('payload_model_id');\nconst businessModelType = Number.isInteger(payloadModelId) ? at(payloadModelId, 'model_type') : null;\nif (!businessModelType) return reject('missing_business_model_type');\nif (businessModelType.t !== 'model.table' || (businessModelType.v !== 'Data' && businessModelType.v !== 'Flow')) return reject('invalid_business_model_type');\nconst sysMsgTypeRecord = at(payloadModelId, 'sys_msg_type');\nif (!sysMsgTypeRecord) return reject('missing_sys_msg_type');\nconst documentedTypes = new Set(['resource.report', 'resource.request', 'resource.result', 'data.save_modeltable', 'data.load_modeltable', 'data.save_flow', 'data.load_flow', 'ui.update_data', 'ui.tmp_data', 'ui.form_data', 'ui.refresh_data', 'task_data']);\nif (sysMsgTypeRecord.t !== 'str' || typeof sysMsgTypeRecord.v !== 'string' || !documentedTypes.has(sysMsgTypeRecord.v)) return reject('unknown_sys_msg_type');\nconst sysMsgType = sysMsgTypeRecord.v;\nconst taskPins = new Set(['add_task', 'add_task_return', 'edit_task', 'delete_task', 'receive_task', 'finish_task', 'archive_task']);\nconst expectedFamilyPin = sysMsgType.startsWith('resource.') ? 'resource' : (sysMsgType.startsWith('data.') ? 'data' : (sysMsgType.startsWith('ui.') ? 'ui' : ''));\nif (expectedFamilyPin && sourcePin !== expectedFamilyPin) return reject('sys_msg_type_pin_mismatch', { sys_msg_type: sysMsgType });\nif (sysMsgType === 'task_data' && !taskPins.has(sourcePin)) return reject('unknown_task_pin');\nconst action = sysMsgType === 'task_data' ? sourcePin : sysMsgType.split('.').slice(1).join('.');\nconst family = sysMsgType === 'task_data' ? 'task' : sysMsgType.split('.')[0];\nconst accepted = { status: 'accepted', code: 'ok', pin: sourcePin, sys_msg_type: sysMsgType, family, action, is_need_response: isNeedResponseRecord.v };\nV1N.addLabel('feishu_message_api_last_result', 'json', accepted);\nreturn {\n  kind: 'feishu_message_api_context.v1',\n  records,\n  source_pin: sourcePin,\n  sys_msg_type: sysMsgType,\n  family,\n  action,\n  is_need_response: isNeedResponseRecord.v,\n  route_kind: routeKind,\n  send_user: sendUser,\n  receive_user: receiveUser,\n  message_server: messageServerRecord ? messageServerRecord.v : '',\n  between: betweenRecord ? betweenRecord.v : '',\n  accepted\n};",
+        "modelName": "feishu_message_api_r1"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "feishu_task_manager",
+      "t": "func.js",
+      "v": {
+        "code": "const context = label && label.v;\nif (!context || context.kind !== 'feishu_message_api_context.v1') return undefined;\nif (context.family !== 'task') return context;\nconst action = context.action;\nconst records = Array.isArray(context.records) ? context.records : [];\nconst payloadModelIdRecord = records.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'payload_model_id');\nconst payloadModelId = payloadModelIdRecord && payloadModelIdRecord.t === 'int' && Number.isInteger(payloadModelIdRecord.v) ? payloadModelIdRecord.v : null;\nconst taskFieldRecords = (key) => records.filter((record) => record && record.id === payloadModelId && record.p === 0 && record.r === 0 && record.c === 1 && record.k === key);\nconst validField = (record, type) => {\n  if (!record || record.t !== type) return false;\n  if (type === 'str') return typeof record.v === 'string' && record.v.trim() === record.v && record.v.length > 0;\n  if (type === 'int') return Number.isInteger(record.v);\n  if (type === 'bool') return typeof record.v === 'boolean';\n  return false;\n};\nconst reject = (code) => {\n  const rejected = { status: 'rejected', code, action, sys_msg_type: context.sys_msg_type };\n  V1N.addLabel('feishu_task_manager_last_result', 'json', rejected);\n  V1N.addLabel('feishu_message_api_last_result', 'json', rejected);\n  return undefined;\n};\nif (action === 'add_task_return') return reject('task_action_pending:add_task_return');\nconst requiredByAction = {\n  add_task: [['title', 'str'], ['body', 'str'], ['publisher', 'str'], ['publish_time', 'str']],\n  edit_task: [['id', 'int']],\n  delete_task: [['id', 'int']],\n  receive_task: [['id', 'int'], ['receive_time', 'str'], ['receiver', 'str']],\n  finish_task: [['id', 'int'], ['end_time', 'str'], ['is_success', 'bool']],\n  archive_task: [['id', 'int'], ['archive_time', 'str'], ['review', 'str']]\n};\nconst required = requiredByAction[action];\nif (!required) return reject('unknown_task_action');\nconst fields = {};\nfor (const [key, type] of required) {\n  const matches = taskFieldRecords(key);\n  if (matches.length !== 1 || !validField(matches[0], type)) return reject('missing_task_field:' + key);\n  fields[key] = matches[0].v;\n}\nif (action === 'edit_task') {\n  for (const key of ['title', 'body', 'publisher', 'publish_time']) {\n    const matches = taskFieldRecords(key);\n    if (matches.length > 1 || (matches.length === 1 && !validField(matches[0], 'str'))) return reject('invalid_task_field:' + key);\n    if (matches.length === 1) fields[key] = matches[0].v;\n  }\n}\nconst tasksLabel = V1N.readLabel(0, 0, 0, 'feishu_task_manager_tasks');\nconst tasks = tasksLabel && tasksLabel.t === 'json' && Array.isArray(tasksLabel.v)\n  ? tasksLabel.v.filter((task) => task && typeof task === 'object' && !Array.isArray(task) && Number.isInteger(task.id)).map((task) => ({ ...task }))\n  : [];\nlet task = null;\nif (action === 'add_task') {\n  const id = tasks.reduce((maximum, candidate) => Math.max(maximum, candidate.id), 0) + 1;\n  task = { id, title: fields.title, body: fields.body, publisher: fields.publisher, publish_time: fields.publish_time, status: 'added_waiting_receive' };\n  tasks.push(task);\n} else {\n  const index = tasks.findIndex((candidate) => candidate.id === fields.id);\n  if (index < 0) return reject('task_not_found:' + fields.id);\n  task = { ...tasks[index] };\n  if (action === 'edit_task') {\n    for (const key of ['title', 'body', 'publisher', 'publish_time']) if (Object.prototype.hasOwnProperty.call(fields, key)) task[key] = fields[key];\n  } else if (action === 'delete_task') {\n    task.status = 'deleted';\n  } else if (action === 'receive_task') {\n    task.receiver = fields.receiver;\n    task.receive_time = fields.receive_time;\n    task.status = 'received_waiting_finish';\n  } else if (action === 'finish_task') {\n    task.end_time = fields.end_time;\n    task.is_success = fields.is_success;\n    task.status = 'finished_waiting_archive';\n  } else if (action === 'archive_task') {\n    task.archive_time = fields.archive_time;\n    task.review = fields.review;\n    task.status = 'archived';\n  }\n  tasks[index] = task;\n}\ntasks.sort((left, right) => left.id - right.id);\nconst result = { status: task.status, action, task_id: task.id, task: { ...task }, ts: Date.now() };\nV1N.addLabel('feishu_task_manager_tasks', 'json', tasks);\nV1N.addLabel('feishu_task_manager_last_result', 'json', result);\nreturn { ...context, handler_result: result };",
+        "modelName": "feishu_task_manager_r1"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "feishu_resource_manager",
+      "t": "func.js",
+      "v": {
+        "code": "const context = label && label.v;\nif (!context || context.kind !== 'feishu_message_api_context.v1') return undefined;\nif (context.family !== 'resource') return context;\nconst action = context.action;\nconst records = Array.isArray(context.records) ? context.records : [];\nconst payloadModelIdRecord = records.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'payload_model_id');\nconst payloadModelId = payloadModelIdRecord && payloadModelIdRecord.t === 'int' && Number.isInteger(payloadModelIdRecord.v) ? payloadModelIdRecord.v : null;\nconst groups = new Map();\nfor (const record of records) {\n  if (!record || record.id !== payloadModelId) continue;\n  if (record.k !== 'type' && record.k !== 'resource') continue;\n  const key = record.p + ':' + record.r + ':' + record.c;\n  const group = groups.get(key) || { types: [], resources: [] };\n  if (record.k === 'type') group.types.push(record);\n  if (record.k === 'resource') group.resources.push(record);\n  groups.set(key, group);\n}\nconst entries = [];\nlet invalidGroup = false;\nfor (const group of groups.values()) {\n  if (group.types.length !== 1 || group.resources.length !== 1) { invalidGroup = true; continue; }\n  const typeRecord = group.types[0];\n  const resourceRecord = group.resources[0];\n  const validType = typeRecord.t === 'str' && typeof typeRecord.v === 'string' && typeRecord.v.trim() === typeRecord.v && typeRecord.v.length > 0;\n  const validResources = resourceRecord.t === 'list' && Array.isArray(resourceRecord.v) && resourceRecord.v.length > 0 && resourceRecord.v.every((value) => typeof value === 'string' && value.trim() === value && value.length > 0);\n  if (!validType || !validResources) { invalidGroup = true; continue; }\n  entries.push({ type: typeRecord.v, resource: [...resourceRecord.v] });\n}\nconst reject = (code) => {\n  const rejected = { status: 'rejected', code, action, sys_msg_type: context.sys_msg_type };\n  V1N.addLabel('feishu_resource_manager_last_result', 'json', rejected);\n  V1N.addLabel('feishu_message_api_last_result', 'json', rejected);\n  return undefined;\n};\nif (action !== 'report' && action !== 'result' && action !== 'request') return reject('unknown_resource_action');\nif ((action === 'report' || action === 'result') && (entries.length === 0 || invalidGroup)) return reject('missing_resource_entries');\nconst catalogLabel = V1N.readLabel(0, 0, 0, 'feishu_resource_manager_catalog');\nconst catalog = {};\nif (catalogLabel && catalogLabel.t === 'json' && catalogLabel.v && typeof catalogLabel.v === 'object' && !Array.isArray(catalogLabel.v)) {\n  for (const [type, resources] of Object.entries(catalogLabel.v)) if (Array.isArray(resources)) catalog[type] = [...resources];\n}\nif (action === 'report' || action === 'result') {\n  for (const key of Object.keys(catalog)) delete catalog[key];\n  for (const entry of entries) {\n    const current = Array.isArray(catalog[entry.type]) ? catalog[entry.type] : [];\n    catalog[entry.type] = [...new Set([...current, ...entry.resource])];\n  }\n  V1N.addLabel('feishu_resource_manager_catalog', 'json', catalog);\n}\nconst result = { status: 'accepted', action, sys_msg_type: context.sys_msg_type, entries, catalog, ts: Date.now() };\nV1N.addLabel('feishu_resource_manager_last_result', 'json', result);\nreturn { ...context, handler_result: result };",
+        "modelName": "feishu_resource_manager_r1"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "feishu_data_manager",
+      "t": "func.js",
+      "v": {
+        "code": "const context = label && label.v;\nif (!context || context.kind !== 'feishu_message_api_context.v1') return undefined;\nif (context.family !== 'data') return context;\nconst action = context.action;\nconst specs = {\n  save_modeltable: { kind: 'modeltable', slot: 'saved', payload_type: 'Data' },\n  load_modeltable: { kind: 'modeltable', slot: 'loaded', payload_type: 'Data' },\n  save_flow: { kind: 'flow', slot: 'saved', payload_type: 'Flow' },\n  load_flow: { kind: 'flow', slot: 'loaded', payload_type: 'Flow' }\n};\nconst reject = (code) => {\n  const rejected = { status: 'rejected', code, action, sys_msg_type: context.sys_msg_type };\n  V1N.addLabel('feishu_data_manager_last_result', 'json', rejected);\n  V1N.addLabel('feishu_message_api_last_result', 'json', rejected);\n  return undefined;\n};\nconst spec = specs[action];\nif (!spec) return reject('unknown_data_action');\nconst records = Array.isArray(context.records) ? context.records : [];\nconst payloadModelIdRecord = records.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'payload_model_id');\nconst payloadModelId = payloadModelIdRecord && payloadModelIdRecord.t === 'int' && Number.isInteger(payloadModelIdRecord.v) ? payloadModelIdRecord.v : null;\nconst payloadRoot = records.find((record) => record && record.id === payloadModelId && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'model_type');\nconst payloadType = payloadRoot && payloadRoot.t === 'model.table' && typeof payloadRoot.v === 'string' ? payloadRoot.v : '';\nif (payloadType !== spec.payload_type) return reject('invalid_data_payload_type');\nconst metadataKeys = new Set(['model_type', 'model_name', 'sys_msg_type']);\nconst cloneValue = (value) => {\n  if (Array.isArray(value)) return value.map((item) => cloneValue(item));\n  if (value && typeof value === 'object') { const copy = {}; for (const [key, item] of Object.entries(value)) copy[key] = cloneValue(item); return copy; }\n  return value;\n};\nconst payloadRecords = records.filter((record) => record && record.id === payloadModelId && !(record.p === 0 && record.r === 0 && record.c === 0 && metadataKeys.has(record.k))).map((record) => cloneValue(record));\nif (payloadRecords.length === 0) return reject('missing_data_payload_records');\nconst storeLabel = V1N.readLabel(0, 0, 0, 'feishu_data_manager_store');\nconst store = storeLabel && storeLabel.t === 'json' && storeLabel.v && typeof storeLabel.v === 'object' && !Array.isArray(storeLabel.v) ? cloneValue(storeLabel.v) : {};\nconst bucket = store[spec.kind] && typeof store[spec.kind] === 'object' && !Array.isArray(store[spec.kind]) ? store[spec.kind] : {};\nconst entry = { payload_model_id: payloadModelId, payload_type: payloadType, record_count: payloadRecords.length, records: payloadRecords };\nbucket[spec.slot] = entry;\nstore[spec.kind] = bucket;\nconst result = { status: 'accepted', action, kind: spec.kind, sys_msg_type: context.sys_msg_type, payload_model_id: payloadModelId, payload_type: payloadType, record_count: payloadRecords.length, records: payloadRecords, ts: Date.now() };\nV1N.addLabel('feishu_data_manager_store', 'json', store);\nV1N.addLabel('feishu_data_manager_last_result', 'json', result);\nreturn { ...context, handler_result: result };",
+        "modelName": "feishu_data_manager_r1"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "feishu_ui_manager",
+      "t": "func.js",
+      "v": {
+        "code": "const context = label && label.v;\nif (!context || context.kind !== 'feishu_message_api_context.v1') return undefined;\nif (context.family !== 'ui') return context;\nconst action = context.action;\nconst reject = (code) => {\n  const rejected = { status: 'rejected', code, action, sys_msg_type: context.sys_msg_type };\n  V1N.addLabel('feishu_ui_manager_last_result', 'json', rejected);\n  V1N.addLabel('feishu_message_api_last_result', 'json', rejected);\n  return undefined;\n};\nif (action === 'refresh_data') return reject('ui_action_pending:refresh_data');\nif (action !== 'update_data' && action !== 'tmp_data' && action !== 'form_data') return reject('unknown_ui_action');\nconst records = Array.isArray(context.records) ? context.records : [];\nconst payloadModelIdRecord = records.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'payload_model_id');\nconst payloadModelId = payloadModelIdRecord && payloadModelIdRecord.t === 'int' && Number.isInteger(payloadModelIdRecord.v) ? payloadModelIdRecord.v : null;\nconst payloadRoot = records.find((record) => record && record.id === payloadModelId && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'model_type');\nconst payloadType = payloadRoot && payloadRoot.t === 'model.table' && typeof payloadRoot.v === 'string' ? payloadRoot.v : '';\nif (payloadType !== 'Data') return reject('invalid_ui_payload_type');\nconst metadataKeys = new Set(['model_type', 'model_name', 'sys_msg_type']);\nconst cloneValue = (value) => {\n  if (Array.isArray(value)) return value.map((item) => cloneValue(item));\n  if (value && typeof value === 'object') { const copy = {}; for (const [key, item] of Object.entries(value)) copy[key] = cloneValue(item); return copy; }\n  return value;\n};\nconst payloadRecords = records.filter((record) => record && record.id === payloadModelId && !(record.p === 0 && record.r === 0 && record.c === 0 && metadataKeys.has(record.k))).map((record) => cloneValue(record));\nif (payloadRecords.length === 0) return reject('missing_ui_payload_records');\nconst stateLabel = V1N.readLabel(0, 0, 0, 'feishu_ui_manager_state');\nconst state = stateLabel && stateLabel.t === 'json' && stateLabel.v && typeof stateLabel.v === 'object' && !Array.isArray(stateLabel.v) ? cloneValue(stateLabel.v) : {};\nconst entry = { payload_model_id: payloadModelId, record_count: payloadRecords.length, records: payloadRecords };\nif (action === 'update_data') {\n  const update = state.update && typeof state.update === 'object' && !Array.isArray(state.update) ? state.update : {};\n  const history = Array.isArray(update.history) ? update.history : [];\n  update.current = entry;\n  history.push(cloneValue(entry));\n  update.history = history;\n  state.update = update;\n}\nif (action === 'tmp_data') {\n  const tmp = state.tmp && typeof state.tmp === 'object' && !Array.isArray(state.tmp) ? state.tmp : {};\n  tmp.current = entry;\n  state.tmp = tmp;\n}\nif (action === 'form_data') {\n  const form = state.form && typeof state.form === 'object' && !Array.isArray(state.form) ? state.form : {};\n  const submissions = Array.isArray(form.submissions) ? form.submissions : [];\n  submissions.push(entry);\n  form.submissions = submissions;\n  state.form = form;\n}\nconst result = { status: 'accepted', action, sys_msg_type: context.sys_msg_type, payload_model_id: payloadModelId, record_count: payloadRecords.length, temporary: action === 'tmp_data', records: payloadRecords, ts: Date.now() };\nV1N.addLabel('feishu_ui_manager_state', 'json', state);\nV1N.addLabel('feishu_ui_manager_last_result', 'json', result);\nreturn { ...context, handler_result: result };",
+        "modelName": "feishu_ui_manager_r1"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 3200,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "feishu_message_api_response_contract",
+      "t": "func.js",
+      "v": {
+        "code": "const context = label && label.v;\nif (!context || context.kind !== 'feishu_message_api_context.v1') return undefined;\nif (context.is_need_response !== true) return undefined;\nconst records = Array.isArray(context.records) ? context.records : [];\nconst root = (key) => records.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null;\nconst readString = (key) => { const record = root(key); return record && record.t === 'str' && typeof record.v === 'string' ? record.v : ''; };\nconst readInt = (key) => { const record = root(key); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst mt = (k, t, v, id = 0) => ({ id, p: 0, r: 0, c: 0, k, t, v });\nconst fail = (code) => { V1N.addLabel('feishu_message_api_last_result', 'json', { status: 'rejected', code, pin: context.source_pin }); return undefined; };\nconst responseTopic = readString('response_topic');\nconst responseParts = responseTopic.split('/');\nif (responseParts.length !== 8 || !/^[1-9][0-9]*$/.test(responseParts[6])) return fail('invalid_response_topic');\nconst opId = readString('op_id') || readString('__mt_request_id');\nconst replyTargetWorkerId = readString('reply_target_worker_id');\nconst replyTargetTableId = readString('reply_target_table_id');\nconst replyTargetModelId = readInt('reply_target_model_id');\nconst replyTargetPin = readString('reply_target_pin');\nconst endpointWorkerId = responseParts[5];\nconst endpointModelId = Number(responseParts[6]);\nconst endpointPin = responseParts[7];\nconst payloadId = 1;\nconst rawHandlerResult = context.handler_result && typeof context.handler_result === 'object' && !Array.isArray(context.handler_result) ? context.handler_result : context.accepted;\nconst handlerResult = { ...rawHandlerResult };\nif (Object.prototype.hasOwnProperty.call(handlerResult, 'pin')) { handlerResult.endpoint_pin = handlerResult.pin; delete handlerResult.pin; }\nconst response = [\n  mt('__mt_payload_kind', 'str', 'pin_payload.v2'),\n  mt('__mt_request_id', 'str', opId),\n  mt('op_id', 'str', opId),\n  mt('message_role', 'str', 'response'),\n  mt('topic', 'str', responseTopic),\n  mt('response_topic', 'str', responseTopic),\n  mt('route_kind', 'str', context.route_kind),\n  mt('bus', 'str', context.route_kind),\n  mt('endpoint_worker_id', 'str', endpointWorkerId),\n  mt('endpoint_table_id', 'str', 'host'),\n  mt('endpoint_model_id', 'int', endpointModelId),\n  mt('endpoint_pin', 'str', endpointPin),\n  mt('origin_worker_id', 'str', 'R1'),\n  mt('origin_table_id', 'str', 'host'),\n  mt('origin_model_id', 'int', 3200),\n  mt('origin_pin', 'str', context.source_pin),\n  mt('reply_target_worker_id', 'str', replyTargetWorkerId),\n  mt('reply_target_table_id', 'str', replyTargetTableId),\n  mt('reply_target_model_id', 'int', replyTargetModelId),\n  mt('reply_target_pin', 'str', replyTargetPin),\n  mt('payload_model_id', 'int', payloadId),\n  mt('timestamp', 'int', Date.now()),\n  mt('sys_msg_type', 'str', context.sys_msg_type, payloadId),\n  mt('family', 'str', context.family, payloadId),\n  mt('action', 'str', context.action, payloadId),\n  mt('status', 'str', 'accepted', payloadId),\n  mt('handler_result', 'json', handlerResult, payloadId)\n];\nconst principalKey = readString('reply_target_principal_key');\nif (principalKey) response.push(mt('reply_target_principal_key', 'str', principalKey));\nif (context.route_kind === 'management') { response.push(mt('send_user', 'str', context.receive_user)); response.push(mt('receive_user', 'str', context.send_user)); }\nif (context.message_server) response.push(mt('message_server', 'str', context.message_server));\nif (context.between) response.push(mt('between', 'str', context.between));\nreturn response;",
+        "modelName": "feishu_message_api_response_contract_r1"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "model_type",
+      "t": "model.submtconnection",
+      "v": 3200
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "resource",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "data",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "ui",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "add_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "add_task_return",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "edit_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "delete_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "receive_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "finish_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "archive_task",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 32,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_subscriptions",
+      "t": "json",
+      "v": [
+        "UIPUT/ws/dam/pic/de/R1/100/submit",
+        "UIPUT/ws/dam/pic/de/R1/1010/submit",
+        "UIPUT/ws/dam/pic/de/R1/1019/submit",
+        "UIPUT/ws/dam/pic/de/R1/3000/submit1",
+        "UIPUT/ws/dam/pic/de/R1/3100/bundle_request",
+        "UIPUT/ws/dam/pic/de/R1/3200/resource",
+        "UIPUT/ws/dam/pic/de/R1/3200/data",
+        "UIPUT/ws/dam/pic/de/R1/3200/ui",
+        "UIPUT/ws/dam/pic/de/R1/3200/add_task",
+        "UIPUT/ws/dam/pic/de/R1/3200/add_task_return",
+        "UIPUT/ws/dam/pic/de/R1/3200/edit_task",
+        "UIPUT/ws/dam/pic/de/R1/3200/delete_task",
+        "UIPUT/ws/dam/pic/de/R1/3200/receive_task",
+        "UIPUT/ws/dam/pic/de/R1/3200/finish_task",
+        "UIPUT/ws/dam/pic/de/R1/3200/archive_task"
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_endpoint_route_table",
+      "t": "json",
+      "v": [
+        { "model_id": 100, "pin": "submit", "output_pin": "r1_dispatch_100_submit" },
+        { "model_id": 1010, "pin": "submit", "output_pin": "r1_dispatch_1010_submit" },
+        { "model_id": 1019, "pin": "submit", "output_pin": "r1_dispatch_1019_submit" },
+        { "model_id": 3000, "pin": "submit1", "output_pin": "r1_dispatch_3000_submit1" },
+        { "model_id": 3100, "pin": "bundle_request", "output_pin": "r1_dispatch_3100_bundle_request" },
+        { "model_id": 3200, "pin": "resource", "output_pin": "r1_dispatch_3200_resource" },
+        { "model_id": 3200, "pin": "data", "output_pin": "r1_dispatch_3200_data" },
+        { "model_id": 3200, "pin": "ui", "output_pin": "r1_dispatch_3200_ui" },
+        { "model_id": 3200, "pin": "add_task", "output_pin": "r1_dispatch_3200_add_task" },
+        { "model_id": 3200, "pin": "add_task_return", "output_pin": "r1_dispatch_3200_add_task_return" },
+        { "model_id": 3200, "pin": "edit_task", "output_pin": "r1_dispatch_3200_edit_task" },
+        { "model_id": 3200, "pin": "delete_task", "output_pin": "r1_dispatch_3200_delete_task" },
+        { "model_id": 3200, "pin": "receive_task", "output_pin": "r1_dispatch_3200_receive_task" },
+        { "model_id": 3200, "pin": "finish_task", "output_pin": "r1_dispatch_3200_finish_task" },
+        { "model_id": 3200, "pin": "archive_task", "output_pin": "r1_dispatch_3200_archive_task" }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3200_resource",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3200_data",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3200_ui",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3200_add_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3200_add_task_return",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3200_edit_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3200_delete_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3200_receive_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3200_finish_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3200_archive_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3200_resource",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3200_data",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3200_ui",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3200_add_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3200_add_task_return",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3200_edit_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3200_delete_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3200_receive_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3200_finish_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3200_archive_task",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        { "from": [0, 0, 0, "r1_cb_in"], "to": [[1, 0, 1, "r1_dispatch_in"]] },
+        { "from": [1, 0, 1, "r1_dispatch_100_submit"], "to": [[1, 0, 0, "submit"]] },
+        { "from": [1, 0, 1, "r1_dispatch_1010_submit"], "to": [[1, 0, 10, "submit"]] },
+        { "from": [1, 0, 1, "r1_dispatch_1019_submit"], "to": [[1, 0, 19, "submit"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3000_submit1"], "to": [[1, 0, 30, "submit1"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3100_bundle_request"], "to": [[1, 0, 31, "bundle_request"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3200_resource"], "to": [[1, 0, 32, "resource"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3200_data"], "to": [[1, 0, 32, "data"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3200_ui"], "to": [[1, 0, 32, "ui"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3200_add_task"], "to": [[1, 0, 32, "add_task"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3200_add_task_return"], "to": [[1, 0, 32, "add_task_return"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3200_edit_task"], "to": [[1, 0, 32, "edit_task"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3200_delete_task"], "to": [[1, 0, 32, "delete_task"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3200_receive_task"], "to": [[1, 0, 32, "receive_task"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3200_finish_task"], "to": [[1, 0, 32, "finish_task"]] },
+        { "from": [1, 0, 1, "r1_dispatch_3200_archive_task"], "to": [[1, 0, 32, "archive_task"]] }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_result_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        { "from": [1, 0, 0, "result"], "to": [[0, 0, 0, "remote_result_bus"]] },
+        { "from": [1, 0, 10, "result"], "to": [[0, 0, 0, "remote_result_bus"]] },
+        { "from": [1, 0, 19, "result"], "to": [[0, 0, 0, "remote_result_bus"]] },
+        { "from": [1, 0, 30, "result"], "to": [[0, 0, 0, "remote_result_bus"]] },
+        { "from": [1, 0, 31, "result"], "to": [[0, 0, 0, "remote_result_bus"]] },
+        { "from": [1, 0, 32, "result"], "to": [[0, 0, 0, "remote_result_bus"]] }
+      ]
+    }
+  ]
+}

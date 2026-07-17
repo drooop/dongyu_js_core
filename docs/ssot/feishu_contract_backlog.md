@@ -2,7 +2,7 @@
 title: "Feishu Contract Backlog"
 doc_type: decision-backlog
 status: active
-updated: 2026-07-10
+updated: 2026-07-16
 source: ai
 ---
 
@@ -28,15 +28,15 @@ Source baseline:
 
 | ID | Class | Decision | Current executable state | Next action |
 |---|---|---|---|---|
-| F-01 | decision_recorded_implementation_pending | Upgrade the whole Feishu Message API input envelope to `pin_payload.v2`. | Current parser/runtime input remains `pin_payload.v1`. | Create a separate SSOT/runtime/test migration iteration. |
 | F-04 | decision_recorded_source_correction_pending | `model.submtconnect` is a Feishu source typo; do not add a repo alias. | Repo continues to accept only `model.submtconnection`. | Correct Feishu only after separate write authorization; no runtime change. |
-| F-05 | decision_recorded_implementation_pending | Use authorized ModelTable writes; frontend stays projection-only. | Current runtime records pending refresh without the approved write path. | Define and implement the ModelTable write contract in a separate iteration. |
-| F-08 | decision_recorded_implementation_pending | `add_task_return` must be a real PIN message. | Current runtime returns task id through response outbox. | Define the PIN payload/route and implement it in a separate iteration. |
+| F-05 | decision_recorded_implementation_pending | Use authorized ModelTable writes; frontend stays projection-only. | Current Model 3200 fails closed with `ui_action_pending:refresh_data`; it does not write refresh state or produce a response. | Define and implement the ModelTable write contract in a separate iteration. |
+| F-08 | decision_recorded_implementation_pending | `add_task_return` must be a real PIN message. | Current Model 3200 fails closed with `task_action_pending:add_task_return`; generic `result` does not count as a real `add_task_return` PIN. | Define the PIN payload/route and implement it in a separate iteration. |
 
 ## Completed Items
 
 | ID | Class | Outcome | Evidence |
 |---|---|---|---|
+| F-01 | completed | The current public Feishu Message API input is hard-cut to flat `pin_payload.v2`; legacy v1 fails closed and R1 Model 3200 owns the business behavior. | `0457-feishu-message-api-v2-local-de`; accepted candidate `3b2a902`; local OrbStack control/management/E2E and three Step 11 whole-candidate approvals. |
 | F-09 | completed | Watcher fails closed when TLS verification is disabled; explicit override is restricted to fixture or exact loopback local-debug mode. | `0456-feishu-watcher-tls-preflight`; `scripts/tests/test_0441_feishu_source_watch_contract.mjs` |
 
 ## Query Rule

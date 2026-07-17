@@ -2,13 +2,13 @@
 title: "最小 Submit 双总线示例 - Visualized"
 doc_type: user-guide
 status: active
-updated: 2026-07-01
+updated: 2026-07-16
 source: ai
 ---
 
 # 最小 Submit 双总线示例 - Visualized
 
-这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经控制总线、MBR、MQTT、remote-worker R1，最后由 R1 把 `message_role=response` 回包发到独立 `response_topic`，并根据 `reply_target_worker_id / reply_target_table_id / reply_target_model_id / reply_target_pin` 回到本地 UI 模型，页面显示 `Submitted: <输入内容>`。
+这份文档是 `minimal_submit_app_provider_guide.md` 的可视化补充。它说明 `最小 Submit 双总线示例` 如何从 Workspace UI 进入 Model 0，再经本地 MQTT control 直达 remote-worker R1，最后由 R1 把 `message_role=response` 回包发到独立 `response_topic`，并根据 `reply_target_worker_id / reply_target_table_id / reply_target_model_id / reply_target_pin` 回到本地 UI 模型，页面显示 `Submitted: <输入内容>`。MBR 不回显 control；只有 management 才经 Matrix/Synapse 与 MBR。
 
 ## 总览
 
@@ -24,13 +24,12 @@ sequenceDiagram
   UI->>UI: click_event -> click_event_wiring -> click_chain -> submit_request -> handle_submit:in
   UI->>M0: submit1 pin.out reaches generated host egress adapter
   M0->>CB: pin_payload.v2 with topic=UIPUT/ws/dam/pic/de/R1/3000/submit1 and response_topic=UIPUT/ws/dam/pic/de/U1/1051/result
-  CB->>MBR: control bus packet
-  MBR->>MQTT: UIPUT/ws/dam/pic/de/R1/3000/submit1
+  CB->>MQTT: direct control UIPUT/ws/dam/pic/de/R1/3000/submit1
+  Note over MBR: control no-echo; management only
   MQTT->>R1: root submit1 pin.in
   R1->>R1: root `submit1` -> `(1,1,1).submit1_in` -> `submit1:in`
   R1->>MQTT: response_topic pin_payload.v2 message_role=response
-  MQTT->>MBR: control bus reply
-  MBR->>CB: topic=UIPUT/ws/dam/pic/de/U1/1051/result
+  MQTT->>CB: direct response topic=UIPUT/ws/dam/pic/de/U1/1051/result
   CB->>M0: endpoint=U1/host/1051/result + reply_target=U1/app:.../0/result
   M0->>UI: materialize display_text / remote_status / last_submit_payload / submit_inflight
 ```

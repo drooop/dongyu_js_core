@@ -69,8 +69,8 @@ assert.ok(submitButton, 'workspace_positive_models.json must expose cellwise sub
 assert.equal(submitButton.props?.label, 'Generate Color', 'submit_button label must come from the model table');
 assert.deepEqual(
   submitButton.cell_ref,
-  { model_id: MODEL_100_ID, p: 1, r: 0, c: 0 },
-  'submit_button must preserve the executable cell address',
+  { table_id: 'host', model_id: MODEL_100_ID, p: 1, r: 0, c: 0 },
+  'submit_button must preserve the table-qualified executable cell address',
 );
 assertModel100SubmitWriteContract(submitButton.bind?.write, 'workspace_positive_models.json');
 

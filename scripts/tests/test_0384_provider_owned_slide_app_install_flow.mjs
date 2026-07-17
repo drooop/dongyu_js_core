@@ -623,9 +623,14 @@ async function test_remote_worker_r1_bundle_provider_rejects_missing_table_refs(
     const response = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('remote_result_bus')?.v;
     assert.equal(payloadString(response, '__mt_payload_kind'), '', `R1 provider must not emit response when ${missingKey} is missing`);
     assert.equal(
-      rt.getCell(rt.getModel(3100), 0, 0, 0).labels.get('mqtt_inbound_error')?.v?.code,
+      rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mqtt_inbound_error')?.v?.code,
       `missing_${missingKey}`,
-      `R1 provider must write visible MQTT boundary error when ${missingKey} is missing`,
+      `R1 provider must write the visible MQTT boundary error on Model 0 when ${missingKey} is missing`,
+    );
+    assert.equal(
+      rt.getCell(rt.getModel(3100), 0, 0, 0).labels.has('mqtt_inbound_error'),
+      false,
+      `R1 provider must not pollute Model 3100 with a transport error when ${missingKey} is missing`,
     );
   }
   return { key: 'remote_worker_r1_bundle_provider_rejects_missing_table_refs', status: 'PASS' };

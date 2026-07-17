@@ -2,7 +2,7 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-07-01
+updated: 2026-07-16
 source: ai
 ---
 
@@ -13,7 +13,7 @@ source: ai
 >
 > 0356 起，PIN 连接合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。0357 起，runtime 对 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 端点写法执行硬拒绝；它们不是当前输入面，也不得通过兼容层恢复。
 > 0424 起，principal-scoped subtable namespace 目标合同由 `docs/ssot/principal_scoped_subtable_namespace_v1.md` 接管。0431 起，`model.subtable` / `model.submt` 是子侧声明，`model.subtableconnection` / `model.submtconnection` 是父侧索引；二者不是互相替代的 pin wiring 写法。
-> 0430 起，正式 bus / pin transport 目标是 `pin_payload.v2` Temporary ModelTable record array。业务 records 必须在同一数组中出现，并由 `payload_model_id` 指向；不得嵌套在 `payload.v`、`bundle_payload.v` 或其他 `json` label 中。
+> 0430 起，正式 bus / pin transport 使用 `pin_payload.v2` Temporary ModelTable record array；0457 起，公开 Feishu Message API input hard cut 到 v2。业务 records 必须在同一数组中出现，并由 `payload_model_id` 指向；不得嵌套在 `payload.v`、`bundle_payload.v` 或其他 `json` label 中。
 
 Authority:
 - Below `CLAUDE.md`, architecture SSOT, and runtime semantics.
@@ -68,6 +68,7 @@ Conflict behavior:
 补充约束：
 - `model.submt` / `model.subtable` 只声明子侧身份，不承载父侧索引。
 - `model.submtconnection` / `model.subtableconnection` 只声明父侧/主侧索引，不替代 `pin.connect.cell`。
+- `model.submtconnect` 是 Feishu source typo，未注册且不得增加 alias；唯一合法名称是 `model.submtconnection`。
 - `model.submtconnection` 是 single-parent 索引：同一个 child model 在任一时刻只能被一个父模型索引为直接 child。
 - child model 的正式输入/输出仍必须通过父侧 connection Cell 暴露出来的 pin relay 进入；最终落盘只能由 child root 默认程序（如 `mt_write`）、child owner materializer 或 importer/installer 明确执行。
 - 删除 `model.submtconnection` 仅删除父子索引关系，不自动删除 child model 数据；只有删除 child model 自己的 `(0,0,0)` 根声明后，才删除整个 child model。
@@ -133,7 +134,7 @@ Conflict behavior:
 - 正式业务 pin 的非空 value 必须是 `docs/ssot/temporary_modeltable_payload_v1.md` 定义的 record array。
 - 对象 envelope（如 `{op, records}` / `{action, target}`）不再是正式 pin value。
 - pin 名称 / 接收程序模型决定动作语义；payload 本身只表达数据。
-- 正式 bus / pin transport 目标为 `pin_payload.v2`。如果需要区分 envelope metadata 和业务数据，必须使用 `payload_model_id` 指向同一 record array 中的业务 records；不得把 ModelTable records 嵌套进 `payload.v`、`bundle_payload.v` 或其他 `json` label。
+- 正式 bus / pin transport 当前协议为 `pin_payload.v2`。如果需要区分 envelope metadata 和业务数据，必须使用 `payload_model_id` 指向同一 record array 中的业务 records；不得把 ModelTable records 嵌套进 `payload.v`、`bundle_payload.v` 或其他 `json` label。
 
 0347 message / materialization 约束：
 - pin value 中的 record array 是 Temporary ModelTable Message：`format is ModelTable-like; persistence is explicit materialization`。

@@ -133,6 +133,7 @@ async function withServerState(fn) {
     await state.activateRuntimeMode('running');
     return await fn(state);
   } finally {
+    await state.shutdown();
     rmSync(tempRoot, { recursive: true, force: true });
     delete process.env.WORKER_BASE_WORKSPACE;
     delete process.env.WORKER_BASE_DATA_ROOT;
@@ -171,13 +172,20 @@ async function test_import_generates_host_egress_adapter_for_valid_dual_bus_impo
   return withServerState(async (state) => {
     const result = await importPayload(state, validPayload(), 'mxc://localhost/0322-contract-valid');
     assert.equal(result.ok, true, 'valid_dual_bus_import_must_succeed');
-    const importedId = result.data?.model_id;
+    const importedRef = result.data?.model_ref;
+    assert.equal(typeof importedRef?.table_id, 'string', 'imported app must return a table-qualified model ref');
+    assert.equal(Number.isInteger(importedRef?.model_id), true, 'imported app model ref must include an integer model id');
     const model0 = state.runtime.getModel(0);
     const rootLabels = state.runtime.getCell(model0, 0, 0, 0).labels;
-    const importedRoot = state.runtime.getCell(state.runtime.getModel(importedId), 0, 0, 0).labels;
-    const busLabel = `imported_submit_${importedId}_bus`;
-    const bridgeIn = `__host_egress_submit_bridge_in_${importedId}`;
-    const bridgeFunc = `bridge_imported_submit_to_mt_bus_send_${importedId}`;
+    const importedRoot = state.runtime.getCell(state.runtime.getModel(importedRef), 0, 0, 0).labels;
+    const generatedKeys = importedRoot.get('host_egress_generated_model0_labels')?.v || [];
+    const busLabel = importedRoot.get('ui_egress_submit_binding')?.v?.host_pin_key;
+    const bridgeFunc = generatedKeys.find((key) => rootLabels.get(key)?.t === 'func.js');
+    const bridgeWiring = generatedKeys
+      .map((key) => rootLabels.get(key))
+      .find((label) => label?.t === 'pin.connect.label' && label.v?.some((entry) => entry?.to?.includes(`${bridgeFunc}:in`)));
+    const bridgeIn = bridgeWiring?.v?.find((entry) => entry?.to?.includes(`${bridgeFunc}:in`))?.from;
+    assert.equal(typeof busLabel, 'string', 'imported binding must expose its generated Model 0 bus key');
     assert.ok(rootLabels.has(busLabel), 'model0_bus_out_label_must_be_generated_from_remote_bus_endpoint');
     assert.ok(rootLabels.has(bridgeIn), 'model0_bridge_input_must_be_generated_from_public_pin');
     assert.ok(rootLabels.has(bridgeFunc), 'model0_bridge_function_must_be_generated_from_public_pin');
@@ -189,14 +197,91 @@ async function test_import_generates_host_egress_adapter_for_valid_dual_bus_impo
     assert.equal(Object.prototype.hasOwnProperty.call(importedRoot.get('dual_bus_model')?.v || {}, 'model0_egress_label'), false, 'dual_bus_model_must_not_keep_legacy_model0_egress_label');
     assert.equal(Object.prototype.hasOwnProperty.call(importedRoot.get('dual_bus_model')?.v || {}, 'model0_egress_func'), false, 'dual_bus_model_must_not_keep_legacy_model0_egress_func');
     const sys = state.runtime.getModel(-10);
-    assert.ok(!state.runtime.getCell(sys, 0, 0, 0).labels.has(`forward_imported_submit_from_model0_${importedId}`), 'legacy_system_forward_function_must_not_be_generated');
+    assert.equal(
+      [...state.runtime.getCell(sys, 0, 0, 0).labels.keys()].some((key) => key.startsWith('forward_imported_submit_from_model0_')),
+      false,
+      'legacy_system_forward_function_must_not_be_generated',
+    );
     return { key: 'import_generates_host_egress_adapter_for_valid_dual_bus_import', status: 'PASS' };
   });
+}
+
+async function materializeCollisionReferenceKeys() {
+  return withServerState(async (state) => {
+    const { materializeImportedHostEgressAdapter } = await import(
+      new URL('../../packages/ui-model-demo-server/server.mjs', import.meta.url)
+    );
+    const fixtures = [
+      {
+        ref: 'app:a-b:c:2-0-0:1/0',
+        tableId: 'app:a-b:c:2-0-0:1',
+        mount: { p: 2, r: 0, c: 0 },
+      },
+      {
+        ref: 'app:a:b-c:2-0-0:1/0',
+        tableId: 'app:a:b-c:2-0-0:1',
+        mount: { p: 2, r: 0, c: 1 },
+      },
+    ];
+    const hostEgress = {
+      semantic: 'submit',
+      pinName: 'submit',
+      routeKind: 'control',
+      envelopeExtensionKeys: [],
+      dualBusDeclaration: {
+        mode: 'imported_host_egress',
+        egress_pins: ['submit'],
+      },
+    };
+    const remoteEndpoint = {
+      transport: 'mqtt',
+      routeKind: 'control',
+      to: { worker_id: 'R1', model_id: 3000 },
+    };
+
+    return fixtures.map((fixture) => {
+      const root = state.runtime.createModel({
+        table_id: fixture.tableId,
+        id: 0,
+        name: fixture.tableId,
+        type: 'subtable-root',
+      });
+      state.runtime.addLabel(root, 0, 0, 0, { k: 'submit', t: 'pin.out', v: null });
+      const keys = materializeImportedHostEgressAdapter(
+        state.runtime,
+        fixture.ref,
+        fixture.mount,
+        hostEgress,
+        remoteEndpoint,
+      );
+      assert.ok(keys, `${fixture.ref} must be parsed and materialized by the production adapter path`);
+      const binding = state.runtime.getCell(root, 0, 0, 0).labels.get('ui_egress_submit_binding');
+      assert.equal(binding?.v?.host_pin_key, keys.busOutKey, `${fixture.ref} binding must use the production-generated key`);
+      return {
+        ref: fixture.ref,
+        busOutKey: keys.busOutKey,
+        bridgeFunc: keys.bridgeFunc,
+        model0BridgeIn: keys.model0BridgeIn,
+      };
+    });
+  });
+}
+
+async function test_collision_prone_table_refs_generate_distinct_stable_adapter_keys() {
+  const first = await materializeCollisionReferenceKeys();
+  const second = await materializeCollisionReferenceKeys();
+  assert.equal(first.length, 2);
+  assert.notEqual(first[0].busOutKey, first[1].busOutKey, 'reviewer collision refs must generate different bus keys');
+  assert.notEqual(first[0].bridgeFunc, first[1].bridgeFunc, 'reviewer collision refs must generate different bridge keys');
+  assert.notEqual(first[0].model0BridgeIn, first[1].model0BridgeIn, 'reviewer collision refs must generate different bridge inputs');
+  assert.deepEqual(second, first, 'production parsing and key generation must remain stable across fresh server states');
+  return { key: 'collision_prone_table_refs_generate_distinct_stable_adapter_keys', status: 'PASS' };
 }
 
 const tests = [
   test_import_rejects_dual_bus_model_without_root_submit_pin_out,
   test_import_generates_host_egress_adapter_for_valid_dual_bus_import,
+  test_collision_prone_table_refs_generate_distinct_stable_adapter_keys,
 ];
 
 (async () => {

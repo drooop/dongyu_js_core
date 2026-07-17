@@ -2,7 +2,7 @@
 title: "Tier Boundary And Conformance Testing"
 doc_type: ssot
 status: active
-updated: 2026-05-10
+updated: 2026-07-16
 source: ai
 ---
 
@@ -161,6 +161,27 @@ source: ai
 - 切页 / 选中应用后，Model 0 外发口不得出现新事件
 - 点击 `submit` 后，Model 0 外发口必须出现且只出现一次对应事件
 - 断开任一级 relay 后，`submit` 必须止于本地，不得继续离开 runtime
+
+### 5.4 Feishu v2 Actor / Local Acceptance（0457）
+
+Tier 与 placement gate：
+
+- generic `pin_payload.v2` parse、PIN transport、split-bus 传播与 response materialization 属于 Tier 1；不得含 Feishu resource/data/UI/task business special case。
+- R1 Model 3200 的 schema、resource/data/UI/task handler 与 generic `result` response contract 属于 Tier 2 正数业务模型。
+- endpoint whitelist/dispatcher 与 MBR bridge 属于负数系统模型；不得把业务状态移回 Model 0、Model -10 或 server helper。
+
+Actor evidence gate：
+
+- 必须加载并执行 authoritative fill-table role assets 后检查 actor state；只 grep 文件名、label 名或代码字符串不算证据。
+- MBR、R1、WM1 的 Model 0 必须是 `model.v1n`，`sys_worker_id` / `sys_worker_role`、合法 split-bus pins、Model -10 route/mount 与 asset provenance 必须精确匹配 SSOT。
+- 任意 bootstrap patch 后必须重新 attestation；不得通过额外 bootstrap operation 临时注入被测 actor truth 形成 false green。
+- control response 必须由 R1 通过本地 MQTT 直达 UI Server，MBR 不得 republish/echo；management response 必须且只能经 MBR 一次。
+
+Local environment gate：
+
+- Docker 与 Kubernetes context 都必须是 `orbstack`，namespace 必须是 `dongyu`；Synapse 与 Mosquitto 必须部署在该本地环境。
+- local-only test infrastructure 不等于 air-gapped。经 repo governance 识别的 Feishu `UpstreamConsensus` 可通过 exact `https://open.feishu.cn:443` 做 read-only evidence；这不允许 Feishu write。
+- acceptance window 必须拒绝 remote Matrix、MQTT、OIDC/SSO endpoint，网络证据缺失、过期、格式错误或读取失败都必须 fail closed。
 
 ## 6. Evidence Recording
 

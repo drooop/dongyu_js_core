@@ -13,5 +13,7 @@ COPY packages/worker-base/system-models/ ./packages/worker-base/system-models/
 # Copy generic worker bootstrap and engine
 COPY scripts/run_worker_v0.mjs ./scripts/
 COPY scripts/worker_engine_v0.mjs ./scripts/
+COPY scripts/lib/de_actor_attestation.mjs ./scripts/lib/de_actor_attestation.mjs
+COPY scripts/lib/de_network_boundary_evidence.mjs ./scripts/lib/de_network_boundary_evidence.mjs
 
 CMD ["node", "scripts/run_worker_v0.mjs"]

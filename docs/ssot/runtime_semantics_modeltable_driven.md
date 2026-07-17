@@ -2,7 +2,7 @@
 title: "Runtime Semantics: ModelTable-Driven Side Effects"
 doc_type: ssot
 status: active
-updated: 2026-05-12
+updated: 2026-07-16
 source: ai
 ---
 
@@ -607,11 +607,13 @@ bus pin 的 `v` 必须是 ModelTable-like temporary record array。标准外发�
 
 - `__mt_payload_kind = "pin_payload.v2"`
 - `op_id` / `__mt_request_id`
-- `message_role`，值只能是 `"request"` 或 `"response"`
+- `message_role`，必填；值只能是 `"request"` 或 `"response"`
+- `bus`，必填；值只能是 `"control"` 或 `"management"`
+- `route_kind`，必填；必须与 `bus` 相同；`"control"` 走本地 MQTT 控制总线且不经 MBR 回显，`"management"` 表示 request 先走 Matrix 管理总线到 MBR，再由 MBR 按 `topic` 转为目标控制总线
+- `timestamp`，必填 `int`；记录 packet 生成时的 Unix 毫秒时间戳
 - `payload_model_id`，指向同一 record array 中的业务临时 ModelTable records
 - `topic`，当前 packet 的完整控制总线 MQTT topic，例如请求 `UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>`
 - `response_topic`，request 期待的回包 MQTT topic。host-table 目标可由 `reply_target_*` 派生；App instance 目标必须使用 host transport endpoint，真正 materialization target 由 `reply_target_table_id + reply_target_model_id` 表达
-- `route_kind`，可选；缺省等同 `"control"`；显式 `"management"` 表示本次消息需要先走管理总线到 MBR，再由 MBR 按 `topic` 转为目标控制总线
 - endpoint metadata records：`endpoint_worker_id` / `endpoint_table_id` / `endpoint_model_id` / `endpoint_pin`
 - origin metadata records：`origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin`
 - reply target metadata records：`reply_target_worker_id` / `reply_target_table_id` / `reply_target_model_id` / `reply_target_pin`
@@ -620,21 +622,25 @@ App instance traffic 的 origin / reply target metadata 必须包含 table 维�
 
 这些 metadata 必须作为 Temporary ModelTable record array 中的 records 存在，不能放在外层 JSON object 上。普通业务 JSON、旧 envelope、raw `resultPayload`、loose top-level `origin_*` / `reply_target_*` / `endpoint_*` 字段不能作为 fallback 发送。正式 bus / pin transport 不允许把 ModelTable records 放进 `payload.v`、`bundle_payload.v`、`json_patch.v` 或其他 `json` label 中；业务 records 必须作为同一数组中的 records 出现，并由 `payload_model_id` 指向。
 
-0442 起，Feishu-current `pin_payload.v1` 作为公开消息 API 的输入形态重新进入运行时入口校验，但只针对 Feishu 文档中的子模型表 payload 结构：消息根是 `id="0"`，版本与回复标记在 `0,0,1`，总线/引脚信息在 `0,1,0` / `0,1,1` / `0,1,2`，payload 连接在 `0,2,0`，业务 payload 放在 `0.<child_id>`。该输入面接受 Feishu source 的 `route_kind="control"` / `"manage"`；`message_server` 只能是 `"local"` / `"global"`；`between` 只能是 `"WSM_DEM"` / `"DEM_V1N"`；`manage` 消息必须携带管理总线发送/接收用户；未知 `sys_msg_type` 必须 fail closed；`task_data` 必须指向文档列出的任务管理器 pin。该入口不取消正式 `pin_payload.v2` 的 table-qualified transport 合同。
+0457 起，Feishu Message API 的当前公开输入整体 hard cut 到 `pin_payload.v2`。transport envelope、Feishu extension records 与业务 records 必须位于同一个 Temporary ModelTable record array：root 必须包含通用 v2 metadata，`payload_model_id` 指向业务临时模型；`is_need_response` 是必填 `bool` extension；可选 `message_server` 只能是 `"local"` / `"global"`，可选 `between` 只能是 `"WSM_DEM"` / `"DEM_V1N"`；`route_kind="management"` 时必须携带非空 `send_user` / `receive_user`。公开输入不再接受 `route_kind="manage"`、`response_pin`、旧 v1 `0/0.1` envelope 或任何 v1 fallback；这些输入必须在进入业务 actor 前 fail closed。
 
-0443 起，Feishu-current `pin_payload.v1` 通过 bus ingress 后会进入一个最小业务分发层。运行时必须按 `sys_msg_type` 分成 `resource` / `data` / `ui` / `task` family，并把结果写成可观察记录：`runtime.intercepts` 中的 `feishu_message_api_dispatch`，以及 Model 0 root 的 `feishu_message_api_last_type` / `feishu_message_api_last_family` / `feishu_message_api_last_action` / `feishu_message_api_last_result` labels。该层只声明“消息已被哪类 handler 接收”，不得直接伪造 DAM 持久化、资源目录、UI 刷新或任务状态流转结果。`task_data` 额外按 Feishu source 的 task pin 要求校验必填字段，例如 `add_task` 必须包含 `title`、`body`、`publisher`、`publish_time`；缺字段必须在 bus ingress fail closed，并写出具体字段名。
+0457 的 Feishu 业务 owner 是 R1 的正数 `Model 3200`（root `model.submt=Flow`），不是 generic runtime。R1 Model `-10` 只负责按声明 route table 把合法 control-bus packet 投递到 Model 3200 的公开 `pin.in`；Model 3200 内部的 schema、task/resource/data/UI handler 与 response contract 通过 `func.js` / `pin.connect.label` 串联，结果只从通用 `result:pin.out` 返回 R1 Model 0 控制总线。generic CJS/ESM runtime 只解释 `pin_payload.v2`、PIN、路由与 materialization，不得按 `sys_msg_type` 偷做 Feishu 业务分发。
 
-0444 起，`task_data` 拥有第一版运行时任务管理器处理器。`add_task` 创建本地任务并生成整数 `id`，状态为 `added_waiting_receive`；`receive_task` 推进到 `received_waiting_finish`；`finish_task` 推进到 `finished_waiting_archive`；`archive_task` 推进到 `archived`；`delete_task` 标记为 `deleted`；`edit_task` 按 `id` 更新已有字段且不改变当前状态。任务状态必须通过 `feishu_task_manager_tasks` 与 `feishu_task_manager_last_result` labels 可观察，同时写 `feishu_task_manager_event` intercept。除 `add_task` 外，引用不存在的任务 id 必须 fail closed，例如 `bus_in_task_not_found:99`。本处理器仍不自动发布 `add_task_return`，因为跨 worker 回包必须另按 `response_topic` 合同实现。
+0442 曾把 Feishu `pin_payload.v1` 子模型表 shape 作为公开输入；该行为仅保留为历史证据，已被 0457 hard cut supersede。0442 当时冻结的字段校验意图已迁入 Model 3200 的 v2 extension/schema 校验，不构成 v1 compatibility。
 
-0445 起，`resource.report` / `resource.result` 拥有第一版运行时资源目录处理器。payload 子表中的每条资源记录由同一单元格上的 `type` 与 `resource` labels 组成，其中 `type` 必须是非空字符串，`resource` 必须是非空字符串列表；缺少有效资源条目的 `resource.report` / `resource.result` 必须在 bus ingress fail closed，例如 `bus_in_missing_resource_entries`。处理器维护运行时内存资源目录，并通过 Model 0 root 的 `feishu_resource_manager_catalog` / `feishu_resource_manager_last_result` labels 与 `feishu_resource_manager_event` intercept 可观察。`resource.request` 只记录请求并暴露当前资源目录，不自动发布 `resource.result`，因为跨 worker 回包仍必须另按 `response_topic` 合同实现。
+0443 的 runtime business dispatch 是历史实现；0457 已迁出 generic runtime。当前 family/action、handler state 与可观察结果均由 Model 3200 自己持有。`task_data` 仍按公开 task pin 校验必填字段，例如 `add_task` 必须包含 `title`、`body`、`publisher`、`publish_time`；缺字段必须在 Model 3200 fail closed，并写出具体字段名。
 
-0446 起，`data.save_modeltable` / `data.load_modeltable` / `data.save_flow` / `data.load_flow` 拥有第一版运行时数据管理器处理器。`data.save_modeltable` 与 `data.load_modeltable` 的 payload 子表根类型必须是 `Data`；`data.save_flow` 与 `data.load_flow` 的 payload 子表根类型必须是 `Flow`。除 payload 根元数据 `model_type` / `model_name` / `sys_msg_type` 外，payload 子表必须包含至少一条实际数据 record；缺失时必须在 bus ingress fail closed，例如 `bus_in_missing_data_payload_records`，类型不匹配时拒绝为 `bus_in_invalid_data_payload_type`。处理器维护运行时内存数据存储，并通过 Model 0 root 的 `feishu_data_manager_store` / `feishu_data_manager_last_result` labels 与 `feishu_data_manager_event` intercept 可观察。该存储不是 DAM 持久化；`load_*` 也不自动发布 response，因为跨 worker 回包仍必须另按 `response_topic` 合同实现。
+0444 的任务状态语义已迁入 Model 3200：`add_task` 创建本地任务并生成整数 `id`，状态为 `added_waiting_receive`；`receive_task` 推进到 `received_waiting_finish`；`finish_task` 推进到 `finished_waiting_archive`；`archive_task` 推进到 `archived`；`delete_task` 标记为 `deleted`；`edit_task` 按 `id` 更新已有字段且不改变当前状态。状态通过 Model 3200 root 的 `feishu_task_manager_tasks` 与 `feishu_task_manager_last_result` labels 可观察。除 `add_task` 外，引用不存在的任务 id 必须 fail closed。F-08 仍未实现：`add_task_return` 当前只是已声明的 `pin.in`，`add_task` 不得伪造专用 `add_task_return:pin.out`；通用 `result` response 也不能被算作 F-08 完成。
 
-0447 起，`ui.update_data` / `ui.tmp_data` / `ui.form_data` / `ui.refresh_data` 拥有第一版运行时 UI 管理器处理器。四类消息的 payload 子表根类型必须是 `Data`，且除 payload 根元数据 `model_type` / `model_name` / `sys_msg_type` 外必须包含至少一条实际 UI payload record；缺失时必须在 bus ingress fail closed，例如 `bus_in_missing_ui_payload_records`，类型不匹配时拒绝为 `bus_in_invalid_ui_payload_type`。处理器通过 Model 0 root 的 `feishu_ui_manager_state` / `feishu_ui_manager_last_result` labels 与 `feishu_ui_manager_event` intercept 可观察：`update_data` 记录当前后端可保存 UI 数据并追加运行时 history；`tmp_data` 只记录当前临时数据；`form_data` 记录表单提交；`refresh_data` 只记录待刷新参数。该处理器不直接修改 UI labels，不触发 frontend/SSE 刷新，也不自动发布 response。
+0445 的资源目录语义已迁入 Model 3200。`resource.report` / `resource.result` 的每条资源记录由同一 Cell 上的 `type` 与 `resource` labels 组成，其中 `type` 必须是非空字符串，`resource` 必须是非空字符串列表；缺少有效条目必须 fail closed。Model 3200 通过 `feishu_resource_manager_catalog` / `feishu_resource_manager_last_result` 持有可观察状态；`resource.request` 读取当前目录。是否产出 generic `result` 只由完整 v2 response contract 与 `is_need_response` 决定。
 
-0448 起，Feishu-current `pin_payload.v1` 在业务 handler 接收后可以生成正式 `pin_payload.v2` response outbox。仅当 `is_need_response=true`，且 `response_pin` 与 `endpoint_pin` 都能解析为合法 v2 full topic 时，运行时才写 Model 0 root 的 `feishu_message_api_response_out`（`t="pin.bus.cb.out"`）。生成的 response 必须满足：`message_role="response"`，`topic=response_topic=<request response_pin>`，endpoint 来自 `response_pin`，origin 来自请求 `endpoint_pin`，host-table reply target 等于 response endpoint；payload records 必须包含 `sys_msg_type`、handler family/action 与 handler result。不需要回包或无法安全解析回包目标时，运行时只写 `feishu_message_api_response_last_result` skipped 结果并记录 `feishu_message_api_response_outbox` intercept，绝不 fallback 到请求 topic。
+0446 的数据管理语义已迁入 Model 3200。`data.save_modeltable` / `data.load_modeltable` 的 payload 临时模型 root 必须是 `Data`；`data.save_flow` / `data.load_flow` 必须是 `Flow`；除 root metadata 外必须存在业务 record，否则 fail closed。Model 3200 通过 `feishu_data_manager_store` / `feishu_data_manager_last_result` 持有可观察状态；该存储不是 DAM 持久化。是否产出 generic `result` 只由完整 v2 response contract 与 `is_need_response` 决定。
 
-0449 起，Feishu response outbox 的运行态发布状态必须可观察。运行时处于 `running` 且存在 MQTT client 时，写入 `feishu_message_api_response_out` 会复用正式 `pin.bus.cb.out` 发布路径，并将 response packet 发布到 `response_pin`；`feishu_message_api_response_last_result.v.publish_status` 必须写为 `"published"`，`publish_topic` 必须等于 `response_pin`。非运行态或没有 MQTT client 时，运行时仍可准备 outbox，但 `publish_status` 必须写为 `"prepared_not_published"`，`publish_topic` 为空。非法 `response_pin` / 不需要回包的消息不得发布。
+0447 的 UI handler 已迁入 Model 3200。已实现的 `ui.update_data` / `ui.tmp_data` / `ui.form_data` payload 临时模型 root 必须是 `Data`，并且除 `model_type` / `model_name` / `sys_msg_type` 外至少包含一条业务 record；缺失或类型不匹配必须 fail closed。状态通过 Model 3200 root 的 `feishu_ui_manager_state` / `feishu_ui_manager_last_result` labels 可观察。F-05 仍未实现：`ui.refresh_data` 当前以可观察错误 `ui_action_pending:refresh_data` fail closed，不写 refresh state、不产出 response；后续必须通过授权 ModelTable 写入表达状态变化，frontend 只刷新 projection。
+
+0448 的 `pin_payload.v1` request → runtime `pin_payload.v2` outbox 是历史桥接实现，0457 已移除。当前 Model 3200 直接接收 v2 request，并只在 `is_need_response=true` 且完整 response contract 校验通过时从 `result:pin.out` 产出 v2 response；response 必须满足 `message_role="response"`、`topic=response_topic=<request response_topic>`，保留 table-qualified reply target，并由 R1 Model 0 的通用 return-bus 路径发布。无回包请求或非法 response destination 不得产生 output，也不得 fallback 到 request topic。
+
+0449 的 runtime-owned `feishu_message_api_response_out` / `response_pin` 发布状态是历史实现，0457 已随 v1 bridge 移除。当前 Model 3200 的 response contract 从 generic `result:pin.out` 返回 v2 records，R1 Model 0 的通用 control-bus adapter 负责发布；无效 response contract 或 `is_need_response=false` 不得产生 output。
 
 0450 起，入站 `message_role="response"` 的正式 `pin_payload.v2` packet 不再被 endpoint runtime 当作请求程序处理，也不得被静默忽略。UI Server/runtime 必须按 `reply_target_worker_id` 确认这是本地目标，再用 `reply_target_table_id + reply_target_model_id` 定位 materialization model，并通过 `add_label` 将 payload model records 写入对应 Cell。response materialization 必须先验证全部 payload records 均可写，再执行写入；任一 record 非法时必须整体拒绝，不得留下部分 materialization。response materialization 不得向 response endpoint model 写 `pin.in`，不得触发 endpoint 程序链路，不得在 reply target worker 不匹配、目标 model 不存在、或写入失败时 fallback 到 host/shared runtime。运行时必须写 `pin_payload_response_materialize_last_result` 与 `pin_payload_response_materialize` intercept 记录 applied/rejected 结果。
 
@@ -652,7 +658,9 @@ UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>
 
 该 topic 必须正好 8 段。所有段必须非空；`model_id` 必须是正整数；`worker_id` 与 `pin` 不能包含 `/`、`+`、`#`。含冗余 software-worker 段的旧格式、旧 `UIPUT/.../worker/<worker_id>/model/<model_id>/pin/<pin>`、旧 `<base>/<model_id>/<pin>`、缺段或增段都不是合法输入面，必须 fail closed，不能兼容解析。
 
-默认 `route_kind` 为 `"control"`，即 UI Server 可直接写 `pin.bus.cb.out`，MBR 收到控制总线消息后继续转发为控制总线消息。payload 显式写 `route_kind="management"` 时，UI Server 必须写 `pin.bus.mb.out`，MBR 从管理总线收到请求后，仍按 payload 内 `topic` record 转发到目标控制总线 / MQTT。后续跨工作区场景可以继续使用同一个字段表达 MBR 间管理总线，但同工作区 VPN 不通场景的当前冻结路线是 `UI Server pin.bus.mb.out -> MBR -> pin.bus.cb.out -> Remote Worker`。
+control payload 必须显式写 `route_kind="control"` 与 `bus="control"`，且两者必须一致；缺少任一字段或值不一致都必须 fail closed，不得把省略解释为 control。control request 的当前路线是 `UI Server pin.bus.cb.out -> local MQTT -> R1 pin.bus.cb.in`；control response 是 `R1 pin.bus.cb.out -> local MQTT -> UI Server pin.bus.cb.in`。MBR 不桥接、不回显 control response；否则同一 response 会重复到达 UI Server。
+
+management payload 必须显式写 `route_kind="management"` 与 `bus="management"`。request 路线是 `UI Server pin.bus.mb.out -> local Matrix/Synapse -> MBR pin.bus.mb.in -> MBR pin.bus.cb.out -> local MQTT -> R1 pin.bus.cb.in`。management response 由 R1 写本地控制总线后，经 `R1 pin.bus.cb.out -> local MQTT -> MBR pin.bus.cb.in -> MBR pin.bus.mb.out -> local Matrix/Synapse -> UI Server pin.bus.mb.in` 返回。MBR 只桥接 management response，且仍只按 payload 当前 `topic` record 转发；不得把 control response 复制到 management bus。
 
 请求使用远端 endpoint topic，回包使用 `response_topic`。MBR 不得从 `reply_target_*` 自行推断 topic；它只转发 payload 中当前 packet 的 `topic` record。
 
@@ -691,9 +699,10 @@ UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>
 - 浏览器 / server current path 只提交 `type = bus_event_v2`
 - `/bus_event` 是正式入口；`/ui_event` 仍可作为显式兼容 URL alias 接受同一份 `bus_event_v2` body，但不构成独立协议
 - `Model 0 (0,0,0)` 是唯一正式 ingress
-- 事件值默认写入 `k=<bus_in_key> t=pin.bus.cb.in`；显式管理语义才写入 `pin.bus.mb.in`
+- 所有浏览器 `bus_event_v2` 事件值统一写入 `k=<bus_in_key>` 对应的 `pin.bus.cb.in`；浏览器 submit 不直接写 `pin.bus.mb.in`
+- management 只在目标模型外发时，由正式 payload 的 `bus="management"` 与 `route_kind="management"` 选择 Matrix/Synapse/MBR transport
 - 正式 UI/同工作区业务 ingress 链路是 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in -> pin route -> target`
-- `bus_event_v2.value` 在进入 `pin.bus.cb.in` 或显式 `pin.bus.mb.in` 前必须已经是临时 ModelTable record array；server/frontend 不得把 `{ target_cell, target_pin, value }` 对象在 ingress 上临时转换为通过态 payload。
+- `bus_event_v2.value` 在进入 `pin.bus.cb.in` 前必须已经是临时 ModelTable record array；server/frontend 不得把 `{ target_cell, target_pin, value }` 对象在 ingress 上临时转换为通过态 payload。
 - `write_label.v1` 只属于目标模型内部的跨 cell 写入链路：用户程序调用 `writeLabel` 后，经显式 `write_label_req -> mt_write_req -> mt_write_result` 路由生成和消费；它不是 Model 0 bus ingress 的通用 passing path。
 - Model 0 内的 `pin.connect.cell` 把事件送到目标模型的 connection Cell / 子模型 root 边界 `pin.in`
 - 子模型 `(0,0,0)` 的 `mt_bus_receive` 再把 payload 分发到目标 cell / target pin
@@ -716,7 +725,7 @@ UIPUT/<ws_id>/<dam_id>/<pic_id>/<de_id>/<worker_id>/<model_id>/<pin>
 
 Tier 归属：
 
-- `Model 0 pin.bus.cb.in / pin.bus.mb.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 属于 Tier 1 runtime 语义
+- 浏览器事件的 `Model 0 pin.bus.cb.in -> pin.connect.cell -> child root pin.in -> child mt_bus_receive` 属于 Tier 1 runtime 语义；`pin.bus.mb.in` 保留给 management transport ingress，不是浏览器 submit 入口
 - `server` / `frontend` 只负责：
   - `bus_event_v2` envelope 适配
   - HTTP transport / snapshot
@@ -728,6 +737,8 @@ Historical / Retired (pre-0326):
 - `ui_event_<action>` 派生 ingress key
 - direct positive-model `(0,0,2) ui_event`
 - direct server `run_func` / direct positive-model `ui_event` fallback
+
+Current mailbox names are `bus_event` / `bus_event_error` / `bus_event_last_op_id`. 上述 `ui_event*` 名称只描述 pre-0326 历史状态；`/ui_event` 兼容 URL 也只接受当前 `bus_event_v2` body，不恢复 legacy `type=ui_event` envelope。
 
 Compatibility note:
 
@@ -789,12 +800,12 @@ Root `(0,0,0)` 可以声明：
 }
 ```
 
-该声明只表达远端 provider 默认目标和 UI Server 到 MBR 的出站路线。`route_kind` 可省略，省略等同 `"control"`；显式 `"management"` 时，安装器必须把该 imported app 的 host-owned egress adapter 接到 UI Server Model 0 的 `pin.bus.mb.out`，并在出站 payload records 中写入 `bus="management"` / `route_kind="management"`。运行时出站 packet 必须合成 Temporary ModelTable record array metadata：
+该声明只表达远端 provider 默认目标和 UI Server 的出站 route selection。`route_kind` 可省略，省略等同 `"control"`；默认 control 由 UI Server 的 MQTT adapter 直达目标 Worker，不经过 MBR；显式 `"management"` 时，安装器必须把该 imported app 的 host-owned egress adapter 接到 UI Server Model 0 的 `pin.bus.mb.out`，并通过 Matrix/Synapse 与 MBR 路由，同时在出站 payload records 中写入 `bus="management"` / `route_kind="management"`。运行时出站 packet 必须合成 Temporary ModelTable record array metadata：
 
 - `endpoint_worker_id` / `endpoint_model_id`：来自 `remote_bus_endpoint_v1`
 - `endpoint_pin`：来自当前被触发的公开出口 pin，例如 `submit1`
 - `message_role`：请求固定写 `"request"`；远端回包固定写 `"response"`
-- `topic`：由 `mqtt_topic_base`、远端 `worker_id`、远端 `model_id` 与当前 `endpoint_pin` 合成；它是 MBR 的唯一转发 truth
+- `topic`：由 `mqtt_topic_base`、远端 `worker_id`、远端 `model_id` 与当前 `endpoint_pin` 合成；它是 control MQTT adapter 与 management MBR bridge 的唯一 transport routing truth
 - `response_topic`：host-table 目标可由 `mqtt_topic_base`、`reply_target_worker_id`、`reply_target_model_id` 与 `reply_target_pin` 合成；App instance 目标使用 host transport endpoint，request 写入该值，response 的 `topic` 必须改为该值
 - `route_kind` / `bus`：来自 `remote_bus_endpoint_v1.route_kind` 或默认 `"control"`
 - `origin_worker_id` / `origin_table_id` / `origin_model_id` / `origin_pin`：由 UI Server 根据当前 host identity、App instance `ModelRef` 与触发 pin 生成

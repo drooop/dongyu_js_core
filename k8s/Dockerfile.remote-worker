@@ -22,5 +22,8 @@ COPY packages/worker-base/system-models/ ./packages/worker-base/system-models/
 # Copy fill-table bootstrap script + engine (loadSystemPatch dependency)
 COPY scripts/run_worker_remote_v1.mjs ./scripts/
 COPY scripts/worker_engine_v0.mjs ./scripts/
+COPY scripts/lib/de_actor_attestation.mjs ./scripts/lib/de_actor_attestation.mjs
+COPY scripts/lib/de_runtime_diagnostics.mjs ./scripts/lib/de_runtime_diagnostics.mjs
+COPY scripts/lib/de_network_boundary_evidence.mjs ./scripts/lib/de_network_boundary_evidence.mjs
 
 CMD ["bun", "scripts/run_worker_remote_v1.mjs"]

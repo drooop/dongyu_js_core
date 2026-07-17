@@ -115,7 +115,7 @@ async function test_seeded_dual_bus_contract_overrides_persisted_removed_pin_typ
         assert.deepEqual(Object.keys(packet || {}).sort(), ['payload', 'type', 'version'], `model_${modelId}_must_publish_strict_pin_payload_packet`);
         assert.equal(packet.version, 'v1', `model_${modelId}_packet_version`);
         assert.equal(packet.type, 'pin_payload', `model_${modelId}_packet_type`);
-        assert.equal(payloadValue(packet, '__mt_payload_kind'), 'pin_payload.v1', `model_${modelId}_payload_kind`);
+        assert.equal(payloadValue(packet, '__mt_payload_kind'), 'pin_payload.v2', `model_${modelId}_payload_kind`);
         assert.equal(payloadValue(packet, 'message_role'), 'request', `model_${modelId}_message_role`);
         assert.equal(payloadValue(packet, 'endpoint_worker_id'), 'R1', `model_${modelId}_endpoint_worker`);
         assert.equal(payloadValue(packet, 'endpoint_model_id'), modelId, `model_${modelId}_endpoint_model`);
@@ -126,7 +126,20 @@ async function test_seeded_dual_bus_contract_overrides_persisted_removed_pin_typ
         assert.equal(payloadValue(packet, 'reply_target_worker_id'), 'ui-server-0362-persist', `model_${modelId}_reply_target_worker`);
         assert.equal(payloadValue(packet, 'reply_target_model_id'), modelId, `model_${modelId}_reply_target_model`);
         assert.equal(payloadValue(packet, 'reply_target_pin'), 'result', `model_${modelId}_reply_target_pin`);
-        assert.ok(Array.isArray(payloadValue(packet, 'payload')), `model_${modelId}_nested_payload_must_be_records`);
+        const payloadModelId = payloadValue(packet, 'payload_model_id');
+        assert.equal(payloadModelId, 1, `model_${modelId}_payload_model_id`);
+        assert.equal(payloadValue(packet, 'payload'), undefined, `model_${modelId}_must_not_keep_nested_payload`);
+        const businessRecords = packet.payload.filter((record) => record && record.id === payloadModelId);
+        assert.equal(
+          businessRecords.some((record) => record.k === '__mt_payload_kind' && record.v === 'seeded.submit.v1'),
+          true,
+          `model_${modelId}_business_payload_kind`,
+        );
+        assert.equal(
+          businessRecords.some((record) => record.k === 'message_text' && record.v === `persisted canonical ${modelId}`),
+          true,
+          `model_${modelId}_business_message_text`,
+        );
       }
     });
   } finally {

@@ -12,6 +12,30 @@ const repoRoot = resolve(import.meta.dirname, '..', '..');
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
 
+const workerActors = [
+  {
+    name: 'mbr',
+    patch: 'deploy/sys-v1ns/mbr/patches/mbr_role_v0.json',
+    patchDir: 'deploy/sys-v1ns/mbr/patches',
+    workerId: '5/10/28/35/14',
+    role: 'DEM',
+  },
+  {
+    name: 'remote_worker',
+    patch: 'deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json',
+    patchDir: 'deploy/sys-v1ns/remote-worker/patches',
+    workerId: '5/10/28/35/15',
+    role: 'V1N',
+  },
+  {
+    name: 'workspace_manager',
+    patch: 'deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json',
+    patchDir: 'deploy/sys-v1ns/workspace-manager/patches',
+    workerId: '5/10/28/36/16',
+    role: 'DEM',
+  },
+];
+
 function read(relPath) {
   return readFileSync(resolve(repoRoot, relPath), 'utf8');
 }
@@ -46,6 +70,12 @@ function rootLabel(records, key) {
   )) || null;
 }
 
+function paragraphHasTerms(source, terms) {
+  return source
+    .split(/\r?\n[ \t]*\r?\n/u)
+    .some((paragraph) => terms.every((term) => term.test(paragraph)));
+}
+
 function assertWorkerIdentity(relPath, expectedRole) {
   const records = recordsOf(relPath);
   const id = rootLabel(records, 'sys_worker_id');
@@ -61,6 +91,64 @@ function assertWorkerIdentity(relPath, expectedRole) {
   assert.equal(rootLabel(records, 'worker.role'), null, `${relPath}_must_not_seed_legacy_worker_role_key`);
 }
 
+function test_worker_root_authority_distinguishes_v1n_from_ordinary_tables() {
+  const claude = read('CLAUDE.md');
+  const architecture = read('docs/architecture_mantanet_and_workers.md');
+  const violations = [];
+  if (!paragraphHasTerms(claude, [/(?:software worker|worker host|worker root)/iu, /Model 0/iu, /model\.v1n/iu])) {
+    violations.push('claude_missing_worker_root_model_v1n');
+  }
+  if (!paragraphHasTerms(claude, [/(?:ordinary|non-worker)/iu, /model\.table/iu])) {
+    violations.push('claude_missing_ordinary_model_table');
+  }
+  if (!paragraphHasTerms(architecture, [/(?:软件工人|software worker)/iu, /Model 0/iu, /model\.v1n/iu])) {
+    violations.push('architecture_missing_model_v1n_form');
+  }
+  if (!paragraphHasTerms(architecture, [/(?:普通|非软件工人|ordinary|non-worker)/iu, /model\.table/iu])) {
+    violations.push('architecture_missing_ordinary_model_table');
+  }
+  assert.deepEqual(violations, [], `worker_root_authority_conflicts:${violations.join(',')}`);
+  return { key: 'worker_root_authority_distinguishes_v1n_from_ordinary_tables', status: 'PASS' };
+}
+
+function test_worker_role_patches_declare_v1n_before_identity_role_and_bus_pins() {
+  const violations = [];
+  for (const actor of workerActors) {
+    const records = recordsOf(actor.patch);
+    const formIndex = records.findIndex((record) => rootLabel([record], 'model_type')?.t === 'model.v1n');
+    if (formIndex < 0) {
+      violations.push(`${actor.name}_missing_root_model_v1n`);
+      continue;
+    }
+    const dependentIndexes = records
+      .map((record, index) => ({ record, index }))
+      .filter(({ record }) => rootLabel([record], record?.k) === record)
+      .filter(({ record }) => record.k === 'sys_worker_id' || record.k === 'sys_worker_role' || /^pin\.bus\.(?:cb|mb)\.(?:in|out)$/u.test(record.t))
+      .map(({ index }) => index);
+    if (dependentIndexes.some((index) => index <= formIndex)) {
+      violations.push(`${actor.name}_root_model_v1n_must_precede_identity_role_and_bus_pins`);
+    }
+  }
+  assert.deepEqual(violations, [], `worker_root_patch_contract_violations:${violations.join(',')}`);
+  return { key: 'worker_role_patches_declare_v1n_before_identity_role_and_bus_pins', status: 'PASS' };
+}
+
+function test_worker_roles_control_management_pin_legality() {
+  const violations = [];
+  for (const actor of workerActors) {
+    const records = recordsOf(actor.patch);
+    const managementPinTypes = new Set(records
+      .filter((record) => rootLabel([record], record?.k) === record)
+      .map((record) => record.t)
+      .filter((type) => /^pin\.bus\.mb\.(?:in|out)$/u.test(type)));
+    if (actor.role === 'V1N' && managementPinTypes.size > 0) {
+      violations.push(`${actor.name}_v1n_must_not_declare_management_pins`);
+    }
+  }
+  assert.deepEqual(violations, [], `worker_role_management_pin_violations:${violations.join(',')}`);
+  return { key: 'worker_roles_control_management_pin_legality', status: 'PASS' };
+}
+
 function test_system_seed_does_not_lock_worker_identity() {
   const records = recordsOf('packages/worker-base/system-models/system_models.json');
   assert.equal(rootLabel(records, 'sys_worker_id'), null, 'system_seed_must_not_write_generic_sys_worker_id');
@@ -74,6 +162,7 @@ function test_system_seed_does_not_lock_worker_identity() {
 function test_worker_role_patches_are_explicit() {
   assertWorkerIdentity('deploy/sys-v1ns/mbr/patches/mbr_role_v0.json', 'DEM');
   assertWorkerIdentity('deploy/sys-v1ns/remote-worker/patches/00_remote_worker_config.json', 'V1N');
+  assertWorkerIdentity('deploy/sys-v1ns/workspace-manager/patches/00_workspace_manager_dem_config.json', 'DEM');
   return { key: 'worker_role_patches_are_explicit', status: 'PASS' };
 }
 
@@ -123,7 +212,24 @@ async function assertUiServerIdentity() {
 function test_worker_identity_survives_actual_load_order() {
   assertLoadedWorkerIdentity('mbr', 'deploy/sys-v1ns/mbr/patches', '5/10/28/35/14', 'DEM');
   assertLoadedWorkerIdentity('remote_worker', 'deploy/sys-v1ns/remote-worker/patches', '5/10/28/35/15', 'V1N');
+  assertLoadedWorkerIdentity('workspace_manager', 'deploy/sys-v1ns/workspace-manager/patches', '5/10/28/36/16', 'DEM');
   return { key: 'worker_identity_survives_actual_load_order', status: 'PASS' };
+}
+
+function test_loaded_worker_runtimes_preserve_v1n_root_form() {
+  const violations = [];
+  for (const actor of workerActors) {
+    const rt = new ModelTableRuntime();
+    rt.applyPatch(json('packages/worker-base/system-models/system_models.json'), {
+      allowCreateModel: true,
+      trustedBootstrap: true,
+    });
+    loadRolePatches(rt, actor.patchDir);
+    const root = rt.getCell(rt.getModel(0), 0, 0, 0);
+    if (root.labels.get('model_type')?.t !== 'model.v1n') violations.push(`${actor.name}_loaded_root_is_not_model_v1n`);
+  }
+  assert.deepEqual(violations, [], `loaded_worker_root_form_violations:${violations.join(',')}`);
+  return { key: 'loaded_worker_runtimes_preserve_v1n_root_form', status: 'PASS' };
 }
 
 async function test_ui_server_identity_survives_actual_boot() {
@@ -168,8 +274,12 @@ function test_slide_provider_payload_stays_provider_owned_only() {
 
 const tests = [
   test_system_seed_does_not_lock_worker_identity,
+  test_worker_root_authority_distinguishes_v1n_from_ordinary_tables,
+  test_worker_role_patches_declare_v1n_before_identity_role_and_bus_pins,
+  test_worker_roles_control_management_pin_legality,
   test_worker_role_patches_are_explicit,
   test_worker_identity_survives_actual_load_order,
+  test_loaded_worker_runtimes_preserve_v1n_root_form,
   test_ui_server_identity_survives_actual_boot,
   test_active_ui_models_do_not_teach_unsplit_bus_pins,
   test_slide_provider_payload_stays_provider_owned_only,

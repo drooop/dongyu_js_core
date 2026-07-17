@@ -2,7 +2,7 @@
 title: "UI Model Authoring Guide (cellwise.ui.v1)"
 doc_type: user-guide
 status: active
-updated: 2026-05-12
+updated: 2026-07-16
 source: ai
 ---
 
@@ -241,10 +241,10 @@ Example: trigger a pin with ModelTable payload records.
 For same-workspace bus events, the formal path is:
 
 ```text
-UI event -> bus_event_v2 -> Model 0 pin.bus.cb.in -> pin route -> target model / MBR
+UI event -> bus_event_v2 -> Model 0 pin.bus.cb.in -> pin route -> target model
 ```
 
-Explicit management semantics use `pin.bus.mb.in` / `pin.bus.mb.out`; they are not the default UI path.
+Every browser `bus_event_v2` first enters `pin.bus.cb.in`. Management is selected only when target-model egress emits `bus=management` and `route_kind=management`; `pin.bus.mb.out` carries that egress, while `pin.bus.mb.in` is transport return ingress rather than a browser submit path.
 
 ### Data Display
 
@@ -411,8 +411,15 @@ Example Markdown value:
 
 ```mermaid
 flowchart LR
-  UI[UI event] --> Bus[Model 0 pin.bus.mb.in]
-  Bus --> Target[Target model or MBR]
+  UI[Browser bus_event_v2] --> CBIn[Model 0 pin.bus.cb.in]
+  CBIn --> Target[Target model]
+  Target --> CBOut[pin.bus.cb.out]
+  CBOut --> MQTT[Local MQTT]
+  MQTT --> R1[R1 target worker]
+  Target --> MgmtOut[Target-model egress<br/>bus=management<br/>route_kind=management]
+  MgmtOut --> Matrix[Local Matrix/Synapse]
+  Matrix --> MBR[MBR]
+  MBR -.-> MBIn[pin.bus.mb.in<br/>management transport ingress]
 ```
 
 ```json

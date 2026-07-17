@@ -1,17 +1,17 @@
 ---
 title: "Remote Worker K8s Runbook"
 doc_type: deployment
-status: active
-updated: 2026-05-10
+status: historical
+updated: 2026-07-16
 source: ai
 ---
 
 # Remote Worker K8s Runbook
 
-Status: current runbook when working on local K8s remote-worker validation. It does not override the default runtime baseline in `docs/deployment/runtime_baseline_default.md` or any SSOT.
+Status: historical pre-0457 Matrix-first runbook. It is retained as execution evidence and does not describe the current default control route. Current local acceptance uses `scripts/ops/README.md` and iteration 0457: control is direct local MQTT with MBR no-echo; management alone uses local Matrix/Synapse and MBR.
 
 > 目标：在本地开发环境中跑通  
-> `UI -> Matrix -> MBR -> MQTT -> K8s Remote Worker`。
+> Historical route: `UI -> Matrix -> MBR -> MQTT -> K8s Remote Worker`。
 > 默认口径：MBR 与 Remote Worker 运行在 K8s，`scripts/run_worker_mbr_v0.mjs` 不再作为默认入口。
 
 ## 1. 前置条件

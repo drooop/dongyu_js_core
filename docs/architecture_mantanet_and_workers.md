@@ -2,7 +2,7 @@
 title: "云海流核心概念与架构边界（SSOT）"
 doc_type: note
 status: active
-updated: 2026-05-10
+updated: 2026-07-10
 source: ai
 ---
 
@@ -45,7 +45,7 @@ Conflict behavior:
 - **总线解耦**：消息、指令、状态更新应通过“总线抽象”解耦，不绑定具体实现名。
 - **工作区隔离**：跨网络/跨组织的协作必须在“工作区（Workspace）”边界内进行隔离与加密。
 - **填表优先**：新能力必须优先通过填充模型（JSON patches）实现，运行时代码变更仅限于新增 label.t 解释或修复解释器 bug。
-- **模型类型二维性**：Cell 有效模型标签来自 `model.single / model.matrix / model.table / model.submt / model.subtable` 这些子侧/自身声明，以及 `model.submtconnection / model.subtableconnection` 这些父侧/主侧索引。普通未物化 Cell 在 table/matrix 作用域内默认有效类型为 `model.single`；类型值仍由 `model_type` 的 value 承载。
+- **模型类型二维性**：Cell 有效模型标签来自 `model.single / model.matrix / model.table / model.v1n / model.submt / model.subtable` 这些子侧/自身声明，以及 `model.submtconnection / model.subtableconnection` 这些父侧/主侧索引。`model.v1n` 只声明 software worker host-table Model 0；普通/non-worker ModelTable root 继续使用 `model.table`。普通未物化 Cell 在 table/matrix 作用域内默认有效类型为 `model.single`；类型值仍由 `model_type` 的 value 承载。
 - **显式索引**：除 host table 的 Model 0 外，每个 host-table child model 都必须由父模型 Cell 上的 `model.submtconnection` 显式索引进入层级，并在 child model root 写 `model.submt`；每个已安装滑动 App 实例的 child ModelTable 必须由 host-owned `model.subtableconnection` Cell 显式索引进入宿主层级，并在 child ModelTable root 写 `model.subtable`。`model.subtable` 不是 `model.submt` 的别名；connection 标签也不是 pin wiring 标签。
 - **禁止默认兼容**：历史别名/旧 label 类型不构成当前规范输入面；如需兼容保留，必须显式批准。
 - **可审计可验证**：任何关键能力必须有脚本化验收路径；关键变更可回滚、可追踪。
@@ -154,7 +154,7 @@ Conflict behavior:
 
 Cell 有效模型标签均为 Tier 1 定义，由 `model_type` 标签的 `label.t` 区分。
 当前已冻结的模型形态与关系索引包括：
-- 子侧/自身声明：`model.single` / `model.matrix` / `model.table` / `model.submt` / `model.subtable`
+- 子侧/自身声明：`model.single` / `model.matrix` / `model.table` / `model.v1n` / `model.submt` / `model.subtable`
 - 父侧/主侧索引：`model.submtconnection` / `model.subtableconnection`
 
 0424/0431 target 额外明确：`model.subtable` 写在 child ModelTable 的 Model 0 root `(0,0,0)`，`model.subtableconnection` 写在 host/main/parent table 的索引 Cell。`model.subtable` 不是 `model.submt` 的别名，`model.subtableconnection` 也不是 `pin.connect.cell` 或 `pin.connect.model` 的替代品。
@@ -173,10 +173,15 @@ Cell 有效模型标签均为 Tier 1 定义，由 `model_type` 标签的 `label.
 - 允许绝对原点不同于全局 `(0,0,0)`，但必须有可裁决的 relative→absolute 映射规则。
 
 **模型表（model.table）**
-- 动态大小，无维度约束，模型根 `(0,0,0)` 必须显式声明 `model.table`。
+- 动态大小，无维度约束；普通或非软件工人 ModelTable 的模型根 `(0,0,0)` 必须显式声明 `model.table`。
 - 拥有独立 model_id，是当前主要运行时模型形态。
 - **(0323) (0,0,0) 默认三程序**：每个 model.table 的 (0,0,0) 必须包含三个 `func.js` 默认程序（`mt_write` / `mt_bus_receive` / `mt_bus_send`），作为模型的控制面入口。详见 `docs/ssot/runtime_semantics_modeltable_driven.md` §5.3。
 - **(0323) 权限模型**：用户程序仅可写自身 Cell（V1N.addLabel）、读当前模型内任意 Cell（V1N.readLabel）；跨 Cell 写入经 (0,0,0) mt_write，跨模型通信经 pin 链路。详见 `docs/ssot/host_ctx_api.md`。
+
+**软件工人宿主模型表（model.v1n）**
+- Software worker host table 的 Model 0 root `(0,0,0)` 必须显式声明 `model.v1n`；它沿用 `model.table` 的表执行语义，但不是普通模型表的别名。
+- `model.v1n` 只表达宿主根形态。软件工人身份与角色继续分别由 `sys_worker_id:worker.id` 和 `sys_worker_role:worker.role` 声明。
+- 普通或非软件工人 ModelTable root 必须继续使用 `model.table`，不得用 `model.v1n` 冒充软件工人。
 
 **子模型声明与索引（model.submt / model.submtconnection）**
 - `model.submt` 写在 child model 自己的 root `(0,0,0)`，声明“我是一个 child model”。
@@ -192,7 +197,7 @@ Cell 有效模型标签均为 Tier 1 定义，由 `model_type` 标签的 `label.
 - `model.subtable` 不能当作 `model.submt` 的兼容写法；跨表连接只能经过父侧 `model.subtableconnection` Cell 和 child table root pins。
 
 **模型类型二维编码**
-- label.t = 形态或关系索引（model.single | model.matrix | model.table | model.submt | model.subtable | model.submtconnection | model.subtableconnection）
+- label.t = 形态或关系索引（model.single | model.matrix | model.table | model.v1n | model.submt | model.subtable | model.submtconnection | model.subtableconnection）
 - label.v = 类型（Code.JS | Data.Array.One | Flow | Doc.Markdown | ...）用于自身声明；child model ref 用在 `model.submtconnection`，child table ref 用在 `model.subtableconnection`
 - 无效的形态×类型组合必须在注册时被拒绝。
 
@@ -317,7 +322,7 @@ PIN 端口按**类型**区分层级（不是按位置硬编码）：
 
 ### 7.1 Tier 1：运行时基座（解释器能力）
 
-- 模型形态执行：model.single / model.matrix / model.table 约束校验。
+- 模型形态执行：model.single / model.matrix / model.table / model.v1n 约束校验。
 - 标签类型解释：`_applyBuiltins` 按 label.t 分发。
 - mailbox 事件入口到合法 pin ingress 的解释与传播。
 - MQTT 循环、AsyncFunction 执行器、PIN 路由图管理、可观测性。

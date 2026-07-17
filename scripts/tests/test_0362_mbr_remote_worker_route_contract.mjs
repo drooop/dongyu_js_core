@@ -7,6 +7,7 @@ import { WorkerEngineV0, buildWorkerHostApi, loadSystemPatch } from '../worker_e
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
+const workerRunnerModule = await import('../run_worker_v0.mjs');
 
 function readJson(pathname) {
   return JSON.parse(fs.readFileSync(pathname, 'utf8'));
@@ -19,13 +20,13 @@ function getFunctionCode(label) {
   return '';
 }
 
-function mt(k, t, v) {
-  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+function mt(k, t, v, id = 0) {
+  return { id, p: 0, r: 0, c: 0, k, t, v };
 }
 
 function tempPayload(text = 'hello endpoint') {
   return [
-    mt('model_type', 'model.single', 'Data.MinimalSubmit'),
+    mt('model_type', 'model.table', 'Data.MinimalSubmit'),
     mt('text', 'str', text),
   ];
 }
@@ -33,12 +34,15 @@ function tempPayload(text = 'hello endpoint') {
 function pinPayloadRecords({
   opId = '0362_endpoint_ok',
   endpointWorkerId = 'R1',
+  endpointTableId = 'host',
   endpointModelId = 3000,
   endpointPin = 'submit1',
   originWorkerId = 'U1',
+  originTableId = 'host',
   originModelId = 2000,
   originPin = 'submit1',
   replyTargetWorkerId = 'U1',
+  replyTargetTableId = 'host',
   replyTargetModelId = 2000,
   replyTargetPin = 'result',
   messageRole = 'request',
@@ -47,9 +51,10 @@ function pinPayloadRecords({
   topic = `UIPUT/ws/dam/pic/de/${endpointWorkerId}/${endpointModelId}/${endpointPin}`,
   responseTopic = `UIPUT/ws/dam/pic/de/${replyTargetWorkerId}/${replyTargetModelId}/${replyTargetPin}`,
   routeKind = 'control',
+  payloadModelId = 1,
 } = {}) {
   return [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_payload_kind', 'str', 'pin_payload.v2'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
@@ -58,16 +63,20 @@ function pinPayloadRecords({
     mt('route_kind', 'str', routeKind),
     mt('bus', 'str', routeKind),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_table_id', 'str', endpointTableId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
     mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_table_id', 'str', originTableId),
     mt('origin_model_id', 'int', originModelId),
     mt('origin_pin', 'str', originPin),
     mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_table_id', 'str', replyTargetTableId),
     mt('reply_target_model_id', 'int', replyTargetModelId),
     mt('reply_target_pin', 'str', replyTargetPin),
-    mt('payload', 'json', payload),
+    mt('payload_model_id', 'int', payloadModelId),
     mt('timestamp', 'int', timestamp),
+    ...payload.map((record) => ({ ...record, id: payloadModelId })),
   ];
 }
 
@@ -99,6 +108,13 @@ function payloadJson(records, key) {
   return record && record.t === 'json' ? record.v : null;
 }
 
+function businessRecords(records) {
+  const payloadModelId = payloadInt(records, 'payload_model_id');
+  return Number.isInteger(payloadModelId)
+    ? records.filter((record) => record && record.id === payloadModelId)
+    : [];
+}
+
 function loadMbrRuntime() {
   const rt = new ModelTableRuntime();
   loadSystemPatch(rt);
@@ -108,6 +124,16 @@ function loadMbrRuntime() {
     trustedBootstrap: true,
   });
   return rt;
+}
+
+async function writeMbrIngress(rt, key, type, records) {
+  if (!rt.isRuntimeRunning || !rt.isRuntimeRunning()) {
+    if (!rt.getRuntimeMode || rt.getRuntimeMode() === 'boot') rt.setRuntimeMode('edit');
+    rt.setRuntimeMode('running');
+  }
+  const result = rt.addLabel(rt.getModel(0), 0, 0, 0, { k: key, t: type, v: records });
+  await wait();
+  return result;
 }
 
 function loadRemoteRuntime() {
@@ -210,16 +236,11 @@ function test_remote_worker_patches_do_not_keep_raw_result_fallbacks() {
   return { key: 'remote_worker_patches_do_not_keep_raw_result_fallbacks', status: 'PASS' };
 }
 
-function test_mbr_routes_by_topic_and_rejects_missing_endpoint_metadata() {
+async function test_mbr_routes_by_topic_and_rejects_missing_endpoint_metadata() {
   const rt = loadMbrRuntime();
   const sys = rt.getModel(-10);
-  const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt')));
-  rt.addLabel(sys, 0, 0, 0, {
-    k: 'mbr_mgmt_inbox',
-    t: 'json',
-    v: externalPacket(pinPayloadRecords({ opId: '0362_endpoint_ok', payload: tempPayload('mbr endpoint') })),
-  });
-  fn({ hostApi: buildWorkerHostApi(rt) });
+  const records = pinPayloadRecords({ opId: '0362_endpoint_ok', routeKind: 'management', payload: tempPayload('mbr endpoint') });
+  await writeMbrIngress(rt, 'mbr_mb_in', 'pin.bus.mb.in', records);
   const cbOut = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_cb_out');
   const packet = toExternalPinPacket(rt, cbOut);
   assert.equal(cbOut?.t, 'pin.bus.cb.out', 'MBR must write endpoint packet to control-bus out pin');
@@ -232,46 +253,37 @@ function test_mbr_routes_by_topic_and_rejects_missing_endpoint_metadata() {
   assert.equal(payloadInt(published[0].payload.payload, 'origin_model_id'), 2000, 'MBR must preserve local origin model id');
   assert.equal(payloadString(published[0].payload.payload, 'reply_target_worker_id'), 'U1', 'MBR must preserve server-owned reply target');
 
-  rt.addLabel(sys, 0, 0, 0, {
-    k: 'mbr_mgmt_inbox',
-    t: 'json',
-    v: externalPacket(withoutRecords(pinPayloadRecords({ opId: '0362_endpoint_missing' }), ['endpoint_worker_id'])),
-  });
-  fn({ hostApi: buildWorkerHostApi(rt) });
+  await writeMbrIngress(rt, 'mbr_mb_in', 'pin.bus.mb.in', withoutRecords(pinPayloadRecords({
+    opId: '0362_endpoint_missing',
+    routeKind: 'management',
+  }), ['endpoint_worker_id']));
   assert.equal(published.length, 1, 'missing endpoint records must not publish');
-  assert.equal(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_error')?.v?.detail, 'invalid_pin_payload_records', 'missing endpoint rejection must be explicit');
+  assert.equal(rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_cb_out')?.v ?? null, null, 'missing endpoint records must fail before egress');
+  assert.equal(
+    rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('bus_in_error')?.v?.code,
+    'bus_in_invalid_pin_payload_records',
+    'missing endpoint rejection must remain visible on Model 0',
+  );
   return { key: 'mbr_routes_by_topic_and_rejects_missing_endpoint_metadata', status: 'PASS' };
 }
 
-function test_mbr_does_not_echo_own_control_publish_to_management_bus() {
+async function test_mbr_does_not_echo_own_control_publish_to_management_bus() {
   const rt = loadMbrRuntime();
-  const sys = rt.getModel(-10);
-  const mgmtFn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt')));
-  const mqttFn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_to_mgmt')));
-
-  rt.addLabel(sys, 0, 0, 0, {
-    k: 'mbr_mgmt_inbox',
-    t: 'json',
-    v: externalPacket(pinPayloadRecords({ opId: '0362_no_echo', payload: tempPayload('no echo') })),
-  });
-  mgmtFn({ hostApi: buildWorkerHostApi(rt) });
+  await writeMbrIngress(rt, 'mbr_mb_in', 'pin.bus.mb.in', pinPayloadRecords({
+    opId: '0362_no_echo',
+    routeKind: 'management',
+    payload: tempPayload('no echo'),
+  }));
   const { mqttPublished: published } = drainWorkerEngine(rt);
   assert.equal(published.length, 1, 'MBR must publish the outbound MQTT packet once');
 
-  rt.addLabel(sys, 0, 0, 0, {
-    k: 'mbr_mqtt_inbox',
-    t: 'json',
-    v: { topic: published[0].topic, payload: published[0].payload },
-  });
-  mqttFn({ hostApi: buildWorkerHostApi(rt) });
+  await writeMbrIngress(rt, 'mbr_cb_in', 'pin.bus.cb.in', published[0].payload.payload);
   assert.equal(rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_mb_out')?.v, null, 'MBR must not bridge its own endpoint request back to Matrix');
   return { key: 'mbr_does_not_echo_own_control_publish_to_management_bus', status: 'PASS' };
 }
 
-function test_mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_default() {
+async function test_mbr_mqtt_inbound_does_not_echo_direct_control_reply() {
   const rt = loadMbrRuntime();
-  const sys = rt.getModel(-10);
-  const mqttFn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_to_mgmt')));
   const replyRecords = pinPayloadRecords({
     opId: '0362_remote_reply',
     messageRole: 'response',
@@ -288,23 +300,16 @@ function test_mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_default() 
     replyTargetPin: 'result',
     payload: [mt('display_text', 'str', 'Submitted: from remote')],
   });
-  rt.addLabel(sys, 0, 0, 0, {
-    k: 'mbr_mqtt_inbox',
-    t: 'json',
-    v: { topic: 'UIPUT/ws/dam/pic/de/R1/3000/submit1', payload: externalPacket(replyRecords) },
-  });
-  mqttFn({ hostApi: buildWorkerHostApi(rt) });
-  const cbOut = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_cb_out');
-  const packet = toExternalPinPacket(rt, cbOut);
-  assert.equal(cbOut?.t, 'pin.bus.cb.out', 'MBR must bridge remote replies to control-bus out pin by default');
-  assert.equal(payloadString(packet.payload, 'message_role'), 'response', 'remote reply role must be preserved');
-  assert.equal(payloadString(packet.payload, 'topic'), 'UIPUT/ws/dam/pic/de/U1/2000/result', 'remote reply must publish on response_topic');
-  assert.equal(payloadString(packet.payload, 'response_topic'), 'UIPUT/ws/dam/pic/de/U1/2000/result', 'remote reply must preserve response_topic');
-  assert.equal(payloadString(packet.payload, 'route_kind'), 'control', 'remote reply default route_kind must be preserved');
-  assert.equal(payloadString(packet.payload, 'endpoint_worker_id'), 'U1', 'remote reply endpoint must match reply_target');
-  assert.equal(payloadString(packet.payload, 'reply_target_worker_id'), 'U1', 'remote reply UI Server target stays in payload records');
-  assert.equal(payloadJson(packet.payload, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: from remote', 'remote reply payload must be preserved');
-  return { key: 'mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_default', status: 'PASS' };
+  await writeMbrIngress(rt, 'mbr_cb_in', 'pin.bus.cb.in', replyRecords);
+  const root = rt.getCell(rt.getModel(0), 0, 0, 0).labels;
+  assert.equal(root.get('mbr_cb_out')?.v ?? null, null, 'MBR must not echo a direct control reply to MQTT');
+  assert.equal(root.get('mbr_mb_out')?.v ?? null, null, 'direct control reply must not enter the management bus');
+  assert.equal(
+    rt.getCell(rt.getModel(-10), 0, 0, 0).labels.get('mbr_mqtt_error')?.v?.detail,
+    'invalid_response_route',
+    'direct control reply must be rejected visibly when injected into the bridge role',
+  );
+  return { key: 'mbr_mqtt_inbound_does_not_echo_direct_control_reply', status: 'PASS' };
 }
 
 async function test_remote_worker_submit1_receives_endpoint_and_replies_on_response_topic() {
@@ -320,7 +325,7 @@ async function test_remote_worker_submit1_receives_endpoint_and_replies_on_respo
   const model = rt.getModel(3000);
   const root = rt.getCell(model, 0, 0, 0).labels;
   const resultValue = root.get('result')?.v;
-  assert.equal(payloadJson(resultValue, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'remote submit handler must emit provider result pin payload');
+  assert.equal(businessRecords(resultValue).find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'remote submit handler must emit provider result pin payload');
   const { mqttPublished: published } = drainWorkerEngine(rt);
   assert.equal(published.length, 1, 'remote submit handler must publish one reply');
   assert.equal(published[0].topic, 'UIPUT/ws/dam/pic/de/U1/2000/result', 'reply topic must use response_topic');
@@ -328,7 +333,7 @@ async function test_remote_worker_submit1_receives_endpoint_and_replies_on_respo
   assert.equal(payloadString(published[0].payload.payload, 'endpoint_worker_id'), 'U1', 'reply payload endpoint must match reply target');
   assert.equal(payloadString(published[0].payload.payload, 'reply_target_worker_id'), 'U1', 'reply payload carries UI Server target in records');
   assert.equal(payloadString(published[0].payload.payload, 'origin_worker_id'), 'R1', 'reply payload origin must be remote worker');
-  assert.equal(payloadJson(published[0].payload.payload, 'payload')?.find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'reply payload must carry display_text');
+  assert.equal(businessRecords(published[0].payload.payload).find((record) => record.k === 'display_text')?.v, 'Submitted: browser submit', 'reply payload must carry display_text');
   return { key: 'remote_worker_submit1_receives_endpoint_and_replies_on_response_topic', status: 'PASS' };
 }
 
@@ -386,16 +391,10 @@ async function test_remote_worker_rejects_invalid_reply_target_without_public_re
   return { key: 'remote_worker_rejects_invalid_reply_target_without_public_result', status: 'PASS' };
 }
 
-function test_mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records() {
+async function test_mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records() {
   const rt = loadMbrRuntime();
   const sys = rt.getModel(-10);
-  const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_to_mgmt')));
-  rt.addLabel(sys, 0, 0, 0, {
-    k: 'mbr_mqtt_inbox',
-    t: 'json',
-    v: {
-      topic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
-      payload: externalPacket(pinPayloadRecords({
+  await writeMbrIngress(rt, 'mbr_cb_in', 'pin.bus.cb.in', pinPayloadRecords({
         opId: '0362_bad_mqtt_payload',
         messageRole: 'response',
         topic: 'UIPUT/ws/dam/pic/de/U1/2000/result',
@@ -410,17 +409,49 @@ function test_mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records() {
         replyTargetModelId: 2000,
         replyTargetPin: 'result',
         payload: [{ id: 0, p: 0, r: 0, c: 0, k: 'display_text', t: 'str' }],
-      })),
-    },
-  });
-  fn({ hostApi: buildWorkerHostApi(rt) });
+      }));
   assert.equal(rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_mb_out')?.v, null, 'invalid MQTT inbound payload must not be bridged to management-bus out pin');
-  assert.equal(
-    rt.getCell(sys, 0, 0, 0).labels.get('mbr_mqtt_error')?.v?.detail,
-    'invalid_pin_payload_records',
-    'invalid MQTT inbound payload rejection must be visible',
-  );
+  assert.equal(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mb_egress')?.v ?? null, null, 'invalid records must not reach the child egress');
+  assert.equal(rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('bus_in_error')?.t, 'json', 'invalid bus records must write a visible Model 0 error');
   return { key: 'mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records', status: 'PASS' };
+}
+
+function test_mbr_runner_writes_invalid_adapter_errors_to_model0() {
+  assert.equal(
+    typeof workerRunnerModule.writeMbrIngressError,
+    'function',
+    'runner must export the Model 0 ingress error writer used by both adapters',
+  );
+  const rt = loadMbrRuntime();
+  const model0 = rt.getModel(0);
+
+  workerRunnerModule.writeMbrIngressError(rt, model0, 'matrix', 'invalid_payload_kind');
+  assert.deepEqual(
+    rt.getCell(model0, 0, 0, 0).labels.get('mbr_matrix_inbound_error')?.v,
+    {
+      code: 'invalid_mbr_matrix_ingress',
+      reason: 'invalid_payload_kind',
+    },
+    'invalid Matrix input must be visible on Model 0 without copying the payload',
+  );
+
+  workerRunnerModule.writeMbrIngressError(rt, model0, 'mqtt', 'invalid_json');
+  assert.deepEqual(
+    rt.getCell(model0, 0, 0, 0).labels.get('mbr_mqtt_inbound_error')?.v,
+    {
+      code: 'invalid_mbr_mqtt_ingress',
+      reason: 'invalid_json',
+    },
+    'invalid MQTT input must be visible on Model 0 without copying the payload',
+  );
+
+  const source = fs.readFileSync('scripts/run_worker_v0.mjs', 'utf8');
+  assert.match(source, /writeMbrIngressError\(rt, model0, 'matrix', validation\.reason/, 'Matrix validation failure must call the Model 0 error writer');
+  assert.ok(
+    (source.match(/writeMbrIngressError\(rt, model0, 'mqtt'/g) || []).length >= 2,
+    'MQTT validation and JSON parse failures must call the Model 0 error writer',
+  );
+  return { key: 'mbr_runner_writes_invalid_adapter_errors_to_model0', status: 'PASS' };
 }
 
 const tests = [
@@ -428,12 +459,13 @@ const tests = [
   test_remote_worker_patches_do_not_keep_raw_result_fallbacks,
   test_mbr_routes_by_topic_and_rejects_missing_endpoint_metadata,
   test_mbr_does_not_echo_own_control_publish_to_management_bus,
-  test_mbr_mqtt_inbound_bridges_remote_reply_to_control_bus_by_default,
+  test_mbr_mqtt_inbound_does_not_echo_direct_control_reply,
   test_remote_worker_submit1_receives_endpoint_and_replies_on_response_topic,
   test_runtime_rejects_legacy_business_route_record,
   test_remote_worker_rejects_missing_reply_target_without_public_result,
   test_remote_worker_rejects_invalid_reply_target_without_public_result,
   test_mbr_mqtt_inbound_rejects_invalid_temporary_modeltable_records,
+  test_mbr_runner_writes_invalid_adapter_errors_to_model0,
 ];
 
 let passed = 0;

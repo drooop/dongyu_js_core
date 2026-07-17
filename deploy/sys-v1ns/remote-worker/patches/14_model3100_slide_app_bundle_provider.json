@@ -353,15 +353,6 @@
           "p": 0,
           "r": 0,
           "c": 0,
-          "k": "system_ready",
-          "t": "bool",
-          "v": false
-        },
-        {
-          "id": 0,
-          "p": 0,
-          "r": 0,
-          "c": 0,
           "k": "to_user",
           "t": "str",
           "v": "@mbr:localhost"
@@ -885,7 +876,7 @@
           "c": 2,
           "k": "ui_markdown",
           "t": "str",
-          "v": "| Stage | Path |\n|---|---|\n| 1 | UI event -> UI Server host egress |\n| 2 | Model 0 `mt_bus_send` / `pin.bus.cb.out` -> MBR |\n| 3 | MQTT `UIPUT/.../R1/100/submit` -> RemoteWorker R1 / Model 100 / `submit` |\n| 4 | MQTT response on response_topic -> MBR |\n| 5 | UI Server owner materialization by `reply_target_*` -> Local UI refresh |"
+          "v": "| Stage | Path |\n|---|---|\n| 1 | UI event -> UI Server host egress |\n| 2 | Model 0 `mt_bus_send` / `pin.bus.cb.out` -> local MQTT |\n| 3 | MQTT `UIPUT/.../R1/100/submit` -> RemoteWorker R1 / Model 100 / `submit` |\n| 4 | response on `response_topic` -> local MQTT -> UI Server Model 0 `pin.bus.cb.in` (MBR no-echo) |\n| 5 | UI Server owner materialization by `reply_target_*` -> Local UI refresh |"
         },
         {
           "id": 0,
@@ -1442,7 +1433,7 @@
             "p": 0,
             "r": 0,
             "c": 0,
-            "k": "system_ready"
+            "k": "submit_inflight"
           }
         },
         {
@@ -1461,7 +1452,7 @@
           "c": 1,
           "k": "ui_label",
           "t": "str",
-          "v": "MBR Ready"
+          "v": "提交中"
         },
         {
           "id": 0,
@@ -1470,7 +1461,7 @@
           "c": 1,
           "k": "ui_node_id",
           "t": "str",
-          "v": "model100_mbr_ready"
+          "v": "model100_submit_inflight"
         },
         {
           "id": 0,
