@@ -33,6 +33,19 @@ source: ai
 - repo SSOT：经 iteration 审核后的当前可执行合同。Feishu 上游变化不能自动覆盖它。
 - Human entry 与 LLM entry 共享同一套 repo SSOT；差别只在导航和执行职责。
 
+## 0456 已裁决但尚未实施的方向
+
+以下用户裁决已进入正式采纳决议面，但当前 executable behavior 不变。每项产品行为仍必须经过自己的 Approved implementation iteration、SSOT 更新和验证后才能成为当前可执行合同。
+
+| Finding | 已采纳方向 | 当前状态 |
+|---|---|---|
+| F-01 | 整体 Feishu Message API 输入 envelope 升级到 `pin_payload.v2`。 | `decision_recorded_implementation_pending`；当前 parser/runtime input 仍为 `pin_payload.v1`。 |
+| F-04 | `model.submtconnect` 确认为来源笔误；repo 保持 no alias。 | `decision_recorded_source_correction_pending`；当前 repo 行为无需修改。 |
+| F-05 | `ui.refresh_data` 通过授权的 ModelTable 写入表达状态变化；frontend 保持 projection-only。 | `decision_recorded_implementation_pending`；当前 pending-refresh 行为尚未更新。 |
+| F-08 | `add_task_return` 必须成为真实 PIN 消息。 | `decision_recorded_implementation_pending`；当前 response outbox 映射仍是现行行为。 |
+
+F-06 与 F-07 仍为 `requires_user_confirmation`，本轮没有替用户补全决策。F-04 的 Feishu 来源纠错以及任何 `DerivedView` 更新都不在本轮授权内；Feishu 写入仍需单独授权。
+
 0431 correction:
 - `model.submt` and `model.subtable` are child-side declarations.
 - `model.submtconnection` and `model.subtableconnection` are parent/main-side

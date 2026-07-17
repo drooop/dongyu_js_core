@@ -18,13 +18,13 @@ Contract cards: 10
 | Contract | Status | Risk | Open findings | SSOT | Implementation | Tests | Verification |
 |---|---|---|---|---|---|---|---|
 | `model.v1n.worker_root` | aligned | medium | - | `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md` | `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0442_feishu_current_contract_alignment.mjs` | `node scripts/tests/test_0442_feishu_current_contract_alignment.mjs` |
-| `model.relationship.naming_and_numeric_subtable` | requires_user_confirmation | high | `F-04` (requires_user_confirmation) | `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`<br>`docs/ssot/principal_scoped_subtable_namespace_v1.md` | `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`scripts/tests/test_0432_subtable_connection_runtime_contract.mjs` | `node scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`node scripts/tests/test_0432_subtable_connection_runtime_contract.mjs` |
+| `model.relationship.naming_and_numeric_subtable` | decision_recorded_source_correction_pending | high | `F-04` (decision_recorded_source_correction_pending) | `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`<br>`docs/ssot/principal_scoped_subtable_namespace_v1.md` | `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`scripts/tests/test_0432_subtable_connection_runtime_contract.mjs` | `node scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`node scripts/tests/test_0432_subtable_connection_runtime_contract.mjs` |
 | `pin_payload.formal_v2` | aligned | high | - | `docs/ssot/temporary_modeltable_payload_v1.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`<br>`docs/ssot/feishu_model_label_alignment_v1.md` | `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js`<br>`scripts/lib/pin_payload_v2_test_helpers.mjs` | `scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`<br>`scripts/tests/test_0396_dual_topic_submit_response_contract.mjs` | `node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs`<br>`node scripts/tests/test_0396_dual_topic_submit_response_contract.mjs` |
-| `feishu_message_api.input_version` | requires_user_confirmation | high | `F-01` (requires_user_confirmation) | `docs/ssot/runtime_semantics_modeltable_driven.md`<br>`docs/ssot/feishu_model_label_alignment_v1.md` | `scripts/lib/feishu_message_api_v1.mjs`<br>`packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0442_feishu_current_contract_alignment.mjs` | `node scripts/tests/test_0442_feishu_current_contract_alignment.mjs` |
+| `feishu_message_api.input_version` | decision_recorded_implementation_pending | high | `F-01` (decision_recorded_implementation_pending) | `docs/ssot/runtime_semantics_modeltable_driven.md`<br>`docs/ssot/feishu_model_label_alignment_v1.md` | `scripts/lib/feishu_message_api_v1.mjs`<br>`packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0442_feishu_current_contract_alignment.mjs` | `node scripts/tests/test_0442_feishu_current_contract_alignment.mjs` |
 | `feishu_message_api.response_outbox` | aligned | high | - | `docs/ssot/runtime_semantics_modeltable_driven.md`<br>`docs/ssot/feishu_model_label_alignment_v1.md` | `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0448_feishu_message_api_response_outbox.mjs`<br>`scripts/tests/test_0449_feishu_response_outbox_publish.mjs`<br>`scripts/tests/test_0452_feishu_response_e2e_smoke.mjs` | `node scripts/tests/test_0448_feishu_message_api_response_outbox.mjs`<br>`node scripts/tests/test_0449_feishu_response_outbox_publish.mjs`<br>`node scripts/tests/test_0452_feishu_response_e2e_smoke.mjs` |
 | `feishu_message_api.response_materialization` | aligned | high | - | `docs/ssot/runtime_semantics_modeltable_driven.md`<br>`docs/ssot/feishu_model_label_alignment_v1.md` | `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0450_feishu_response_materialization.mjs`<br>`scripts/tests/test_0452_feishu_response_e2e_smoke.mjs` | `node scripts/tests/test_0450_feishu_response_materialization.mjs`<br>`node scripts/tests/test_0452_feishu_response_e2e_smoke.mjs` |
-| `feishu_message_api.resource_data_ui_task_handlers` | requires_user_confirmation | high | `F-05` (requires_user_confirmation)<br>`F-08` (requires_user_confirmation) | `docs/ssot/runtime_semantics_modeltable_driven.md` | `scripts/lib/feishu_message_api_v1.mjs`<br>`packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0443_feishu_message_api_business_dispatch.mjs`<br>`scripts/tests/test_0444_feishu_task_manager_processor.mjs`<br>`scripts/tests/test_0445_feishu_resource_api_processor.mjs`<br>`scripts/tests/test_0446_feishu_data_api_processor.mjs`<br>`scripts/tests/test_0447_feishu_ui_api_processor.mjs` | `node scripts/tests/test_0443_feishu_message_api_business_dispatch.mjs`<br>`node scripts/tests/test_0444_feishu_task_manager_processor.mjs`<br>`node scripts/tests/test_0445_feishu_resource_api_processor.mjs`<br>`node scripts/tests/test_0446_feishu_data_api_processor.mjs`<br>`node scripts/tests/test_0447_feishu_ui_api_processor.mjs` |
-| `feishu_source_watch.focused_docs` | tooling_gap | medium | `F-09` (tooling_gap) | `docs/ssot/feishu_source_watch_manifest.json` | `scripts/ops/feishu_source_watch.mjs` | `scripts/tests/test_0441_feishu_source_watch_contract.mjs` | `node scripts/tests/test_0441_feishu_source_watch_contract.mjs`<br>`node --check scripts/ops/feishu_source_watch.mjs` |
+| `feishu_message_api.resource_data_ui_task_handlers` | decision_recorded_implementation_pending | high | `F-05` (decision_recorded_implementation_pending)<br>`F-08` (decision_recorded_implementation_pending) | `docs/ssot/runtime_semantics_modeltable_driven.md` | `scripts/lib/feishu_message_api_v1.mjs`<br>`packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js` | `scripts/tests/test_0443_feishu_message_api_business_dispatch.mjs`<br>`scripts/tests/test_0444_feishu_task_manager_processor.mjs`<br>`scripts/tests/test_0445_feishu_resource_api_processor.mjs`<br>`scripts/tests/test_0446_feishu_data_api_processor.mjs`<br>`scripts/tests/test_0447_feishu_ui_api_processor.mjs` | `node scripts/tests/test_0443_feishu_message_api_business_dispatch.mjs`<br>`node scripts/tests/test_0444_feishu_task_manager_processor.mjs`<br>`node scripts/tests/test_0445_feishu_resource_api_processor.mjs`<br>`node scripts/tests/test_0446_feishu_data_api_processor.mjs`<br>`node scripts/tests/test_0447_feishu_ui_api_processor.mjs` |
+| `feishu_source_watch.focused_docs` | aligned | medium | - | `docs/ssot/feishu_source_watch_manifest.json` | `scripts/ops/feishu_source_watch.mjs` | `scripts/tests/test_0441_feishu_source_watch_contract.mjs` | `node scripts/tests/test_0441_feishu_source_watch_contract.mjs`<br>`node --check scripts/ops/feishu_source_watch.mjs` |
 | `feishu_message_api.route_autofill_permission` | requires_user_confirmation | high | `F-06` (requires_user_confirmation) | `docs/ssot/runtime_semantics_modeltable_driven.md` | `scripts/lib/feishu_message_api_v1.mjs`<br>`packages/worker-base/src/runtime.mjs` | `scripts/tests/test_0442_feishu_current_contract_alignment.mjs` | `node scripts/tests/test_0442_feishu_current_contract_alignment.mjs` |
 | `feishu_config_labels.control_manage_mqtt` | requires_user_confirmation | high | `F-07` (requires_user_confirmation) | `docs/ssot/feishu_alignment_decisions_v0.md` | `packages/worker-base/src/bootstrap_config.mjs` | `scripts/tests/test_0455_contract_surface_index.mjs` | `node scripts/tests/test_0455_contract_surface_index.mjs` |
 
@@ -48,18 +48,18 @@ Contract cards: 10
 
 ### model.relationship.naming_and_numeric_subtable
 
-- Status: `requires_user_confirmation`
+- Status: `decision_recorded_source_correction_pending`
 - Risk: `high`
 - Source refs: `feishu-model2`
 - SSOT files: `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`<br>`docs/ssot/principal_scoped_subtable_namespace_v1.md`
-- Decision files: `docs/ssot/feishu_contract_backlog.md`
+- Decision files: `docs/ssot/feishu_alignment_decisions_v0.md`<br>`docs/ssot/feishu_contract_backlog.md`
 - Evidence files: `docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md`
 - Implementation files: `packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js`
 - Test files: `scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`scripts/tests/test_0432_subtable_connection_runtime_contract.mjs`
-- Open findings: `F-04` (requires_user_confirmation)
+- Open findings: `F-04` (decision_recorded_source_correction_pending)
 - Verification: `node scripts/tests/test_0442_feishu_current_contract_alignment.mjs`<br>`node scripts/tests/test_0432_subtable_connection_runtime_contract.mjs`
-- Owner iterations: `0432-subtable-connection-impl`<br>`0442-feishu-current-contract-alignment`<br>`0454-feishu-focused-current-diff`
-- Notes: Numeric subtable references are implemented; model.submtconnect remains a suspected source typo and no alias is approved.
+- Owner iterations: `0432-subtable-connection-impl`<br>`0442-feishu-current-contract-alignment`<br>`0454-feishu-focused-current-diff`<br>`0456-feishu-watcher-tls-preflight`
+- Notes: Numeric subtable references are implemented; model.submtconnect is confirmed as a Feishu source typo, no runtime alias is allowed, and source correction still needs separate Feishu write authorization.
 - Anchor matches: `ssot_files:model.subtableconnection` => `docs/ssot/label_type_registry.md`<br>`docs/ssot/runtime_semantics_modeltable_driven.md`<br>`docs/ssot/principal_scoped_subtable_namespace_v1.md`; `implementation_files:_normalizeSubtableConnectionDescriptor` => `packages/worker-base/src/runtime.mjs`; `test_files:test_numeric_subtableconnection_is_normalized_from_feishu_input` => `scripts/tests/test_0442_feishu_current_contract_alignment.mjs`
 
 ### pin_payload.formal_v2
@@ -80,18 +80,18 @@ Contract cards: 10
 
 ### feishu_message_api.input_version
 
-- Status: `requires_user_confirmation`
+- Status: `decision_recorded_implementation_pending`
 - Risk: `high`
 - Source refs: `feishu-message-api`
 - SSOT files: `docs/ssot/runtime_semantics_modeltable_driven.md`<br>`docs/ssot/feishu_model_label_alignment_v1.md`
-- Decision files: `docs/ssot/feishu_contract_backlog.md`
+- Decision files: `docs/ssot/feishu_alignment_decisions_v0.md`<br>`docs/ssot/feishu_contract_backlog.md`
 - Evidence files: `docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md`
 - Implementation files: `scripts/lib/feishu_message_api_v1.mjs`<br>`packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js`
 - Test files: `scripts/tests/test_0442_feishu_current_contract_alignment.mjs`
-- Open findings: `F-01` (requires_user_confirmation)
+- Open findings: `F-01` (decision_recorded_implementation_pending)
 - Verification: `node scripts/tests/test_0442_feishu_current_contract_alignment.mjs`
-- Owner iterations: `0442-feishu-current-contract-alignment`<br>`0454-feishu-focused-current-diff`
-- Notes: Feishu input remains v1 in code while formal response transport is v2; the upstream wording needs confirmation.
+- Owner iterations: `0442-feishu-current-contract-alignment`<br>`0454-feishu-focused-current-diff`<br>`0456-feishu-watcher-tls-preflight`
+- Notes: The whole Feishu Message API input envelope is approved to move to pin_payload.v2, but current parser/runtime input remains v1 until a later implementation iteration.
 - Anchor matches: `ssot_files:pin_payload.v1` => `docs/ssot/runtime_semantics_modeltable_driven.md`<br>`docs/ssot/feishu_model_label_alignment_v1.md`; `implementation_files:parseFeishuPinPayloadV1` => `scripts/lib/feishu_message_api_v1.mjs`; `test_files:test_feishu_pin_payload_v1_child_table_payload_is_parsed` => `scripts/tests/test_0442_feishu_current_contract_alignment.mjs`
 
 ### feishu_message_api.response_outbox
@@ -128,23 +128,23 @@ Contract cards: 10
 
 ### feishu_message_api.resource_data_ui_task_handlers
 
-- Status: `requires_user_confirmation`
+- Status: `decision_recorded_implementation_pending`
 - Risk: `high`
 - Source refs: `feishu-message-api`
 - SSOT files: `docs/ssot/runtime_semantics_modeltable_driven.md`
-- Decision files: `docs/ssot/feishu_contract_backlog.md`
+- Decision files: `docs/ssot/feishu_alignment_decisions_v0.md`<br>`docs/ssot/feishu_contract_backlog.md`
 - Evidence files: `docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md`
 - Implementation files: `scripts/lib/feishu_message_api_v1.mjs`<br>`packages/worker-base/src/runtime.mjs`<br>`packages/worker-base/src/runtime.js`
 - Test files: `scripts/tests/test_0443_feishu_message_api_business_dispatch.mjs`<br>`scripts/tests/test_0444_feishu_task_manager_processor.mjs`<br>`scripts/tests/test_0445_feishu_resource_api_processor.mjs`<br>`scripts/tests/test_0446_feishu_data_api_processor.mjs`<br>`scripts/tests/test_0447_feishu_ui_api_processor.mjs`
-- Open findings: `F-05` (requires_user_confirmation)<br>`F-08` (requires_user_confirmation)
+- Open findings: `F-05` (decision_recorded_implementation_pending)<br>`F-08` (decision_recorded_implementation_pending)
 - Verification: `node scripts/tests/test_0443_feishu_message_api_business_dispatch.mjs`<br>`node scripts/tests/test_0444_feishu_task_manager_processor.mjs`<br>`node scripts/tests/test_0445_feishu_resource_api_processor.mjs`<br>`node scripts/tests/test_0446_feishu_data_api_processor.mjs`<br>`node scripts/tests/test_0447_feishu_ui_api_processor.mjs`
-- Owner iterations: `0443-feishu-message-api-business-dispatch`<br>`0444-feishu-task-manager-processor`<br>`0445-feishu-resource-api-processor`<br>`0446-feishu-data-api-processor`<br>`0447-feishu-ui-api-processor`<br>`0454-feishu-focused-current-diff`
-- Notes: Public handlers exist; ui.refresh_data mutation and add_task_return message semantics remain open.
+- Owner iterations: `0443-feishu-message-api-business-dispatch`<br>`0444-feishu-task-manager-processor`<br>`0445-feishu-resource-api-processor`<br>`0446-feishu-data-api-processor`<br>`0447-feishu-ui-api-processor`<br>`0454-feishu-focused-current-diff`<br>`0456-feishu-watcher-tls-preflight`
+- Notes: Direction is approved but unimplemented: ui.refresh_data must use authorized ModelTable writes while frontend stays projection-only, and add_task_return must become a real PIN message.
 - Anchor matches: `ssot_files:ui.refresh_data` => `docs/ssot/runtime_semantics_modeltable_driven.md`; `ssot_files:task_data` => `docs/ssot/runtime_semantics_modeltable_driven.md`; `implementation_files:feishu_message_api_dispatch` => `packages/worker-base/src/runtime.mjs`; `test_files:test_refresh_data_records_pending_refresh_without_response` => `scripts/tests/test_0447_feishu_ui_api_processor.mjs`
 
 ### feishu_source_watch.focused_docs
 
-- Status: `tooling_gap`
+- Status: `aligned`
 - Risk: `medium`
 - Source refs: `feishu-model2`<br>`feishu-message-api`
 - SSOT files: `docs/ssot/feishu_source_watch_manifest.json`
@@ -152,11 +152,11 @@ Contract cards: 10
 - Evidence files: `docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md`
 - Implementation files: `scripts/ops/feishu_source_watch.mjs`
 - Test files: `scripts/tests/test_0441_feishu_source_watch_contract.mjs`
-- Open findings: `F-09` (tooling_gap)
+- Open findings: -
 - Verification: `node scripts/tests/test_0441_feishu_source_watch_contract.mjs`<br>`node --check scripts/ops/feishu_source_watch.mjs`
-- Owner iterations: `0441-feishu-source-watch`<br>`0454-feishu-focused-current-diff`
-- Notes: Focused source watching is implemented; TLS-disabled environment preflight remains open.
-- Anchor matches: `ssot_files:feishu_source_watch_manifest.v2` => `docs/ssot/feishu_source_watch_manifest.json`; `implementation_files:BASELINE_CREATED` => `scripts/ops/feishu_source_watch.mjs`; `test_files:test_manifest_records_no_secret_feishu_sources_and_confirmation_policy` => `scripts/tests/test_0441_feishu_source_watch_contract.mjs`
+- Owner iterations: `0441-feishu-source-watch`<br>`0454-feishu-focused-current-diff`<br>`0456-feishu-watcher-tls-preflight`
+- Notes: Focused source watching is implemented and now blocks TLS-disabled runs unless an explicit fixture or exact-loopback local-debug override is present.
+- Anchor matches: `ssot_files:feishu_source_watch_manifest.v2` => `docs/ssot/feishu_source_watch_manifest.json`; `implementation_files:BASELINE_CREATED` => `scripts/ops/feishu_source_watch.mjs`; `implementation_files:tlsPreflight` => `scripts/ops/feishu_source_watch.mjs`; `test_files:test_manifest_records_no_secret_feishu_sources_and_confirmation_policy` => `scripts/tests/test_0441_feishu_source_watch_contract.mjs`; `test_files:test_tls_disabled_blocks_before_manifest_event_or_state_processing` => `scripts/tests/test_0441_feishu_source_watch_contract.mjs`
 
 ### feishu_message_api.route_autofill_permission
 

@@ -42,10 +42,37 @@ function parseArgs(argv) {
 function usage() {
   return [
     'Usage:',
-    '  node scripts/ops/feishu_source_watch.mjs --manifest <path> --state-dir <dir> --report <path> [--fixture <dir>] [--event-file <path>] [--doc-id <id[,id]>]',
+    '  node scripts/ops/feishu_source_watch.mjs --manifest <path> --state-dir <dir> --report <path> [--fixture <dir>] [--event-file <path>] [--doc-id <id[,id]>] [--allow-insecure-tls-local-debug]',
     '',
     'Real Feishu mode requires FEISHU_TENANT_ACCESS_TOKEN or FEISHU_ACCESS_TOKEN.',
+    'Insecure TLS override is allowed only with --fixture or an exact loopback FEISHU_API_BASE.',
   ].join('\n');
+}
+
+function isExactLoopbackApiBase(apiBase) {
+  try {
+    const hostname = new URL(apiBase).hostname;
+    return hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || hostname === '::1'
+      || hostname === '[::1]';
+  } catch {
+    return false;
+  }
+}
+
+function tlsPreflight({ fixtureDir, allowInsecureTlsLocalDebug }) {
+  if (process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0') {
+    return 'ENABLED';
+  }
+  const localDebugContext = Boolean(fixtureDir) || isExactLoopbackApiBase(FEISHU_API_BASE);
+  if (allowInsecureTlsLocalDebug === true && localDebugContext) {
+    return 'DISABLED_FOR_LOCAL_DEBUG';
+  }
+  throw new Error(
+    'TLS verification is disabled by NODE_TLS_REJECT_UNAUTHORIZED=0. '
+      + 'Remove that environment setting, or use --allow-insecure-tls-local-debug only with --fixture or an exact loopback FEISHU_API_BASE.',
+  );
 }
 
 function readJson(filePath) {
@@ -380,7 +407,7 @@ function writeSnapshot({ stateDir, doc, content }) {
   writeFileSync(snapshotPath(stateDir, doc.id), normalizeLineEndings(content));
 }
 
-function renderReport({ manifestPath, stateDir, docs, results, eventInfo }) {
+function renderReport({ manifestPath, stateDir, docs, results, eventInfo, tlsVerification }) {
   const changedResults = results.filter((result) => result.changes.length > 0);
   const baselineResults = results.filter((result) => result.baselineCreated);
   let status = 'NO_CHANGE';
@@ -396,6 +423,7 @@ function renderReport({ manifestPath, stateDir, docs, results, eventInfo }) {
     `Generated At: ${new Date().toISOString()}`,
     `Manifest: ${manifestPath}`,
     `State Dir: ${stateDir}`,
+    `TLS Verification: ${tlsVerification}`,
   ];
 
   if (eventInfo) {
@@ -476,7 +504,7 @@ function renderBlockedReport({ manifestPath, stateDir, error }) {
   const safeMessage = rawMessage
     .replace(/tenant_access_token[=:]\s*[A-Za-z0-9._-]+/giu, 'tenant_access_token=<masked>')
     .replace(/app_secret[=:]\s*[^,\s]+/giu, 'app_secret=<masked>');
-  return [
+  const lines = [
     '# Feishu Source Watch Report',
     '',
     'Status: BLOCKED',
@@ -491,10 +519,15 @@ function renderBlockedReport({ manifestPath, stateDir, error }) {
     '',
     '## Next Action',
     '',
-    '- If the blocker is missing credentials, provide FEISHU_TENANT_ACCESS_TOKEN or FEISHU_ACCESS_TOKEN.',
-    '- If the blocker is missing Wiki permissions, enable one of wiki:node:read, wiki:wiki:readonly, or wiki:wiki for the Feishu app and rerun.',
-    '',
-  ].join('\n');
+  ];
+  if (safeMessage.includes('NODE_TLS_REJECT_UNAUTHORIZED=0')) {
+    lines.push('- Restore TLS verification. Local debugging requires the explicit override plus fixture or exact loopback mode.');
+  } else {
+    lines.push('- If the blocker is missing credentials, provide FEISHU_TENANT_ACCESS_TOKEN or FEISHU_ACCESS_TOKEN.');
+    lines.push('- If the blocker is missing Wiki permissions, enable one of wiki:node:read, wiki:wiki:readonly, or wiki:wiki for the Feishu app and rerun.');
+  }
+  lines.push('');
+  return lines.join('\n');
 }
 
 async function main() {
@@ -510,6 +543,11 @@ async function main() {
   if (!manifestPath || !stateDir || !reportPath) {
     throw new Error(`missing required arguments\n${usage()}`);
   }
+
+  const tlsVerification = tlsPreflight({
+    fixtureDir,
+    allowInsecureTlsLocalDebug: args['allow-insecure-tls-local-debug'] === true,
+  });
 
   const manifest = readJson(manifestPath);
   const eventPayload = args['event-file'] ? readJson(args['event-file']) : null;
@@ -536,7 +574,14 @@ async function main() {
     });
   }
 
-  const report = renderReport({ manifestPath, stateDir, docs: results.map((result) => result.doc), results, eventInfo });
+  const report = renderReport({
+    manifestPath,
+    stateDir,
+    docs: results.map((result) => result.doc),
+    results,
+    eventInfo,
+    tlsVerification,
+  });
   writeFileSync(reportPath, report);
   console.log(`wrote ${reportPath}`);
 }
