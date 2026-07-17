@@ -8,7 +8,7 @@ source: ai
 
 # Home All Models Filter Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Add an explicit `All models` state to the Home model selector so the table can show rows across every model while preserving existing row-level actions and secondary filters.
 

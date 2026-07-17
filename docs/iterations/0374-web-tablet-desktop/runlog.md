@@ -62,7 +62,7 @@ phase: execution
   - `test_0311_pin_projection_contract.mjs` was too vague as a planning risk and must become a Step 1 baseline gate.
   - Review Gate record must include this decision before re-review.
   - Final pin/event verification must name `test_0311_pin_projection_contract.mjs` explicitly.
-  - The implementation plan should use repository-native workflow language instead of an external `superpowers:executing-plans` prerequisite.
+  - The implementation plan should use repository-native workflow language instead of an external skill prerequisite.
 - Result: PASS, findings accepted for plan revision.
 
 ### 2026-05-12 - Baseline Test Recheck

@@ -69,6 +69,9 @@ function loadProgramModelFromSqlite({
   if (!runtime) {
     throw new Error('runtime is required');
   }
+  if (typeof runtime.hydrateLabel !== 'function') {
+    throw new Error('runtime.hydrateLabel is required for trusted persistence replay');
+  }
   if (!dbPath) {
     throw new Error('dbPath is required');
   }
@@ -140,7 +143,7 @@ function loadProgramModelFromSqlite({
     const p = normalizeInt(row.p);
     const r = normalizeInt(row.r);
     const c = normalizeInt(row.c);
-    runtime.addLabel(model, p, r, c, label);
+    runtime.hydrateLabel(model, p, r, c, label);
   }
 
   if (typeof runtime.setRunLoopActive === 'function') {

@@ -158,6 +158,120 @@ function test_program_loader_replays_table_qualified_records() {
   });
 }
 
+function test_program_loader_trusted_hydration_round_trip() {
+  return withTempDb((dbPath) => {
+    const script = `
+      import { createRequire } from 'node:module';
+      const require = createRequire(import.meta.url);
+      const { Database } = require('bun:sqlite');
+      const { createSqlitePersister } = require(${JSON.stringify(new URL('../../packages/worker-base/src/modeltable_persistence_sqlite.js', import.meta.url).pathname)});
+      const { loadProgramModelFromSqlite } = require(${JSON.stringify(new URL('../../packages/worker-base/src/program_model_loader.js', import.meta.url).pathname)});
+      const { ModelTableRuntime } = await import(${JSON.stringify(new URL('../../packages/worker-base/src/runtime.mjs', import.meta.url).href)});
+
+      const source = new ModelTableRuntime();
+      const persister = createSqlitePersister({ dbPath: ${JSON.stringify(dbPath)} });
+      source.setPersistence(persister);
+      const host = source.getModel(0);
+      source.addLabel(host, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
+      source.addLabel(host, 0, 0, 0, { k: 'ordinary_source', t: 'pin.out', v: null });
+      source.addLabel(host, 0, 0, 0, {
+        k: 'safe_collision_route',
+        t: 'pin.connect.label',
+        v: [{ from: 'ordinary_source', to: ['collision_bus'] }],
+      });
+      const invalidBus = source.addLabel(host, 0, 0, 0, { k: 'collision_bus', t: 'pin.bus.cb.in', v: null });
+      const sourceErrorCode = host.getCell(0, 0, 0).labels.get('pin_connection_error')?.v?.code || null;
+      persister.close();
+
+      const db = new Database(${JSON.stringify(dbPath)});
+      db.query('insert or replace into mt_data (table_id, mt_id, p, r, c, k, t, v, s, i, m) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run('host', 0, 0, 0, 0, 'legacy_model_route', 'pin.connect.model', JSON.stringify([{ from: 'source', to: ['target'] }]), null, null, null);
+      db.close();
+
+      let missingHydrateError = null;
+      try {
+        loadProgramModelFromSqlite({ runtime: {}, dbPath: ${JSON.stringify(dbPath)} });
+      } catch (error) {
+        missingHydrateError = error?.message || String(error);
+      }
+
+      const target = new ModelTableRuntime();
+      const result = loadProgramModelFromSqlite({ runtime: target, dbPath: ${JSON.stringify(dbPath)} });
+      const targetRoot = target.getModel(0).getCell(0, 0, 0);
+      const restoredErrorCode = targetRoot.labels.get('pin_connection_error')?.v?.code || null;
+      const illegalStored = targetRoot.labels.has('legacy_model_route');
+      const reasons = target.eventLog.list().map((event) => event.reason).filter(Boolean);
+      console.log(JSON.stringify({
+        invalidBusApplied: invalidBus.applied,
+        sourceErrorCode,
+        restoredErrorCode,
+        illegalStored,
+        reasons,
+        missingHydrateError,
+        result,
+      }));
+    `;
+    const parsed = runBunProbe(script, 'program loader trusted hydration round-trip probe');
+    assert.equal(parsed.invalidBusApplied, false, 'fixture must persist a real runtime-authored connection error');
+    assert.equal(parsed.sourceErrorCode, 'bus_in_connection_destination_forbidden', 'fixture must persist the expected runtime error');
+    assert.equal(parsed.restoredErrorCode, parsed.sourceErrorCode, 'SQLite replay must restore the reserved runtime error');
+    assert.equal(parsed.illegalStored, false, 'SQLite replay must still reject an ordinary illegal persisted label');
+    assert(parsed.reasons.includes('label_type_removed'), 'SQLite replay must preserve ordinary validation reasons');
+    assert(!parsed.reasons.includes('runtime_error_label_reserved'), 'SQLite replay must not reject trusted runtime error hydration');
+    assert.match(parsed.missingHydrateError || '', /runtime\.hydrateLabel is required/u, 'program loader must not fall back to public addLabel');
+  });
+}
+
+async function test_frontend_local_storage_trusted_hydration_round_trip() {
+  const { ModelTableRuntime } = await import('../../packages/worker-base/src/runtime.mjs');
+  const { createLocalStoragePersister, createMemoryStorage } = await import('../../packages/ui-model-demo-frontend/src/local_persistence.js');
+  const storageKey = 'dy-0425-trusted-hydration';
+  const storage = createMemoryStorage();
+  const sourcePersister = createLocalStoragePersister({ storage, storageKey });
+  const source = new ModelTableRuntime();
+  source.setPersistence(sourcePersister);
+  const sourceRoot = source.getModel(0);
+  source.addLabel(sourceRoot, 0, 0, 0, { k: 'sys_worker_role', t: 'worker.role', v: 'DEM' });
+  source.addLabel(sourceRoot, 0, 0, 0, { k: 'ordinary_source', t: 'pin.out', v: null });
+  source.addLabel(sourceRoot, 0, 0, 0, {
+    k: 'safe_collision_route',
+    t: 'pin.connect.label',
+    v: [{ from: 'ordinary_source', to: ['collision_bus'] }],
+  });
+  const invalidBus = source.addLabel(sourceRoot, 0, 0, 0, { k: 'collision_bus', t: 'pin.bus.cb.in', v: null });
+  assert.equal(invalidBus.applied, false, 'fixture must persist a real runtime-authored connection error');
+  const sourceError = sourceRoot.getCell(0, 0, 0).labels.get('pin_connection_error');
+  assert.equal(sourceError?.v?.code, 'bus_in_connection_destination_forbidden');
+
+  const persisted = JSON.parse(storage.getItem(storageKey));
+  persisted.labels['0:0,0,0:legacy_model_route'] = {
+    model_id: 0,
+    p: 0,
+    r: 0,
+    c: 0,
+    k: 'legacy_model_route',
+    t: 'pin.connect.model',
+    v: [{ from: 'source', to: ['target'] }],
+  };
+  storage.setItem(storageKey, JSON.stringify(persisted));
+
+  const replayPersister = createLocalStoragePersister({ storage, storageKey });
+  assert.throws(
+    () => replayPersister.loadIntoRuntime({}),
+    /runtime\.hydrateLabel is required/u,
+    'frontend loader must not fall back to public addLabel',
+  );
+  const target = new ModelTableRuntime();
+  const result = replayPersister.loadIntoRuntime(target);
+  assert.deepEqual(result, { ok: true });
+  const targetRoot = target.getModel(0).getCell(0, 0, 0);
+  assert.equal(targetRoot.labels.get('pin_connection_error')?.v?.code, sourceError.v.code, 'localStorage replay must restore the reserved runtime error');
+  assert(!targetRoot.labels.has('legacy_model_route'), 'localStorage replay must still reject an ordinary illegal persisted label');
+  const reasons = target.eventLog.list().map((event) => event.reason).filter(Boolean);
+  assert(reasons.includes('label_type_removed'), 'localStorage replay must preserve ordinary validation reasons');
+  assert(!reasons.includes('runtime_error_label_reserved'), 'localStorage replay must not reject trusted runtime error hydration');
+}
+
 function test_server_direct_persistence_delete_is_host_qualified() {
   const source = readFileSync('packages/ui-model-demo-server/server.mjs', 'utf8');
   assert.doesNotMatch(
@@ -204,6 +318,8 @@ const tests = [
   test_remove_label_is_table_qualified,
   test_existing_schema_migrates_to_explicit_host_table,
   test_program_loader_replays_table_qualified_records,
+  test_program_loader_trusted_hydration_round_trip,
+  test_frontend_local_storage_trusted_hydration_round_trip,
   test_server_direct_persistence_delete_is_host_qualified,
   test_server_replay_filters_bootstrap_keys_only_on_host_table,
 ];

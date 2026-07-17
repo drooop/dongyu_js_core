@@ -5,6 +5,8 @@ import { publishMqttWithAck } from './mqtt_publish_ack.mjs';
 import { validatePinPayloadEnvelopeExtensionKeys } from './pin_payload_envelope_extensions.mjs';
 
 const HOST_TABLE_ID = 'host';
+const INTERNAL_VISIBLE_ERROR_WRITE = Symbol('internal_visible_error_write');
+const INTERNAL_TRUSTED_HYDRATE_WRITE = Symbol('internal_trusted_hydrate_write');
 const PIN_PAYLOAD_V2_ROOT_METADATA_KEYS = new Set([
   '__mt_payload_kind',
   '__mt_request_id',
@@ -957,11 +959,16 @@ class ModelTableRuntime {
   _validateStructuralLabelValue(model, p, r, c, label, resolvedType) {
     if (resolvedType === 'pin.connect.label') {
       const normalized = this._normalizeCellConnectLabel(model, p, r, c, label);
-      return normalized.ok ? null : normalized.reason;
+      if (!normalized.ok) return normalized.reason;
+      return this._validateCellConnectDirections(model, p, r, c, label, resolvedType, normalized.routes);
     }
     if (resolvedType === 'pin.connect.cell') {
       const normalized = this._normalizeCellConnectionLabel(model, p, r, c, label);
-      return normalized.ok ? null : normalized.reason;
+      if (!normalized.ok) return normalized.reason;
+      return this._validateCellConnectionDirections(model, p, r, c, label, resolvedType, normalized.routes);
+    }
+    if (this._isBusResolvedType(resolvedType)) {
+      return this._validateBusEndpointAgainstExistingConnections(model, p, r, c, label, resolvedType);
     }
     if (resolvedType === 'model.subtable') {
       const normalized = this._normalizeSubtableDeclaration(label);
@@ -2551,7 +2558,7 @@ class ModelTableRuntime {
         ...detail,
         ts: Date.now(),
       },
-    });
+    }, INTERNAL_VISIBLE_ERROR_WRITE);
   }
 
   _configCell() {
@@ -2664,9 +2671,19 @@ class ModelTableRuntime {
     return { status: 'running' };
   }
 
-  addLabel(model, p, r, c, label) {
+  addLabel(model, p, r, c, label, internalWriteToken = null) {
     if (!this._validateCell(p, r, c)) {
       this._recordError(model, p, r, c, label, 'invalid_cell');
+      return { applied: false };
+    }
+
+    if (
+      label
+      && label.k === 'pin_connection_error'
+      && internalWriteToken !== INTERNAL_VISIBLE_ERROR_WRITE
+      && internalWriteToken !== INTERNAL_TRUSTED_HYDRATE_WRITE
+    ) {
+      this._recordError(model, p, r, c, label, 'runtime_error_label_reserved');
       return { applied: false };
     }
 
@@ -2694,6 +2711,12 @@ class ModelTableRuntime {
         result: 'rejected',
         reason: structuralLabelError,
       });
+      if (this._isPinConnectionDirectionError(structuralLabelError)) {
+        this._writeVisibleErrorLabel(model, p, r, c, 'pin_connection_error', structuralLabelError, {
+          label_key: label.k,
+          label_type: resolvedType,
+        });
+      }
       return { applied: false };
     }
     const busPinPayloadError = this._validateBusPinPayload(model, p, r, c, label, resolvedType);
@@ -2784,6 +2807,10 @@ class ModelTableRuntime {
     this._applyBuiltins(model, p, r, c, label, prevLabel);
     this._applyLabelTypes(model, p, r, c, label);
     return { applied: true };
+  }
+
+  hydrateLabel(model, p, r, c, label) {
+    return this.addLabel(model, p, r, c, label, INTERNAL_TRUSTED_HYDRATE_WRITE);
   }
 
   rmLabel(model, p, r, c, key) {
@@ -3234,6 +3261,152 @@ class ModelTableRuntime {
       || typeName === 'pin.login'
       || typeName === 'pin.logout'
       || this._isBusResolvedType(typeName);
+  }
+
+  _pinConnectionDirectionReason(typeName, endpointRole) {
+    if (endpointRole === 'target' && this._isBusInResolvedType(typeName)) {
+      return 'bus_in_connection_destination_forbidden';
+    }
+    if (endpointRole === 'source' && this._isBusOutResolvedType(typeName)) {
+      return 'bus_out_connection_source_forbidden';
+    }
+    return null;
+  }
+
+  _isPinConnectionDirectionError(reason) {
+    return reason === 'bus_in_connection_destination_forbidden'
+      || reason === 'bus_out_connection_source_forbidden';
+  }
+
+  _directionEndpointResolvedType(model, p, r, c, key, replacement = null) {
+    if (
+      replacement
+      && replacement.p === p
+      && replacement.r === r
+      && replacement.c === c
+      && replacement.key === key
+    ) {
+      return replacement.resolvedType;
+    }
+    const endpointLabel = this._cellEndpointLabel(model, p, r, c, key);
+    return endpointLabel ? this._resolveLabelType(endpointLabel.t) : null;
+  }
+
+  _validateCellConnectDirections(model, p, r, c, label, resolvedType, routes) {
+    const replacement = { p, r, c, key: label.k, resolvedType };
+    for (const route of routes) {
+      if (route.source.prefix === 'self') {
+        const sourceType = this._directionEndpointResolvedType(model, p, r, c, route.source.port, replacement);
+        const sourceError = this._pinConnectionDirectionReason(sourceType, 'source');
+        if (sourceError) return sourceError;
+      }
+      for (const target of route.targets) {
+        if (target.prefix !== 'self') continue;
+        const targetType = this._directionEndpointResolvedType(model, p, r, c, target.port, replacement);
+        const targetError = this._pinConnectionDirectionReason(targetType, 'target');
+        if (targetError) return targetError;
+      }
+    }
+    return null;
+  }
+
+  _validateCellConnectionDirections(model, p, r, c, label, resolvedType, routes) {
+    const replacement = { p, r, c, key: label.k, resolvedType };
+    for (const route of routes) {
+      const sourceType = this._directionEndpointResolvedType(
+        model,
+        route.from.p,
+        route.from.r,
+        route.from.c,
+        route.from.k,
+        replacement,
+      );
+      const sourceError = this._pinConnectionDirectionReason(sourceType, 'source');
+      if (sourceError) return sourceError;
+      for (const target of route.targets) {
+        const targetType = this._directionEndpointResolvedType(
+          model,
+          target.p,
+          target.r,
+          target.c,
+          target.k,
+          replacement,
+        );
+        const targetError = this._pinConnectionDirectionReason(targetType, 'target');
+        if (targetError) return targetError;
+      }
+    }
+    return null;
+  }
+
+  _rawCellConnectEndpointMatchesPin(model, p, r, c, rawEndpoint, candidateKey) {
+    if (typeof rawEndpoint !== 'string' || rawEndpoint.trim() !== candidateKey) return false;
+    const funcName = this._functionEndpointBase(rawEndpoint.trim());
+    return !(funcName && this._hasSameCellFunction(model, p, r, c, funcName));
+  }
+
+  _rawCellConnectionEndpointMatchesPin(rawEndpoint, p, r, c, candidateKey) {
+    if (!Array.isArray(rawEndpoint) || rawEndpoint.length !== 4) return false;
+    const [endpointP, endpointR, endpointC, endpointKey] = rawEndpoint;
+    return endpointP === p
+      && endpointR === r
+      && endpointC === c
+      && typeof endpointKey === 'string'
+      && endpointKey.trim() === candidateKey;
+  }
+
+  _validateBusEndpointAgainstExistingConnections(model, p, r, c, label, resolvedType) {
+    const sourceError = this._pinConnectionDirectionReason(resolvedType, 'source');
+    const targetError = this._pinConnectionDirectionReason(resolvedType, 'target');
+    for (const cell of model.cells.values()) {
+      for (const existingLabel of cell.labels.values()) {
+        const existingType = this._resolveLabelType(existingLabel.t);
+        if (existingType === 'pin.connect.label') {
+          if (cell.p !== p || cell.r !== r || cell.c !== c) continue;
+          if (!Array.isArray(existingLabel.v)) continue;
+          for (const route of existingLabel.v) {
+            if (!route || typeof route !== 'object') continue;
+            if (
+              sourceError
+              && this._rawCellConnectEndpointMatchesPin(model, p, r, c, route.from, label.k)
+            ) {
+              return sourceError;
+            }
+            if (
+              targetError
+              && Array.isArray(route.to)
+              && route.to.some((target) => (
+                this._rawCellConnectEndpointMatchesPin(model, p, r, c, target, label.k)
+              ))
+            ) {
+              return targetError;
+            }
+          }
+          continue;
+        }
+        if (existingType !== 'pin.connect.cell') continue;
+        if (!Array.isArray(existingLabel.v)) continue;
+        for (const route of existingLabel.v) {
+          if (!route || typeof route !== 'object') continue;
+          if (
+            sourceError
+            && this._rawCellConnectionEndpointMatchesPin(route.from, p, r, c, label.k)
+          ) {
+            return sourceError;
+          }
+          if (
+            targetError
+            && Array.isArray(route.to)
+            && route.to.some((target) => (
+              this._rawCellConnectionEndpointMatchesPin(target, p, r, c, label.k)
+            ))
+          ) {
+            return targetError;
+          }
+        }
+      }
+    }
+    return null;
   }
 
   _cellEndpointLabel(model, p, r, c, endpoint) {
@@ -3766,6 +3939,20 @@ class ModelTableRuntime {
 
   _applyBuiltins(model, p, r, c, label, prevLabel) {
     const resolvedType = this._resolveLabelType(label.t);
+    const prevResolvedType = prevLabel ? this._resolveLabelType(prevLabel.t) : null;
+    if (prevResolvedType === 'pin.connect.label' && resolvedType !== 'pin.connect.label') {
+      this._rebuildCellConnectForCell(model, p, r, c);
+    }
+    if (prevResolvedType === 'pin.connect.cell' && resolvedType !== 'pin.connect.cell') {
+      this._rebuildCellConnectionForCell(model, p, r, c);
+    }
+    if (this._isBusInResolvedType(prevResolvedType) && !this._isBusInResolvedType(resolvedType)) {
+      this.busInPorts.delete(label.k);
+      this._syncBusInSubscription(label.k, false);
+    }
+    if (this._isBusOutResolvedType(prevResolvedType) && !this._isBusOutResolvedType(resolvedType)) {
+      this.busOutPorts.delete(label.k);
+    }
     if (resolvedType === 'event' && model.id === -1 && p === 0 && r === 0 && c === 1 && label.k === 'ui_event' && label.v) {
       const ingressPort = this._buildUiEventIngressPort(label.v);
       const ingressPayload = ingressPort ? this._normalizeUiEventIngressPayload(label.v) : null;

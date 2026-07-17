@@ -127,6 +127,9 @@ export function createLocalStoragePersister(options) {
   function loadIntoRuntime(runtime) {
     if (!storage) return { ok: false, reason: 'no_storage' };
     if (!runtime) return { ok: false, reason: 'no_runtime' };
+    if (typeof runtime.hydrateLabel !== 'function') {
+      throw new Error('runtime.hydrateLabel is required for trusted persistence replay');
+    }
 
     loadState();
 
@@ -163,7 +166,7 @@ export function createLocalStoragePersister(options) {
         if (ignoreModelIds && ignoreModelIds.has(rec.model_id)) continue;
         const model = runtime.getModel(rec.model_id);
         if (!model) continue;
-        runtime.addLabel(model, rec.p, rec.r, rec.c, { k: rec.k, t: rec.t, v: rec.v });
+        runtime.hydrateLabel(model, rec.p, rec.r, rec.c, { k: rec.k, t: rec.t, v: rec.v });
       }
       return { ok: true };
     } finally {

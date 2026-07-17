@@ -128,6 +128,7 @@ Conflict behavior:
 合法端点：
 
 - 当前 Cell 上声明的 `pin.in` / `pin.out` / `pin.login` / `pin.logout` 的 key。
+- 软件工人 Model 0 `(0,0,0)` 上声明的 `pin.bus.cb.*` / `pin.bus.mb.*` key；其 source/target 位置必须服从第 5 节的系统总线方向约束。
 - 当前 Cell 上函数自动拥有的 `{functionName}:in` / `{functionName}:out` / `{functionName}:logout`。
 
 非法端点：
@@ -170,7 +171,17 @@ Conflict behavior:
 
 - `from` 与 `to` 都必须指向同一个模型内的 Cell。
 - 端点的 `"pinName"` 必须是目标 Cell 上声明的 Cell 引脚 key，不能是函数引脚。
+- 软件工人 Model 0 `(0,0,0)` 上声明的 `pin.bus.cb.*` / `pin.bus.mb.*` 可以作为端点，但 source/target 位置必须服从下述系统总线方向约束。
 - 函数触发必须先路由到函数所在 Cell 的普通引脚，再由该 Cell 的 `pin.connect.label` 接到函数引脚。
+
+系统总线端点方向同时适用于 `pin.connect.label` 与 `pin.connect.cell`：
+
+- `pin.bus.cb.in` / `pin.bus.mb.in` 只允许作为 source，作为 target 时以 `bus_in_connection_destination_forbidden` 拒绝。
+- `pin.bus.cb.out` / `pin.bus.mb.out` 只允许作为 target，作为 source 时以 `bus_out_connection_source_forbidden` 拒绝。
+- 已有同 Cell 函数的 `{functionName}:in|out|logout` 保持函数端点优先；没有真实函数的同形 key 在后声明为 bus pin 时，必须按 raw endpoint role 执行方向校验。
+- 校验必须同时覆盖 route declaration 与 endpoint add/replace，因此 pin-first、route-first 和 endpoint type replacement 具有相同结果。
+- 后到的无效声明不得进入 labels、路由图或 persistence；此前合法状态保持不变。失败必须落为 `pin_connection_error:json`，不能 silent fail。
+- `pin_connection_error` 是 runtime-reserved key。外部 `addLabel` 写入以 `runtime_error_label_reserved` 拒绝；runtime 内部可见错误和持久化 loader 的 trusted `hydrateLabel` 仍经同一 `addLabel` pipeline 落表。hydration 只绕过 reserved-key authorship，其他校验不得放宽；loader 不得 fallback 到外部 `addLabel`。合法 type replacement 必须清除被替换 route graph 或 bus registry/subscription，不能留下 stale executable state。
 
 ---
 

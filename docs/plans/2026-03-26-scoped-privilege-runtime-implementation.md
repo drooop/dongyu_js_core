@@ -8,7 +8,7 @@ source: ai
 
 # Scoped Privilege Runtime Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** 在不触碰 mailbox 迁移的前提下，只为 runtime 增加 `same-model scoped privilege` 能力，并用 regression tests 独立证明它与 `PIN-only` 的边界自洽。
 

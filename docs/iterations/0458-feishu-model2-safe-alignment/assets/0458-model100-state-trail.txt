@@ -1,0 +1,7 @@
+page_url=http://127.0.0.1:30900/
+app=E2E 颜色生成器
+route_truth=当前实际消息路径|mt_bus_send|pin.bus.cb.out|local MQTT|RemoteWorker R1|response_topic|pin.bus.cb.in|MBR no-echo
+before_color=#FFFFFF
+after_color=#bbdd13
+trail=[{"inflight":false,"status":"ready","color":"#FFFFFF"},{"inflight":true,"status":"loading","color":"#FFFFFF"},{"inflight":false,"status":"processed","color":"#bbdd13"}]
+result=PASS

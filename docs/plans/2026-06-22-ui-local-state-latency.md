@@ -9,7 +9,7 @@ iteration_id: 0420-ui-local-state-latency
 
 # UI Local State Latency Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** reduce login-after and post-load UI latency by ensuring local-only UI state does not block formal business events.
 

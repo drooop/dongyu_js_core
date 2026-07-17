@@ -8,7 +8,7 @@ source: ai
 
 # Mgmt Bus Console And Slide Flow Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Deliver iterations `0336` and `0337` with deterministic tests, sub-agent review checkpoints, local deployment, and browser verification.
 

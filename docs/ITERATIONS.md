@@ -358,6 +358,7 @@ source: ai
 | 0455-contract-surface-index | 2026-07-09 | 建立 Feishu/SSOT/实现/测试合同索引与专项 backlog，让后续变更按合同卡片定位并防止摘要漂移 | 5 | dropx/dev_0455-contract-surface-index | Completed | ./docs/iterations/0455-contract-surface-index/ |
 | 0456-feishu-watcher-tls-preflight | 2026-07-10 | 为 Feishu source watcher 增加 fail-closed TLS preflight，并记录已确认与仍待确认的合同差异 | 4 | dropx/dev_0456-feishu-watcher-tls-preflight | Completed | ./docs/iterations/0456-feishu-watcher-tls-preflight/ |
 | 0457-feishu-message-api-v2-local-de | 2026-07-10 | 将 Feishu Message API 输入整体升级到 `pin_payload.v2`，并用 OrbStack 中按 SSOT 调表启动的真实 DE 软件工人完成双总线验收 | 13 | dropx/dev_0457-feishu-message-api-v2-local-de | Completed | ./docs/iterations/0457-feishu-message-api-v2-local-de/ |
+| 0458-feishu-model2-safe-alignment | 2026-07-17 | 对软件工人模型2 revision 14272 仅落地无争议的 bus 方向安全、watcher 停止规则与待裁决路由 | 5 | dropx/dev_0458-feishu-model2-safe-alignment | Completed | ./docs/iterations/0458-feishu-model2-safe-alignment/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |

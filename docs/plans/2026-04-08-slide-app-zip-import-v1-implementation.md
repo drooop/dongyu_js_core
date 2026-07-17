@@ -8,7 +8,7 @@ source: ai
 
 # Slide App Zip Import v1 Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Let Workspace import one declarative slide app zip, mount it, open it, and delete it.
 

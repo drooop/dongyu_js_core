@@ -8,7 +8,7 @@ source: ai
 
 # Handoff Mode Protocol Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Add a reusable handoff-mode migration protocol with a system-level skill and repository-local default rules for `dongyuapp_elysia_based`.
 

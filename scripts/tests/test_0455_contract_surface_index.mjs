@@ -23,6 +23,11 @@ const agentsPath = path.join(repoRoot, 'AGENTS.md');
 const claudePath = path.join(repoRoot, 'CLAUDE.md');
 const alignmentPath = path.join(repoRoot, 'docs/ssot/feishu_alignment_decisions_v0.md');
 const workflowPath = path.join(repoRoot, 'docs/WORKFLOW.md');
+const revision14272ReportPath = path.join(
+  repoRoot,
+  'docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md',
+);
+const runtimePath = path.join(repoRoot, 'packages/worker-base/src/runtime.mjs');
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -210,7 +215,22 @@ async function test_feishu_source_manifest_encodes_approved_authority_model() {
 async function test_contract_manifest_separates_authority_surfaces_and_open_findings() {
   const manifest = loadContractManifest(manifestPath);
   assert.equal(manifest.schema, 'contract_surface_manifest.v2');
-  assert.equal(manifest.contracts.length, 10, 'v2 manifest must include the two missing open-contract routes');
+  assert.equal(manifest.contracts.length, 14, 'v2 manifest must include the four revision-14272 pending routes');
+
+  const originalContractIds = new Set([
+    'model.v1n.worker_root',
+    'model.relationship.naming_and_numeric_subtable',
+    'pin_payload.formal_v2',
+    'feishu_message_api.input_version',
+    'feishu_message_api.response_outbox',
+    'feishu_message_api.response_materialization',
+    'feishu_message_api.resource_data_ui_task_handlers',
+    'feishu_source_watch.focused_docs',
+    'feishu_message_api.route_autofill_permission',
+    'feishu_config_labels.control_manage_mqtt',
+  ]);
+  const revision14272Evidence = 'docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md';
+  const baseline0454Evidence = 'docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md';
 
   for (const contract of manifest.contracts) {
     assert.ok(Array.isArray(contract.source_refs));
@@ -227,11 +247,19 @@ async function test_contract_manifest_separates_authority_surfaces_and_open_find
       false,
       `${contract.contract_id} must not treat iteration evidence as a source authority`,
     );
-    assert.equal(
-      contract.evidence_files.includes('docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md'),
-      true,
-      `${contract.contract_id} must retain the 0454 report only as evidence`,
-    );
+    assert.ok(contract.evidence_files.length > 0, `${contract.contract_id} must retain factual evidence`);
+    if (originalContractIds.has(contract.contract_id)) {
+      assert.ok(
+        contract.evidence_files.includes(baseline0454Evidence),
+        `${contract.contract_id} must retain the 0454 baseline report as evidence`,
+      );
+    } else {
+      assert.deepEqual(
+        contract.evidence_files,
+        [revision14272Evidence],
+        `${contract.contract_id} must use only the 0458 revision report as evidence`,
+      );
+    }
     for (const field of ['ssot_files', 'implementation_files', 'test_files']) {
       assert.ok(Array.isArray(contract.anchor_terms[field]) && contract.anchor_terms[field].length > 0);
     }
@@ -246,6 +274,11 @@ async function test_contract_manifest_separates_authority_surfaces_and_open_find
     'F-06': 'requires_user_confirmation',
     'F-07': 'requires_user_confirmation',
     'F-08': 'decision_recorded_implementation_pending',
+    'F-10': 'requires_user_confirmation',
+    'F-11': 'requires_user_confirmation',
+    'F-12': 'requires_user_confirmation',
+    'F-13': 'requires_user_confirmation',
+    'F-14': 'requires_user_confirmation',
   });
 
   const contractsById = new Map(manifest.contracts.map((contract) => [contract.contract_id, contract]));
@@ -276,6 +309,41 @@ async function test_contract_manifest_separates_authority_surfaces_and_open_find
   assert.equal(watcher.status, 'aligned');
   assert.deepEqual(watcher.open_findings, []);
   assert.ok(watcher.owner_iterations.includes('0456-feishu-watcher-tls-preflight'));
+
+  const pendingRevision14272Routing = {
+    'model.label_key_namespaces': ['F-10'],
+    'program_model.lifecycle_and_function_contract': ['F-11', 'F-12'],
+    'program_model.log_schema': ['F-13'],
+    'model.functional_type_capability_matrix': ['F-14'],
+  };
+  for (const [contractId, findingIds] of Object.entries(pendingRevision14272Routing)) {
+    const contract = contractsById.get(contractId);
+    assert.ok(contract, `${contractId} must be present`);
+    assert.equal(contract.status, 'requires_user_confirmation');
+    assert.equal(contract.risk_level, 'high');
+    assert.deepEqual(contract.source_refs, ['feishu-model2']);
+    assert.deepEqual(contract.decision_files, ['docs/ssot/feishu_contract_backlog.md']);
+    assert.deepEqual(contract.evidence_files, [revision14272Evidence]);
+    assert.deepEqual(
+      contract.open_findings,
+      findingIds.map((id) => ({ id, class: 'requires_user_confirmation' })),
+    );
+    assert.equal(
+      contract.decision_files.includes('docs/ssot/feishu_alignment_decisions_v0.md'),
+      false,
+      `${contractId} must not route an unconfirmed finding to formal adoption decisions`,
+    );
+    assert.match(
+      contract.notes,
+      /not adopted|not implemented|not enforced/u,
+      `${contractId} notes must state that revision-14272 semantics remain unadopted`,
+    );
+  }
+
+  const f07 = contractsById.get('feishu_config_labels.control_manage_mqtt');
+  assert.ok(f07.evidence_files.includes(baseline0454Evidence));
+  assert.ok(f07.evidence_files.includes(revision14272Evidence));
+  assert.match(f07.notes, /Revision 14272.*remain open/su);
 
   const model3200Patch = 'deploy/sys-v1ns/remote-worker/patches/15_model3200_feishu_message_api.json';
   const currentRuntime = ['packages/worker-base/src/runtime.mjs', 'packages/worker-base/src/runtime.js'];
@@ -356,6 +424,64 @@ async function test_contract_manifest_separates_authority_surfaces_and_open_find
     );
   }
   assert.ok(contractsById.get('feishu_message_api.input_version').owner_iterations.includes('0457-feishu-message-api-v2-local-de'));
+}
+
+async function test_revision_14272_evidence_is_factual_and_non_authoritative() {
+  const report = readFileSync(revision14272ReportPath, 'utf8');
+  for (const pattern of [
+    /doc_type: iteration-evidence/u,
+    /Observed revision: `14272`/u,
+    /Observed edit time: `2026-07-16 19:11:18 CST`/u,
+    /Fetch transport: TLS certificate verification enabled/u,
+    /Author: unknown/u,
+    /Previous revision id: unknown/u,
+    /6f3b1803a9d54a05452e93a2ea9c041be424196a64a3931763b1ec571b9e129a/u,
+    /bfca935924add0a0227daac8b630ce083a96e3bc956cabb9bfdd75cfacc1aca9/u,
+    /4218.*63694/u,
+    /5075.*74997/u,
+    /\+2269\/-1412/u,
+    /not product SSOT/u,
+    /Feishu mutation: none/u,
+  ]) {
+    assert.match(report, pattern);
+  }
+  for (const findingId of ['F-07', 'F-10', 'F-11', 'F-12', 'F-13', 'F-14']) {
+    const rowPattern = '^[|] ' + findingId + ' [|] `requires_user_confirmation` [|]';
+    const rows = report.match(new RegExp(rowPattern, 'gmu')) || [];
+    assert.equal(rows.length, 1, `${findingId} must appear exactly once as a pending evidence row`);
+  }
+
+  const runtime = readFileSync(runtimePath, 'utf8');
+  for (const unadoptedTerm of [
+    'sys_model_type',
+    'sys_model_size',
+    'pin.manage',
+    'user_set_status',
+    'CLEAR_BUFFER',
+    'sys_func_mode',
+    'sys_func_order',
+    'sys_match_func',
+    'sys_max_loop_time',
+    'func.code.python',
+    'func.code.js',
+    'func.mode',
+    'func.timer.ms',
+    'log_type',
+    'log_info',
+    'log_model_id',
+    'log_p',
+    'log_r',
+    'log_c',
+    'log_func',
+    'log_time',
+    '只有流程模型能够单独运行',
+  ]) {
+    assert.equal(
+      runtime.includes(unadoptedTerm),
+      false,
+      `${unadoptedTerm} must remain absent from the current runtime`,
+    );
+  }
 }
 
 async function test_human_and_llm_entries_share_one_contract_and_authority_model() {
@@ -447,6 +573,11 @@ async function test_feishu_backlog_tracks_decided_unresolved_and_completed_items
     'F-07': 'requires_user_confirmation',
     'F-08': 'decision_recorded_implementation_pending',
     'F-09': 'completed',
+    'F-10': 'requires_user_confirmation',
+    'F-11': 'requires_user_confirmation',
+    'F-12': 'requires_user_confirmation',
+    'F-13': 'requires_user_confirmation',
+    'F-14': 'requires_user_confirmation',
   };
   for (const [findingId, decisionClass] of Object.entries(expectedClasses)) {
     assert.match(
@@ -458,6 +589,11 @@ async function test_feishu_backlog_tracks_decided_unresolved_and_completed_items
   const awaiting = backlog.split('## Awaiting User Confirmation')[1]?.split('\n## ')[0] || '';
   assert.match(awaiting, /F-06/u);
   assert.match(awaiting, /F-07/u);
+  for (const findingId of ['F-10', 'F-11', 'F-12', 'F-13', 'F-14']) {
+    assert.match(awaiting, new RegExp(`\\| ${findingId} \\| requires_user_confirmation \\|`, 'u'));
+    const rows = backlog.match(new RegExp(`^\\| ${findingId} \\| requires_user_confirmation \\|`, 'gmu')) || [];
+    assert.equal(rows.length, 1, `${findingId} must appear exactly once in the decision backlog`);
+  }
   assert.doesNotMatch(awaiting, /F-01|F-04|F-05|F-08|F-09/u);
   const decided = backlog.split('## Decisions Recorded — Follow-up Pending')[1]?.split('\n## ')[0] || '';
   assert.doesNotMatch(decided, /F-01/u);
@@ -484,6 +620,7 @@ for (const test of [
   test_contract_manifest_rejects_derived_view_as_source_authority,
   test_feishu_source_manifest_encodes_approved_authority_model,
   test_contract_manifest_separates_authority_surfaces_and_open_findings,
+  test_revision_14272_evidence_is_factual_and_non_authoritative,
   test_human_and_llm_entries_share_one_contract_and_authority_model,
   test_contract_manifest_is_complete_and_anchored,
   test_contract_summary_is_generated_from_manifest,

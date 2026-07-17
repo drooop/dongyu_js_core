@@ -168,6 +168,7 @@ Principal-scoped namespace 的完整多用户权限目标由 `docs/ssot/principa
 - 初始化阶段按软件工人启动顺序恢复标签并建立内存状态
 - 所有结构性声明的副作用必须在初始化阶段被一致触发
 - 初始化与运行期的解释规则完全一致
+- SQLite 与 frontend localStorage loader 必须通过 runtime 的 trusted `hydrateLabel` 入口恢复持久标签，不得 fallback 到外部 `addLabel`。该入口内部仍调用 `addLabel`，只绕过 `pin_connection_error` 的 authorship 限制；label type、placement、结构值、方向与其他运行期校验全部保持一致。
 
 ---
 
@@ -293,6 +294,7 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 规则：
 
 - 允许连接当前 Cell 上声明的 `pin.in` / `pin.out` / `pin.login` / `pin.logout`。
+- 在软件工人 Model 0 `(0,0,0)`，允许连接同 Cell 上声明的 `pin.bus.cb.*` / `pin.bus.mb.*`，但必须服从下述系统总线端点方向。
 - 允许连接当前 Cell 上函数自动拥有的 `{funcName}:in` / `{funcName}:out` / `{funcName}:logout`。
 - 不允许 `(self, port)`、`(func, funcName:in)` 或 numeric prefix。
 - 不允许引用其他 Cell 或其他 model id。
@@ -306,8 +308,18 @@ _applyPinDeclarations, _applyPinRemoval, _applyMailboxTriggers, _resolveTriggerM
 规则：
 
 - 同 Model 内跨 Cell 路由，目标仍是 Cell 引脚，不是函数引脚。
+- Model 0 `(0,0,0)` 的系统总线 pin 可以作为跨 Cell route 端点，但必须服从下述系统总线端点方向。
 - 函数触发必须先把模型数据送到函数所在 Cell 的普通引脚，再由该 Cell 的 `pin.connect.label` 接到 `{funcName}:in`。
 - 子模型对外只能经子模型 root `(0,0,0)` 的引脚和父模型 connection Cell 的引脚，不再经 `pin.connect.model`。
+
+**系统总线端点方向**：
+
+- `pin.bus.cb.in` / `pin.bus.mb.in` 只能作为 `pin.connect.label` 或 `pin.connect.cell` 的 source，不得作为 target。
+- `pin.bus.cb.out` / `pin.bus.mb.out` 只能作为 `pin.connect.label` 或 `pin.connect.cell` 的 target，不得作为 source。
+- 若 `{funcName}:in|out|logout` 对应的同 Cell 函数已经存在，该端点仍属于函数而不是同名 bus label；不存在真实函数时，后声明的同名 bus pin 必须按 raw endpoint role 校验，不能因函数形状绕过方向规则。
+- 声明顺序不改变该约束。若先声明 route、后声明或替换 bus endpoint，后到的无效声明必须被拒绝；既有 endpoint label、route label、路由图和 persistence 不得被改写。
+- 拒绝原因固定为 `bus_in_connection_destination_forbidden` 或 `bus_out_connection_source_forbidden`，并必须通过 `pin_connection_error:json` 写入 ModelTable；不得只记 eventLog。
+- `pin_connection_error` 是 runtime-reserved key；外部 `addLabel` 写入必须以 `runtime_error_label_reserved` 拒绝。只有 runtime 内部可见错误路径和持久化 loader 的 trusted `hydrateLabel` 可以通过同一 `addLabel` pipeline 写入；hydration 只绕过 reserved-key authorship，不能绕过其他校验。合法的 label type replacement 必须同步移除被替换 route 的 graph 或被替换 bus pin 的 registry/subscription。
 
 **AsyncFunction 隔离**：函数执行仍必须隔离于普通 worker tick。支持超时和错误落表，不得 silent fail。
 

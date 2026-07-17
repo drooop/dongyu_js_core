@@ -8,7 +8,7 @@ source: ai
 
 # UI Tier Migration Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** 将当前 UI 层从“Tier 1/2 混合硬编码”迁移为“最小 Tier 1 解释器 + Tier 2 页面资产”的稳定结构，使后续页面/示例/能力迭代尽量只修改模型资产。
 
