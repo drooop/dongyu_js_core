@@ -11,7 +11,7 @@ source: ai
 Status: historical handover. It records a paused session and does not define current Model 100 conformance rules.
 
 **Date**: 2026-02-12
-**Session**: Brainstorming (in progress, paused at Design Section 1)
+**Session**: Design discussion (in progress, paused at Design Section 1)
 **Branch**: `dev`
 
 ---
@@ -36,7 +36,7 @@ Status: historical handover. It records a paused session and does not define cur
 
 ### 1.2 Model 100 subModel Conformance Brainstorm (IN PROGRESS)
 
-进入 brainstorming skill 讨论 Model 100 如何符合 0141-0144 建立的 3 层连接架构。
+讨论 Model 100 如何符合 0141-0144 建立的 3 层连接架构。
 
 ---
 
@@ -125,7 +125,7 @@ BUS_IN 只在 Model 0 Cell (0,0,0) 上。runtime 对其他位置的 BUS_IN 报 `
 
 ## 4. Remaining Design Sections (TODO)
 
-brainstorming skill 要求每段 200-300 字，逐段确认。以下为待展示段落:
+原讨论流程按每段 200-300 字逐段确认。以下为待展示段落:
 
 ### Section 2: Model 0 cell_connection Routing
 - BUS_IN port → hosting cell 的 cell_connection 路由声明
