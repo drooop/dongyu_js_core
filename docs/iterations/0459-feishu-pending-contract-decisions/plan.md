@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0459 Feishu Pending Contract Decisions Plan"
 doc_type: iteration-plan
-status: draft
+status: approved
 updated: 2026-07-17
 source: ai
 iteration_id: 0459-feishu-pending-contract-decisions
 id: 0459-feishu-pending-contract-decisions
-phase: phase1
+phase: phase2
 ---
 
 # Iteration 0459-feishu-pending-contract-decisions Plan
@@ -19,7 +19,7 @@ Turn the seven remaining high-risk Feishu contract findings—F-06, F-07, and F-
 
 In scope:
 
-- Reconfirm read-only both relevant UpstreamConsensus sources before building the decision packets: `feishu-model2` against revision `14272`, and `feishu-message-api` against the 0454 local-evidence hash. If either source changed, stop and produce a new focused diff before using prior evidence.
+- Reconfirm read-only both relevant UpstreamConsensus sources before building the decision packets. Step 1 refreshed `feishu-model2` from revision `14272` to revision `14288` after a focused diff; `feishu-message-api` remained byte-identical to the 0454 local-evidence hash. If either source changes again, stop and produce a new focused diff before using prior evidence.
 - Produce one Change Proposal per pending finding, with options, a recommended safety-preserving choice, impact, migration consequences, rejected alternatives, and exact verification.
 - Present decisions in two dependency-aware waves:
   - Model/program wave: F-14 -> F-10 -> F-11 -> F-12 -> F-13.
@@ -79,7 +79,8 @@ Out of scope:
 - Created at: 2026-07-17
 - Branch: `dropx/dev_0459-feishu-pending-contract-decisions`
 - Baseline `dev` merge: `188af0d`
-- Evidence baselines, both subject to read-only recheck after Phase 2 approval: `feishu-model2` revision `14272`; `feishu-message-api` 0454 local-evidence SHA-256 `7b3576ab5ce70956859957b1271a0e7116e06f94b6664053fc2518788c39b52c`
+- Current decision baselines after the Phase 3 Step 1 focused recheck: `feishu-model2` revision `14288`, SHA-256 `218e77f7a62961b940ad6c983cc43056eeeacc1fa2cabd7cb5d0d87464d0d252`; `feishu-message-api` revision `5951`, unchanged 0454 SHA-256 `7b3576ab5ce70956859957b1271a0e7116e06f94b6664053fc2518788c39b52c`
+- Baseline refresh evidence: `docs/iterations/0459-feishu-pending-contract-decisions/source-recheck-report.md`
 - Current pending sources: `docs/ssot/feishu_contract_backlog.md`, `docs/ssot/contract_coverage_summary.md`, and 0458 revision evidence
 
 ## Alternatives Considered
