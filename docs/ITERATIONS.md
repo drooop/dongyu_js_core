@@ -359,6 +359,7 @@ source: ai
 | 0456-feishu-watcher-tls-preflight | 2026-07-10 | 为 Feishu source watcher 增加 fail-closed TLS preflight，并记录已确认与仍待确认的合同差异 | 4 | dropx/dev_0456-feishu-watcher-tls-preflight | Completed | ./docs/iterations/0456-feishu-watcher-tls-preflight/ |
 | 0457-feishu-message-api-v2-local-de | 2026-07-10 | 将 Feishu Message API 输入整体升级到 `pin_payload.v2`，并用 OrbStack 中按 SSOT 调表启动的真实 DE 软件工人完成双总线验收 | 13 | dropx/dev_0457-feishu-message-api-v2-local-de | Completed | ./docs/iterations/0457-feishu-message-api-v2-local-de/ |
 | 0458-feishu-model2-safe-alignment | 2026-07-17 | 对软件工人模型2 revision 14272 仅落地无争议的 bus 方向安全、watcher 停止规则与待裁决路由 | 5 | dropx/dev_0458-feishu-model2-safe-alignment | Completed | ./docs/iterations/0458-feishu-model2-safe-alignment/ |
+| 0459-feishu-pending-contract-decisions | 2026-07-17 | 分两批裁决 F-06、F-07 与 F-10～F-14，冻结采纳、迁移、Tier/owner 和后续实施边界 | 5 | dropx/dev_0459-feishu-pending-contract-decisions | Planned | ./docs/iterations/0459-feishu-pending-contract-decisions/ |
 
 | 1219-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1219-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1219-orchestrator-monitor-resume-smoke-doc/ |
 | 1220-orchestrator-monitor-resume-smoke-doc | 2026-03-20 | orchestrator-monitor-resume-smoke-doc |  | dropx/dev_1220-orchestrator-monitor-resume-smoke-doc | Cancelled | ./docs/iterations/1220-orchestrator-monitor-resume-smoke-doc/ |
