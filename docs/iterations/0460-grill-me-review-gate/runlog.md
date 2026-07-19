@@ -83,9 +83,25 @@ Review Gate Record
 - Commit: `be45d9b` (`feat(skills): integrate grill review gate`).
 - Result: PASS for Step 2 adaptation. Step 3 validation has not run.
 
+### Step 3 - Run Deterministic Structure And Governance Checks
+
+- Validated snapshot: `2678fbb8be515b7861afc49a664bbc1101b5c061` on `dropx/dev_0460-grill-me-review-gate`; worktree was clean before validation.
+- Official validator resolution: the planned materialized path `/Users/drop/.codex/skills/.system/skill-creator` remained absent. The read-only vendored Git repository `/Users/drop/.codex/vendor_imports/skills` has remote `https://github.com/openai/skills.git`, HEAD `49f948faa9258a0c61caceaf225e179651397431`, and contains `skills/.system/skill-creator/scripts/quick_validate.py` in its Git object tree. The official script was streamed directly from that object with `git show ... | python3 - <skill-path>`; no global skill was restored, copied, or modified.
+- Official validator results: both `.agents/skills/grill-me` and `.agents/skills/grilling` returned `Skill is valid!`.
+- Metadata checks: both frontmatters contain exactly `name` and `description`; folder names match skill names; both `agents/openai.yaml` files have the required UI fields, 25-64 character short descriptions, and a default prompt naming the corresponding `$skill`. Only the wrapper declares `allow_implicit_invocation: false`.
+- Structure check: exactly two skill directories exist and each contains `SKILL.md`, `agents/openai.yaml`, and `LICENSE`.
+- Contract checks: dependency reference, missing-dependency stop, high-impact/routine boundary, environment-fact lookup, one-question-at-a-time rule, recommendation/decision separation, shared-understanding stop, no implementation/auto-approval, and parallel-truth-source prohibition all matched.
+- Persistent closure checks: each of the five closure groups occurs exactly once in the core skill; `plan.md`, `resolution.md`, and `runlog.md` mappings all matched.
+- Workflow/template checks: Phase heading count remained `5 -> 5`; the conditional high-impact rule, routine-task exclusion, recommendation/decision separation, and all required plan-template headings matched.
+- License checks: both licenses retain Step 1 blob `f1dd2c09108dde1a5f56097cee8461b3ea834499`, with the pinned MIT notice and `Copyright (c) 2026 Matt Pocock`.
+- Branch allowlist: `git diff --name-only 188af0d...HEAD` matched exactly the six approved skill files, `docs/WORKFLOW.md`, the plan template, `docs/ITERATIONS.md`, and the three `0460` iteration artifacts. No runtime, SSOT, Feishu, or deployment path changed.
+- Repository checks: `git diff --check 188af0d...HEAD` passed; `validate_obsidian_docs_gate.mjs` passed with the bundled Node runtime.
+- Isolation checks: no global `grill-me` / `grilling` directory exists. Global inventory remained `842e2a455a5f44bc336b75cc17dd5cb43a455cfbf63e44c20120d0e9f437b7d2` before/after this validation. The excluded `0459` state remained `99e5697f9e9b9634b14eb065e1ee1369f4862cb81b7a377a443cbb2dce0f42d2`, with HEAD `2b6f0c7d9867bf0625e3db8f60898f0ccd5cbc0f`.
+- Validation-script correction: the first composite check stopped after groups 1-4 passed because its license assertion incorrectly expected year `2025`. Reading the pinned files showed year `2026` and identical Step 1 blobs; only the read-only assertion was corrected. The complete check then passed all nine groups with final output `STEP3_VALIDATION=PASS`; no repository file was changed to satisfy the check.
+- Result: PASS. Step 4 discovery and closeout has not started.
+
 ### Remaining Steps
 
-- Step 3 deterministic validation: not started.
 - Step 4 discovery and closeout: not started.
 
 ## Docs Updated Assessment
