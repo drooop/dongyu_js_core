@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0460 Grill Me Review Gate Run Log"
 doc_type: iteration-runlog
-status: in_progress
+status: completed
 updated: 2026-07-19
 source: ai
 iteration_id: 0460-grill-me-review-gate
 id: 0460-grill-me-review-gate
-phase: phase3
+phase: phase4
 ---
 
 # Iteration 0460-grill-me-review-gate Run Log
@@ -100,13 +100,31 @@ Review Gate Record
 - Validation-script correction: the first composite check stopped after groups 1-4 passed because its license assertion incorrectly expected year `2025`. Reading the pinned files showed year `2026` and identical Step 1 blobs; only the read-only assertion was corrected. The complete check then passed all nine groups with final output `STEP3_VALIDATION=PASS`; no repository file was changed to satisfy the check.
 - Result: PASS. Step 4 discovery and closeout has not started.
 
+### Step 4 - Verify Discovery, Record Evidence, And Close
+
+- Pre-closeout validated snapshot: `a2d6d2cae8f355c411a6002718c858b90d752333` on `dropx/dev_0460-grill-me-review-gate`; the worktree was clean before discovery verification.
+- Fresh-context verification: Codex CLI `0.144.6` ran `codex debug prompt-input -- 'Read-only skill discovery probe.'` from this worktree. The generated context exposed `grilling` from `/Users/drop/codebase/cowork/dongyuapp_elysia_based-0460-grill-me-review-gate/.agents/skills/grilling/SKILL.md` and exposed no unrelated Matt Pocock skill.
+- Explicit-wrapper verification: a new read-only Codex TUI was started with this worktree as its working directory. Repository hooks were explicitly left untrusted, `$` opened the real skill picker, and filtering for `grill-me` showed `Grill Me [Skill] Stress-test important decisions before approval`. The skill selection was inserted but the prompt was not submitted; the prompt was cleared and the TUI exited successfully without running a review or implementation.
+- Invocation-policy interpretation: the official `Build skills` documentation says repository `.agents/skills` locations are scanned, ordinary context uses skill descriptions for implicit selection, and `allow_implicit_invocation: false` keeps a skill available for explicit `$skill` selection while omitting it from implicit model context. Therefore the fresh context is the acceptance evidence for `grilling`, and the real picker is the acceptance evidence for explicit-only `grill-me`.
+- Probe boundary: `codex debug prompt-input` accepts raw prompt text and does not emulate a structured picker selection, so a raw `$grill-me` debug probe was treated as inconclusive and was not used as acceptance evidence.
+- Environment note: the TUI reported unrelated MCP startup warnings. Skill discovery still completed, no prompt was submitted, and neither repository hooks nor any global setup action ran.
+- Deterministic revalidation: both official `quick_validate.py` commands returned `Skill is valid!`; structure, dependency/trigger contract, five closure groups, workflow/template, pinned licenses, branch path allowlist, clean diff, and docs gate all passed. The complete run ended with `STEP4_REVALIDATION=PASS`.
+- Revalidation-script correction: the first composite run stopped after the closure checks because its workflow assertion expected a different phrase for the routine-task exclusion. The approved document uses `日常小任务默认跳过该 stress-test`; only the read-only assertion was corrected, then the complete command was rerun from the start and passed. No repository file was changed to satisfy the check.
+- Closeout validator fallback: after the closeout-only documentation edit, the materialized `/Users/drop/.codex/skills/.system/skill-creator` path disappeared again. The same read-only official fallback audited in Step 3 streamed `quick_validate.py` from `openai/skills@49f948faa9258a0c61caceaf225e179651397431`; both skills again returned `Skill is valid!`, and the final closeout command ended with `STEP4_CLOSEOUT_PRECOMMIT=PASS`. No global file was restored or changed.
+- Workflow-duplication review: `docs/WORKFLOW.md` still has exactly five Phase headings (`5 -> 5`), the stress-test appears once inside existing Phase 1, and the plan template reuses existing iteration artifacts. No parallel approval path or truth source was added.
+- Final path review: the branch changes exactly the six approved skill files, `docs/WORKFLOW.md`, the plan template, `docs/ITERATIONS.md`, and the three `0460` iteration artifacts. No runtime, SSOT, Feishu, deployment, or unrelated skill path changed.
+- Isolation: no global `grill-me` or `grilling` directory exists. The global skill inventory remained stable during the final revalidation at `6ddc07bd627438579c06ab9e61befbe854ed1b6baa38a5c34a2e462aff6aa9a1`.
+- Parallel-worktree check: the original `0459` worktree remains clean at `2b6f0c7d9867bf0625e3db8f60898f0ccd5cbc0f`; its final state hash is `3925f7755f2d86c808bd1d58259859875c559731ce9161ca28cb18f8febbccce`.
+- Assets: none required; discovery and deterministic command output are sufficient for this non-visual workflow change.
+- Result: PASS. Every Step 4 acceptance condition is satisfied, so `0460` is marked `Completed`.
+
 ### Remaining Steps
 
-- Step 4 discovery and closeout: not started.
+- None. Merge, push, PR, deployment, Feishu write, and global Codex setup remain outside this iteration.
 
 ## Docs Updated Assessment
 
-- `CLAUDE.md`: reviewed; no change planned because its plan/Approved/chat-only/assumption rules already govern the new helper.
+- `CLAUDE.md`: reviewed; no change required because its plan/Approved/chat-only/assumption rules already govern the new helper.
 - `docs/WORKFLOW.md`: updated with the minimal conditional stress-test rule inside existing Phase 1; no new phase or approval path was added.
 - `docs/_templates/iteration_plan.template.md`: updated with explicit confirmed-decision, assumption-validation, testable-acceptance, and residual-risk fields.
-- Runtime/product SSOT, user guide, tier conformance, Feishu alignment, and deployment docs: no change planned; this iteration changes collaboration workflow only.
+- Runtime/product SSOT, user guide, tier conformance, Feishu alignment, and deployment docs: no change required; this iteration changes collaboration workflow only.
