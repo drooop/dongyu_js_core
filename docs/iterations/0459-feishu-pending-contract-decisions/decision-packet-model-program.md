@@ -1,19 +1,21 @@
 ---
 title: "Iteration 0459 Model And Program Decision Packet"
 doc_type: change-proposal
-status: active
-updated: 2026-07-17
+status: on_hold
+updated: 2026-07-19
 source: ai
 iteration_id: 0459-feishu-pending-contract-decisions
 id: 0459-feishu-pending-contract-decisions-model-program-packet
 packet_id: 0459-PKT-MP-r14288-v1
 packet_version: 1
-decision_status: ready_for_user
+decision_status: frozen_on_hold
 ---
 
 # Iteration 0459 Model And Program Decision Packet
 
 > Authority notice: this packet is a proposal, not repository SSOT, an adopted decision, implementation authorization, or Feishu-write authorization. Until an exact user choice is recorded, current repository contracts and fail-closed behavior remain authoritative.
+
+> Freeze notice (2026-07-19): no decision in this packet was adopted. Before resuming, recheck the protected Feishu source read-only; if it changed, replace this packet with a new version based on a focused diff.
 
 ## Packet Baseline
 

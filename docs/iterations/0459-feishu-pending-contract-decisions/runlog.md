@@ -1,8 +1,8 @@
 ---
 title: "Iteration 0459 Feishu Pending Contract Decisions Runlog"
 doc_type: iteration-runlog
-status: active
-updated: 2026-07-17
+status: on_hold
+updated: 2026-07-19
 source: ai
 iteration_id: 0459-feishu-pending-contract-decisions
 id: 0459-feishu-pending-contract-decisions
@@ -115,3 +115,28 @@ Review Gate Record
 - `source-recheck-report.md`: record the read-only Model2 revision `14288` focused refresh and unchanged Message API baseline.
 - `decision-packet-model-program.md`, `decision-packet-config-routing.md`: add the reviewed, ready-for-user decision packets.
 - Product SSOT and user guide: not changed in Phase 1 or Phase 3 Steps 1-3.
+
+## 2026-07-19 Freeze And Consolidation Record
+
+- User direction: Feishu documentation is still evolving, but the current repository state must be frozen and consolidated now. Later work will resume from a new local `dev_drop` branch after the Feishu material stabilizes.
+- Read-only freeze check: TLS-enabled watcher result was `NO_CHANGE` at `2026-07-19 20:32:19 CST` for the two tracked UpstreamConsensus documents. It checked two documents, found zero changes, created zero baselines, and raised zero confirmation stops.
+- Reproduction command (requires an already configured read-capable Feishu token; no token value is printed or persisted):
+
+  ```bash
+  cd /Users/drop/codebase/cowork/dongyuapp_elysia_based
+  export PATH=/Users/drop/.nvm/versions/node/v24.13.0/bin:$PATH
+  node scripts/ops/feishu_source_watch.mjs \
+    --manifest docs/ssot/feishu_source_watch_manifest.json \
+    --state-dir test_files/feishu_current/0459/phase2/state \
+    --report test_files/feishu_current/0459/phase2/watch-report-freeze-20260719.md \
+    --doc-id feishu-model2,feishu-message-api
+  ```
+
+- Model2 freeze point: wiki node `JYNWwQOOjiWcOLktv07cBvIVnOh`, docx token `FuHNdJPk4oD2KrxR4Y6cRj1unFg`, revision `14288`, edit time `2026-07-17 11:04:24 CST`, SHA-256 `218e77f7a62961b940ad6c983cc43056eeeacc1fa2cabd7cb5d0d87464d0d252`, 5060 lines, 75009 bytes.
+- Message API freeze point: wiki node `WBZjwY3DSil6pAkQ8DZcpsrWnUf`, docx token `LChudv7L6o1Q12xXUnscMw6onhh`, revision `5951`, edit time `2026-07-08 19:40:01 CST`, SHA-256 `7b3576ab5ce70956859957b1271a0e7116e06f94b6664053fc2518788c39b52c`, 715 lines, 32857 bytes.
+- Scope caveat: `NO_CHANGE` applies only to those two watched authoritative documents. The user's statement that wider Feishu material is still changing is preserved and is not contradicted or adopted as repository truth.
+- Decision state: no exact `DEC-0459-*` choice or deferral was received. Recommendations in the packets are not approvals. F-06, F-07, and F-10 through F-14 all remain unresolved and retain current fail-closed repository behavior.
+- Gate state: User Decision Gate remains closed; Step 4 and Step 5 were not executed. The iteration is `On Hold`, not `Completed` or `Cancelled`.
+- Mutation boundary: no Feishu document, product SSOT, runtime, worker patch, UI, deployment, Secret, local service, or remote service was changed by this freeze.
+- Evidence: `freeze-report.md` records the reproducible freeze boundary. The watcher output remains local test evidence under `test_files/feishu_current/0459/phase2/` and is not promoted to product authority.
+- Git consolidation boundary: this record authorizes no product change. The user separately requested repository housekeeping to merge this frozen evidence through `dev` and `main`, push both, delete other local branch references, and create local `dev_drop`; actual Git results must be verified independently after this record is committed.

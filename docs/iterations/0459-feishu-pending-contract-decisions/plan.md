@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0459 Feishu Pending Contract Decisions Plan"
 doc_type: iteration-plan
-status: approved
-updated: 2026-07-17
+status: on_hold
+updated: 2026-07-19
 source: ai
 iteration_id: 0459-feishu-pending-contract-decisions
 id: 0459-feishu-pending-contract-decisions
-phase: phase2
+phase: phase3
 ---
 
 # Iteration 0459-feishu-pending-contract-decisions Plan

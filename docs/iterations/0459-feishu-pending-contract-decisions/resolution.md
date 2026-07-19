@@ -1,12 +1,12 @@
 ---
 title: "Iteration 0459 Feishu Pending Contract Decisions Resolution"
 doc_type: iteration-resolution
-status: approved
-updated: 2026-07-17
+status: on_hold
+updated: 2026-07-19
 source: ai
 iteration_id: 0459-feishu-pending-contract-decisions
 id: 0459-feishu-pending-contract-decisions
-phase: phase2
+phase: phase3
 ---
 
 # Iteration 0459-feishu-pending-contract-decisions Resolution
@@ -92,3 +92,5 @@ Run a decision-only workflow. First verify that the evidence baseline has not ch
 
 - Generated at: 2026-07-17
 - No Feishu write, runtime edit, deployment, merge, push to `dev`, or PR is authorized by this draft.
+- Frozen on 2026-07-19 at the User Decision Gate. No exact F-06/F-07/F-10-F-14 choice or deferral was recorded, so Step 4 and Step 5 remain closed and current repository contracts remain authoritative.
+- Resumption requires a new TLS-enabled read-only source recheck. If any protected source changed, produce a new focused diff and versioned replacement packet before asking for decisions.
