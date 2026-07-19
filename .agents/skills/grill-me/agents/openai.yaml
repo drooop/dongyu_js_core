@@ -1,5 +1,6 @@
 interface:
   display_name: "Grill Me"
-  short_description: "Sharpen a plan through interview"
+  short_description: "Stress-test important decisions before approval"
+  default_prompt: "Use $grill-me to stress-test this high-impact plan one decision at a time, then persist the confirmed review packet without implementing it."
 policy:
   allow_implicit_invocation: false
