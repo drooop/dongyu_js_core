@@ -1,0 +1,4 @@
+interface:
+  display_name: "Grilling"
+  short_description: "Question high-impact decisions one at a time"
+  default_prompt: "Use $grilling to stress-test this high-impact decision one question at a time and persist the confirmed review packet without implementing it."

@@ -2,7 +2,7 @@
 title: "Iteration <ID> Plan"
 doc_type: template
 status: active
-updated: 2026-05-10
+updated: 2026-07-19
 source: ai
 ---
 
@@ -36,7 +36,7 @@ Template status: current. Write hard constraints, decision rules, and preference
 ## 5. Non-goals
 本次明确不追求的目标（防止范围膨胀）。
 
-## 6. Success Criteria (Definition of Done)
+## 6. Success Criteria / Testable Acceptance Criteria (Definition of Done)
 可判定的成功标准（至少 3 条）。避免主观描述。
 
 ## 7. Risks & Mitigations
@@ -44,18 +44,27 @@ Template status: current. Write hard constraints, decision rules, and preference
   - Impact:
   - Mitigation:
 
-## 8. Open Questions
+## 8. Confirmed Decisions
+- 仅记录用户或 authoritative project source 明确确认的决定。
+- 推荐答案不是已确认决定。
+
+## 9. Assumptions And Validation Methods
+- Assumption:
+- Validation method:
+
+## 10. Open Questions / Residual Risks
 需要在 Review Gate 前确认的问题（若无写 “None”）。
+- Residual risk:
 
-## 9. Compliance Checklists
+## 11. Compliance Checklists
 
-### 9.1 SSOT Alignment Checklist
+### 11.1 SSOT Alignment Checklist
 - SSOT references:
   - ...
 - Notes:
   - ...
 
-### 9.2 Charter Compliance Checklist
+### 11.2 Charter Compliance Checklist
 - Charter references:
   - ...
 - Notes:

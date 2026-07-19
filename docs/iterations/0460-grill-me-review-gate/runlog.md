@@ -1,0 +1,130 @@
+---
+title: "Iteration 0460 Grill Me Review Gate Run Log"
+doc_type: iteration-runlog
+status: completed
+updated: 2026-07-19
+source: ai
+iteration_id: 0460-grill-me-review-gate
+id: 0460-grill-me-review-gate
+phase: phase4
+---
+
+# Iteration 0460-grill-me-review-gate Run Log
+
+## Environment
+
+- Date: 2026-07-19
+- Branch: `dropx/dev_0460-grill-me-review-gate`
+- Worktree: `/Users/drop/codebase/cowork/dongyuapp_elysia_based-0460-grill-me-review-gate`
+- Baseline: `188af0d9356d0bc976634c224efbcf8a4ed6b67b`
+- Parallel excluded work: `dropx/dev_0459-feishu-pending-contract-decisions` at `2b6f0c7d9867bf0625e3db8f60898f0ccd5cbc0f`, clean before 0460 creation.
+- Pinned upstream source: `mattpocock/skills@9603c1cc8118d08bc1b3bf34cf714f62178dea3b`.
+- Codex directory evidence: current official `Build skills` documentation states that repository-root `.agents/skills` is scanned for repository-scoped skills.
+
+### Phase 0 / Phase 1 Facts
+
+- `git worktree add -b dropx/dev_0460-grill-me-review-gate ... dev` created the isolated worktree from `188af0d`.
+- `init_iteration_scaffold.py 0460-grill-me-review-gate` created `plan.md`, `resolution.md`, `runlog.md`, and `assets/`.
+- Upstream audit confirmed `grill-me` directly calls `grilling`; both folders contain `SKILL.md` and `agents/openai.yaml`.
+- Upstream root license is MIT and is not inside either individual skill folder, so the resolution requires local license copies.
+- No `.agents/skills` directory existed in the baseline repository.
+- No Phase 3 installation or skill adaptation has started.
+- `git diff --check` passed for the Phase 0/1 documentation changes.
+- Repository inspection confirmed `.agents/skills` remains absent after planning.
+- The first docs-gate invocation used the bundled Node executable only for the parent process and failed when the script spawned `node` from an empty PATH (`spawnSync node ENOENT`).
+- Re-running `validate_obsidian_docs_gate.mjs` with the bundled Node directory prepended to PATH exited `0` with no error output.
+- The original `0459` worktree remained clean at `2b6f0c7d9867bf0625e3db8f60898f0ccd5cbc0f` after all Phase 0/1 work.
+- Approved planning snapshot commit: `c105d2b` (`docs(workflow): approve 0460 grill review gate`).
+
+### Review Gate Records
+
+```text
+Review Gate Record
+- Iteration ID: 0460-grill-me-review-gate
+- Review Date: 2026-07-19
+- Review Type: User
+- Reviewer: User
+- Review Index: 1
+- Decision: Approved
+- Notes: User replied exactly "Approved 0460" after reviewing the Phase 1 handoff. Phase 3 may execute the approved resolution step by step; this record does not broaden the declared scope.
+```
+
+## Execution Records
+
+### Step 1 - Acquire Exactly Two Pinned Upstream Skills
+
+- Scope executed: installed only `skills/productivity/grill-me` and `skills/productivity/grilling` from `mattpocock/skills@9603c1cc8118d08bc1b3bf34cf714f62178dea3b` into this worktree's `.agents/skills`.
+- Installer command: `install-skill-from-github.py --repo mattpocock/skills --ref 9603c1cc8118d08bc1b3bf34cf714f62178dea3b --dest <0460-worktree>/.agents/skills --path skills/productivity/grill-me skills/productivity/grilling`.
+- Installed directories: exactly `grill-me`, `grilling`.
+- Installed source files: both `SKILL.md` files and both `agents/openai.yaml` files.
+- License compliance: the subdirectory installer did not copy the upstream root license, so the exact pinned MIT `LICENSE` was added to both skill directories before the source commit. No skill instruction or metadata was adapted in Step 1.
+- Ignore boundary: repository `.gitignore` rule `skills/` hides nested skill directories; the six exact approved files were staged with `git add -f`. `.gitignore` was not changed.
+- Source verification: `cmp` passed for each installed `SKILL.md`, `agents/openai.yaml`, and copied `LICENSE` against the pinned checkout.
+- Global inventory SHA-256 before/after: `1923a35b925af9ded72474329291166bc7d463f4936968b1159fb5303feff749` / identical.
+- Excluded `0459` state SHA-256 before/after: `99e5697f9e9b9634b14eb065e1ee1369f4862cb81b7a377a443cbb2dce0f42d2` / identical.
+- Commit: `29ee473` (`chore(skills): add pinned grill skill sources`).
+- Result: PASS.
+
+### Step 2 - Adapt The Interview And Persistent Closure Contract
+
+- Scope executed: adapted only the two installed skill instructions/metadata plus `docs/WORKFLOW.md` and the existing iteration plan template.
+- Wrapper boundary: `grill-me` remains explicit-only through `allow_implicit_invocation: false`, invokes `$grilling`, and visibly stops when `../grilling/SKILL.md` is missing or unreadable.
+- Trigger boundary: high-impact plans, quotations/external commitments, architecture/SSOT decisions, costly alternatives, and explicit user requests are in scope; routine fixes, copy edits, narrow refactors, and already-Approved Phase 3 execution are excluded by default.
+- Interview discipline preserved: inspect environment facts first, resolve decision dependencies, ask exactly one question per turn, and label every recommended answer as a proposal until the user confirms it.
+- Stop boundary: shared understanding requires explicit user confirmation but does not approve the Review Gate; the skill cannot implement, auto-approve, or advance to Phase 3.
+- Persistent closure: the core skill contains each required group exactly once: Confirmed Decisions, Assumptions And Validation Methods, Out Of Scope / Non-goals, Testable Acceptance Criteria, and Open Questions / Residual Risks.
+- Artifact reuse: the full packet stays in `plan.md`, executable validation/acceptance/rollback implications go to `resolution.md`, and `runlog.md` receives a gate result only after an exact `Approved`, `Change Requested`, or `On Hold` decision. Parallel ADR, `CONTEXT.md`, glossary, HTML report, issue tracker, and other truth sources are prohibited.
+- Workflow/template check: the conditional rule was added inside existing Phase 1; `## Phase` heading count remained `5` before/after. The current plan template now exposes confirmed-decision, assumption-validation, testable-acceptance, and residual-risk fields while retaining its existing scope/non-goal sections.
+- Changed-path check: exactly the four skill instruction/metadata files, `docs/WORKFLOW.md`, and `docs/_templates/iteration_plan.template.md` changed. Neither MIT `LICENSE` changed; no third skill directory was created.
+- Source comparison: the Step 1 source snapshot at `67358f4` was pinned and byte-verified; the `67358f4..be45d9b` diff contains only the approved local adaptation paths listed above.
+- Local checks: final files were read end to end; deterministic `rg` counts reported `1` for every closure group in the core skill; explicit wrapper/dependency, stop, artifact mapping, and non-goal assertions matched; `git diff --check` passed.
+- Boundary recheck: the excluded `0459` state hash remains `99e5697f9e9b9634b14eb065e1ee1369f4862cb81b7a377a443cbb2dce0f42d2` and HEAD remains `2b6f0c7d9867bf0625e3db8f60898f0ccd5cbc0f`.
+- Environment note: the earlier global inventory hash no longer matches; in the same recheck, `/Users/drop/.codex/skills/.system` is now absent from the environment and the current hash is `842e2a455a5f44bc336b75cc17dd5cb43a455cfbf63e44c20120d0e9f437b7d2`. Step 2 committed only repository paths, and no global `grill-me` or `grilling` directory exists. Step 3 must resolve the approved official validator path before running validation rather than substituting an unapproved validator.
+- Commit: `be45d9b` (`feat(skills): integrate grill review gate`).
+- Result: PASS for Step 2 adaptation. Step 3 validation has not run.
+
+### Step 3 - Run Deterministic Structure And Governance Checks
+
+- Validated snapshot: `2678fbb8be515b7861afc49a664bbc1101b5c061` on `dropx/dev_0460-grill-me-review-gate`; worktree was clean before validation.
+- Official validator resolution: the planned materialized path `/Users/drop/.codex/skills/.system/skill-creator` remained absent. The read-only vendored Git repository `/Users/drop/.codex/vendor_imports/skills` has remote `https://github.com/openai/skills.git`, HEAD `49f948faa9258a0c61caceaf225e179651397431`, and contains `skills/.system/skill-creator/scripts/quick_validate.py` in its Git object tree. The official script was streamed directly from that object with `git show ... | python3 - <skill-path>`; no global skill was restored, copied, or modified.
+- Official validator results: both `.agents/skills/grill-me` and `.agents/skills/grilling` returned `Skill is valid!`.
+- Metadata checks: both frontmatters contain exactly `name` and `description`; folder names match skill names; both `agents/openai.yaml` files have the required UI fields, 25-64 character short descriptions, and a default prompt naming the corresponding `$skill`. Only the wrapper declares `allow_implicit_invocation: false`.
+- Structure check: exactly two skill directories exist and each contains `SKILL.md`, `agents/openai.yaml`, and `LICENSE`.
+- Contract checks: dependency reference, missing-dependency stop, high-impact/routine boundary, environment-fact lookup, one-question-at-a-time rule, recommendation/decision separation, shared-understanding stop, no implementation/auto-approval, and parallel-truth-source prohibition all matched.
+- Persistent closure checks: each of the five closure groups occurs exactly once in the core skill; `plan.md`, `resolution.md`, and `runlog.md` mappings all matched.
+- Workflow/template checks: Phase heading count remained `5 -> 5`; the conditional high-impact rule, routine-task exclusion, recommendation/decision separation, and all required plan-template headings matched.
+- License checks: both licenses retain Step 1 blob `f1dd2c09108dde1a5f56097cee8461b3ea834499`, with the pinned MIT notice and `Copyright (c) 2026 Matt Pocock`.
+- Branch allowlist: `git diff --name-only 188af0d...HEAD` matched exactly the six approved skill files, `docs/WORKFLOW.md`, the plan template, `docs/ITERATIONS.md`, and the three `0460` iteration artifacts. No runtime, SSOT, Feishu, or deployment path changed.
+- Repository checks: `git diff --check 188af0d...HEAD` passed; `validate_obsidian_docs_gate.mjs` passed with the bundled Node runtime.
+- Isolation checks: no global `grill-me` / `grilling` directory exists. Global inventory remained `842e2a455a5f44bc336b75cc17dd5cb43a455cfbf63e44c20120d0e9f437b7d2` before/after this validation. The excluded `0459` state remained `99e5697f9e9b9634b14eb065e1ee1369f4862cb81b7a377a443cbb2dce0f42d2`, with HEAD `2b6f0c7d9867bf0625e3db8f60898f0ccd5cbc0f`.
+- Validation-script correction: the first composite check stopped after groups 1-4 passed because its license assertion incorrectly expected year `2025`. Reading the pinned files showed year `2026` and identical Step 1 blobs; only the read-only assertion was corrected. The complete check then passed all nine groups with final output `STEP3_VALIDATION=PASS`; no repository file was changed to satisfy the check.
+- Result: PASS. Step 4 discovery and closeout has not started.
+
+### Step 4 - Verify Discovery, Record Evidence, And Close
+
+- Pre-closeout validated snapshot: `a2d6d2cae8f355c411a6002718c858b90d752333` on `dropx/dev_0460-grill-me-review-gate`; the worktree was clean before discovery verification.
+- Fresh-context verification: Codex CLI `0.144.6` ran `codex debug prompt-input -- 'Read-only skill discovery probe.'` from this worktree. The generated context exposed `grilling` from `/Users/drop/codebase/cowork/dongyuapp_elysia_based-0460-grill-me-review-gate/.agents/skills/grilling/SKILL.md` and exposed no unrelated Matt Pocock skill.
+- Explicit-wrapper verification: a new read-only Codex TUI was started with this worktree as its working directory. Repository hooks were explicitly left untrusted, `$` opened the real skill picker, and filtering for `grill-me` showed `Grill Me [Skill] Stress-test important decisions before approval`. The skill selection was inserted but the prompt was not submitted; the prompt was cleared and the TUI exited successfully without running a review or implementation.
+- Invocation-policy interpretation: the official `Build skills` documentation says repository `.agents/skills` locations are scanned, ordinary context uses skill descriptions for implicit selection, and `allow_implicit_invocation: false` keeps a skill available for explicit `$skill` selection while omitting it from implicit model context. Therefore the fresh context is the acceptance evidence for `grilling`, and the real picker is the acceptance evidence for explicit-only `grill-me`.
+- Probe boundary: `codex debug prompt-input` accepts raw prompt text and does not emulate a structured picker selection, so a raw `$grill-me` debug probe was treated as inconclusive and was not used as acceptance evidence.
+- Environment note: the TUI reported unrelated MCP startup warnings. Skill discovery still completed, no prompt was submitted, and neither repository hooks nor any global setup action ran.
+- Deterministic revalidation: both official `quick_validate.py` commands returned `Skill is valid!`; structure, dependency/trigger contract, five closure groups, workflow/template, pinned licenses, branch path allowlist, clean diff, and docs gate all passed. The complete run ended with `STEP4_REVALIDATION=PASS`.
+- Revalidation-script correction: the first composite run stopped after the closure checks because its workflow assertion expected a different phrase for the routine-task exclusion. The approved document uses `日常小任务默认跳过该 stress-test`; only the read-only assertion was corrected, then the complete command was rerun from the start and passed. No repository file was changed to satisfy the check.
+- Closeout validator fallback: after the closeout-only documentation edit, the materialized `/Users/drop/.codex/skills/.system/skill-creator` path disappeared again. The same read-only official fallback audited in Step 3 streamed `quick_validate.py` from `openai/skills@49f948faa9258a0c61caceaf225e179651397431`; both skills again returned `Skill is valid!`, and the final closeout command ended with `STEP4_CLOSEOUT_PRECOMMIT=PASS`. No global file was restored or changed.
+- Workflow-duplication review: `docs/WORKFLOW.md` still has exactly five Phase headings (`5 -> 5`), the stress-test appears once inside existing Phase 1, and the plan template reuses existing iteration artifacts. No parallel approval path or truth source was added.
+- Final path review: the branch changes exactly the six approved skill files, `docs/WORKFLOW.md`, the plan template, `docs/ITERATIONS.md`, and the three `0460` iteration artifacts. No runtime, SSOT, Feishu, deployment, or unrelated skill path changed.
+- Isolation: no global `grill-me` or `grilling` directory exists. The global skill inventory remained stable during the final revalidation at `6ddc07bd627438579c06ab9e61befbe854ed1b6baa38a5c34a2e462aff6aa9a1`.
+- Parallel-worktree check: the original `0459` worktree remains clean at `2b6f0c7d9867bf0625e3db8f60898f0ccd5cbc0f`; its final state hash is `3925f7755f2d86c808bd1d58259859875c559731ce9161ca28cb18f8febbccce`.
+- Assets: none required; discovery and deterministic command output are sufficient for this non-visual workflow change.
+- Result: PASS. Every Step 4 acceptance condition is satisfied, so `0460` is marked `Completed`.
+
+### Remaining Steps
+
+- None. Merge, push, PR, deployment, Feishu write, and global Codex setup remain outside this iteration.
+
+## Docs Updated Assessment
+
+- `CLAUDE.md`: reviewed; no change required because its plan/Approved/chat-only/assumption rules already govern the new helper.
+- `docs/WORKFLOW.md`: updated with the minimal conditional stress-test rule inside existing Phase 1; no new phase or approval path was added.
+- `docs/_templates/iteration_plan.template.md`: updated with explicit confirmed-decision, assumption-validation, testable-acceptance, and residual-risk fields.
+- Runtime/product SSOT, user guide, tier conformance, Feishu alignment, and deployment docs: no change required; this iteration changes collaboration workflow only.

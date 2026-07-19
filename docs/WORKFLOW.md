@@ -2,7 +2,7 @@
 title: "Iteration Workflow"
 doc_type: governance
 status: active
-updated: 2026-07-10
+updated: 2026-07-19
 source: ai
 ---
 
@@ -52,6 +52,14 @@ source: ai
 约束：
 - **Phase 1 严禁实现代码**（只能写文档与计划）。
 - plan 与 resolution 必须可被"无上下文读者"理解（自包含）。
+
+### High-impact decision stress-test（按条件使用）
+
+- 条件：iteration 涉及重要方案、报价或其他 external commitment、架构决策、SSOT 变更、多个代价高昂的备选项，或用户明确要求 stress-test。
+- 动作：使用仓库内 `grill-me` / `grilling` workflow；先查清可验证事实，再逐次只提出一个决策问题，并附一个推荐答案及简短取舍。
+- 停止条件：用户明确确认已形成 shared understanding。未决事项保留在 Open Questions，Review Gate 保持 `On Hold`；审查不得实施任务或自动批准 Phase 3。
+- 验证：将 Confirmed Decisions、Assumptions And Validation Methods、Out Of Scope / Non-goals、Testable Acceptance Criteria、Open Questions / Residual Risks 写入现有 iteration artifacts。推荐答案不等于已确认决定；只有用户给出明确 gate decision 后，才能在 `runlog.md` 记录 Review Gate 结果。
+- 日常小任务默认跳过该 stress-test，除非用户明确要求使用。
 
 ## Phase 2 — Review Gate（审核闸门）
 
