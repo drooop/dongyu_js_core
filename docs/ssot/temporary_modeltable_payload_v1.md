@@ -2,7 +2,7 @@
 title: "Temporary ModelTable Payload"
 doc_type: ssot
 status: active
-updated: 2026-07-01
+updated: 2026-07-16
 source: ai
 ---
 
@@ -27,7 +27,7 @@ Authority:
 
 Scope:
 - Temporary ModelTable message shape, metadata labels, validation rules, and materialization boundary.
-- 0430 起，正式 bus / pin transport 的目标协议名是 `pin_payload.v2`。本文件名中的 `v1` 是历史文件名，不代表当前正式 transport 仍使用 `pin_payload.v1`。
+- 0430 起，正式 bus / pin transport 的协议名是 `pin_payload.v2`；0457 起，公开 Feishu Message API input hard cut 到该版本。文件名中的 `v1` 是历史文件名，不代表当前正式 transport 仍接受 `pin_payload.v1`。
 
 Conflict behavior:
 - If a lower doc describes formal business pin payload as plain object/string instead of record array, update the lower doc.
@@ -294,6 +294,7 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "req_123" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "timestamp", "t": "int", "v": 1700000000000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
@@ -328,6 +329,7 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "req_123" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "req_123" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "timestamp", "t": "int", "v": 1700000000000 },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
@@ -365,6 +367,33 @@ payload 内不再承载 `action` 字段来表达“增删改查动作”。
 - 请求使用远端 endpoint topic；回包使用 `response_topic`。response packet 的 `endpoint_*` 必须与当前 `topic` 的 host transport endpoint 一致；`reply_target_*` 必须与最终本地 materialization target 一致。host-table 目标下两者可以相同；App instance 目标下二者通常不同。
 - `route.reply_to`、`return_topic`、`returnTopic`、`result_topic` 与旧 result topic 不是当前输入面；不能作为回包目标、不能兼容解析。
 
+#### 2.5.1 Feishu Message API v2 Extension（0457 current）
+
+Feishu Message API 使用同一份 canonical `pin_payload.v2` record array，不再拥有独立 v1 envelope。root `id=0,p=0,r=0,c=0` 必须通过 generic v2 exact-schema 校验，并包含：
+
+| 类别 | 必填 records |
+|---|---|
+| 版本与关联 | `__mt_payload_kind="pin_payload.v2"`、`__mt_request_id`、`op_id`、`timestamp` |
+| 方向与总线 | `message_role`、`bus`、`route_kind`；`bus` 必须与 `route_kind` 一致 |
+| transport | `topic`、`response_topic`；request 两者不同，response 的 `topic` 等于 `response_topic` |
+| endpoint | 完整 `endpoint_*`、`origin_*`、`reply_target_*` records；App instance 的 origin/reply target 必须 table-qualified |
+| payload | `payload_model_id`，并且该 id 必须在同一 record array 中存在 |
+| Feishu extension | `is_need_response`，类型必须是 `bool` |
+
+可选 Feishu extension 只有：
+
+- `message_server: str`，值为 `local` 或 `global`；
+- `between: str`，值为 `WSM_DEM` 或 `DEM_V1N`；
+- `send_user: str` / `receive_user: str`；当 `route_kind="management"` 时两者都必须存在且非空。
+
+业务临时模型由 `payload_model_id` 指向，其 root 必须是 `model.table`，值为 `Data` 或 `Flow`，并包含受支持的 `sys_msg_type`。当前 public endpoint 是 R1 host table 的 Model 3200，公开 request pins 为 `resource`、`data`、`ui`、`add_task`、`add_task_return`、`edit_task`、`delete_task`、`receive_task`、`finish_task`、`archive_task`；唯一 response output 是 generic `result`。
+
+以下输入必须 fail closed：legacy v1 `0/0.1` child-table envelope、`route_kind="manage"`、`response_pin`、缺失/重复/未知 root extension、错误 endpoint、nested ModelTable payload，以及不完整或非法业务 root。`is_need_response=false` 不得产生 response。F-05 的 `ui.refresh_data` 和 F-08 的 `add_task_return` 当前分别以明确 pending error 拒绝，不修改业务状态、不产生 generic result。
+
+外层 transport packet 的 `{ "version": "v1", "type": "pin_payload", "payload": [...] }` 仍是当前跨系统承载格式；0457 hard cut 只针对其 inner/public business payload。不得把外层 transport version 误改成业务 `pin_payload.v2` 版本号。
+
+路由冻结：control request/response 在 UI Server 与 R1 之间通过本地 MQTT 直达，MBR 不得 echo/bridge control response；management request 经 UI Server → local Matrix/Synapse → MBR → local MQTT → R1，management response 只经 R1 → local MQTT → MBR → local Matrix/Synapse → UI Server 返回一次。
+
 ### 2.5a Provider-Owned Slide App Bundle Payload（0430 target）
 
 provider-owned 安装链路同样只传 Temporary ModelTable records。format is ModelTable-like, persistence is explicit materialization：传输过程中的 request / response 不会自动落表；只有 UI Server installer 在通过校验后才把 provider 返回的 bundle records materialize 成正式模型表。
@@ -376,6 +405,7 @@ bundle request 是 `pin_payload.v2 message_role=request`，其业务 records 由
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "bundle-req-001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "bundle-req-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "timestamp", "t": "int", "v": 1700000000000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "request" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
@@ -407,6 +437,7 @@ bundle response 是 `pin_payload.v2 message_role=response`。response metadata �
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_payload_kind", "t": "str", "v": "pin_payload.v2" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "bundle-req-001" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "bundle-req-001" },
+  { "id": 0, "p": 0, "r": 0, "c": 0, "k": "timestamp", "t": "int", "v": 1700000000000 },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
   { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },

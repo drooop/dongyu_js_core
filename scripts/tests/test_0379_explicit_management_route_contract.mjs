@@ -20,16 +20,16 @@ function readJson(pathname) {
   return JSON.parse(fs.readFileSync(pathname, 'utf8'));
 }
 
-function mt(k, t, v) {
-  return { id: 0, p: 0, r: 0, c: 0, k, t, v };
+function mt(k, t, v, id = 0) {
+  return { id, p: 0, r: 0, c: 0, k, t, v };
 }
 
-function payloadRecord(records, key) {
-  return Array.isArray(records) ? records.find((record) => record && record.k === key) || null : null;
+function payloadRecord(records, key, id = 0) {
+  return Array.isArray(records) ? records.find((record) => record && record.id === id && record.k === key) || null : null;
 }
 
-function payloadString(records, key) {
-  const record = payloadRecord(records, key);
+function payloadString(records, key, id = 0) {
+  const record = payloadRecord(records, key, id);
   return record && record.t === 'str' ? record.v : '';
 }
 
@@ -38,14 +38,9 @@ function payloadInt(records, key) {
   return record && record.t === 'int' ? record.v : null;
 }
 
-function payloadJson(records, key) {
-  const record = payloadRecord(records, key);
-  return record && record.t === 'json' ? record.v : null;
-}
-
 function tempPayload(text = 'management route submit') {
   return [
-    mt('model_type', 'model.single', 'Data.MinimalSubmit'),
+    mt('model_type', 'model.table', 'Data.MinimalSubmit'),
     mt('text', 'str', text),
   ];
 }
@@ -55,38 +50,48 @@ function pinPayloadRecords({
   routeKind = 'management',
   bus = routeKind,
   topic = 'UIPUT/ws/dam/pic/de/R1/3000/submit1',
+  responseTopic = 'UIPUT/ws/dam/pic/de/U1/2000/result',
   endpointWorkerId = 'R1',
+  endpointTableId = 'host',
   endpointModelId = 3000,
   endpointPin = 'submit1',
   originWorkerId = 'U1',
+  originTableId = 'host',
   originModelId = 2000,
   originPin = 'submit1',
   replyTargetWorkerId = 'U1',
+  replyTargetTableId = 'host',
   replyTargetModelId = 2000,
   replyTargetPin = 'result',
   messageRole = 'request',
   payload = tempPayload(),
   timestamp = 1700000000000,
+  payloadModelId = 1,
 } = {}) {
   return [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('__mt_payload_kind', 'str', 'pin_payload.v2'),
     mt('__mt_request_id', 'str', opId),
     mt('op_id', 'str', opId),
     mt('message_role', 'str', messageRole),
     mt('topic', 'str', topic),
+    mt('response_topic', 'str', responseTopic),
     mt('route_kind', 'str', routeKind),
     mt('bus', 'str', bus),
     mt('endpoint_worker_id', 'str', endpointWorkerId),
+    mt('endpoint_table_id', 'str', endpointTableId),
     mt('endpoint_model_id', 'int', endpointModelId),
     mt('endpoint_pin', 'str', endpointPin),
     mt('origin_worker_id', 'str', originWorkerId),
+    mt('origin_table_id', 'str', originTableId),
     mt('origin_model_id', 'int', originModelId),
     mt('origin_pin', 'str', originPin),
     mt('reply_target_worker_id', 'str', replyTargetWorkerId),
+    mt('reply_target_table_id', 'str', replyTargetTableId),
     mt('reply_target_model_id', 'int', replyTargetModelId),
     mt('reply_target_pin', 'str', replyTargetPin),
-    mt('payload', 'json', payload),
+    mt('payload_model_id', 'int', payloadModelId),
     mt('timestamp', 'int', timestamp),
+    ...payload.map((record) => ({ ...record, id: payloadModelId })),
   ];
 }
 
@@ -171,6 +176,18 @@ function loadMbrRuntime() {
   return rt;
 }
 
+async function writeMbrManagementIngress(rt, records) {
+  rt.setRuntimeMode('edit');
+  rt.setRuntimeMode('running');
+  const result = rt.addLabel(rt.getModel(0), 0, 0, 0, {
+    k: 'mbr_mb_in',
+    t: 'pin.bus.mb.in',
+    v: records,
+  });
+  assert.equal(result.applied, true, 'MBR management ingress write must apply');
+  await wait(80);
+}
+
 function drainWorkerEngine(rt) {
   const mqttPublished = [];
   const mgmtPublished = [];
@@ -194,24 +211,31 @@ async function test_imported_app_route_kind_management_generates_management_bus_
     const importResult = state.runtime.hostApi.slideImportAppFromMxc('mxc://localhost/0379-management');
     assert.equal(importResult.ok, true, 'management-routed provider zip must import');
     const importedId = importResult.data?.model_id;
+    const importedTableId = importResult.data?.table_id;
     assert.equal(Number.isInteger(importedId), true, 'import must allocate a local model id');
+    assert.equal(typeof importedTableId === 'string' && importedTableId.length > 0, true, 'import must return the child table id');
+    const importedRef = { table_id: importedTableId, model_id: importedId };
 
     const model0 = state.runtime.getModel(0);
-    const root = state.runtime.getCell(state.runtime.getModel(importedId), 0, 0, 0).labels;
+    const root = state.runtime.getCell(state.runtime.getModel(importedRef), 0, 0, 0).labels;
     assert.deepEqual(root.get('remote_bus_endpoint_v1')?.v, {
       transport: 'mqtt',
       route_kind: 'management',
       to: { worker_id: 'R1', model_id: 3000 },
-    }, 'imported endpoint declaration must preserve explicit management route_kind');
+    }, 'imported child table must preserve the provider endpoint declaration');
 
     const binding = Array.from(root.values()).find((label) => label && label.t === 'ui.egress.binding.v1');
-    assert.equal(binding?.v?.bus, 'management', 'host-owned binding must mark management route');
+    assert.equal(
+      binding?.v?.bus,
+      'management',
+      'host-owned binding must mark management route',
+    );
     assert.equal(binding?.v?.host_pin_type, 'pin.bus.mb.out', 'host-owned binding must use management bus out');
     assert.equal(binding?.v?.target?.route_kind, 'management', 'binding target must expose route_kind for introspection');
     assert.equal(binding?.v?.target?.topic, 'UIPUT/ws/dam/pic/de/R1/3000/submit1', 'binding target must expose payload topic truth');
     assert.equal(state.runtime.getCell(model0, 0, 0, 0).labels.get(binding.v.host_pin_key)?.t, 'pin.bus.mb.out', 'generated Model 0 bus pin must be management out');
 
-    state.runtime.addLabel(state.runtime.getModel(importedId), 0, 0, 0, {
+    state.runtime.addLabel(state.runtime.getModel(importedRef), 0, 0, 0, {
       k: 'submit1',
       t: 'pin.out',
       v: tempPayload('0379 management route'),
@@ -224,9 +248,14 @@ async function test_imported_app_route_kind_management_generates_management_bus_
     assert.equal(payloadString(emitted?.v, 'route_kind'), 'management', 'runtime egress must carry route_kind=management');
     assert.equal(payloadString(emitted?.v, 'topic'), 'UIPUT/ws/dam/pic/de/R1/3000/submit1', 'runtime egress must still route by payload topic');
     assert.equal(payloadInt(emitted?.v, 'reply_target_model_id'), importedId, 'runtime egress must return to the local imported model id');
-    assert.equal(payloadString(payloadJson(emitted?.v, 'payload'), 'text'), '0379 management route', 'runtime egress must preserve submitted business payload');
+    assert.equal(payloadString(emitted?.v, 'reply_target_table_id'), importedTableId, 'runtime egress must return to the imported child table');
+    assert.equal(
+      payloadString(emitted?.v, 'text', payloadInt(emitted?.v, 'payload_model_id')),
+      '0379 management route',
+      'runtime egress must preserve submitted business payload records',
+    );
 
-    const exportResult = buildSlideAppExportPayload(state.runtime, importedId);
+    const exportResult = buildSlideAppExportPayload(state.runtime, importedRef);
     assert.equal(exportResult.ok, true, 'export must succeed after management-routed import');
     const exportedEndpoint = exportResult.data.payload.find((record) => record.k === 'remote_bus_endpoint_v1');
     assert.deepEqual(exportedEndpoint?.v, {
@@ -251,16 +280,9 @@ async function test_import_rejects_invalid_remote_endpoint_route_kind() {
   });
 }
 
-function test_mbr_management_ingress_forwards_to_control_bus_topic() {
+async function test_mbr_management_ingress_forwards_to_control_bus_topic() {
   const rt = loadMbrRuntime();
-  const sys = rt.getModel(-10);
-  const fn = new Function('ctx', getFunctionCode(rt.getCell(sys, 0, 0, 0).labels.get('mbr_mgmt_to_mqtt')));
-  rt.addLabel(sys, 0, 0, 0, {
-    k: 'mbr_mgmt_inbox',
-    t: 'json',
-    v: externalPacket(pinPayloadRecords()),
-  });
-  fn({ hostApi: buildWorkerHostApi(rt) });
+  await writeMbrManagementIngress(rt, pinPayloadRecords());
   const cbOut = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mbr_cb_out');
   assert.equal(cbOut?.t, 'pin.bus.cb.out', 'MBR management ingress must forward request to control bus out');
   assert.equal(payloadString(cbOut?.v, 'route_kind'), 'management', 'MBR must preserve management route_kind in forwarded payload');

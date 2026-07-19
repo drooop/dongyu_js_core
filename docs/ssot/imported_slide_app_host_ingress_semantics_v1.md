@@ -2,7 +2,7 @@
 title: "Imported Slide App Host Ingress Semantics v1"
 doc_type: ssot
 status: active
-updated: 2026-05-10
+updated: 2026-07-16
 source: ai
 ---
 
@@ -50,7 +50,7 @@ Conflict behavior:
 
 为准。
 
-0326 之后 formal ingress 收口到 Model 0；0376 后，同工作区 UI /滑动 App 默认经 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in`，再由 pin route 转给目标模型。显式管理语义才进入 `pin.bus.mb.in`。早期 direct target-cell 入口只作为 historical / superseded 口径保留在旧 iteration 记录中，不再是本页 current behavior。
+0326 之后 formal ingress 收口到 Model 0；0376 后，所有同工作区 UI /滑动 App 浏览器事件统一经 `bus_event_v2 -> Model 0 (0,0,0) pin.bus.cb.in`，再由 pin route 转给目标模型。management 只在目标模型外发时由 `bus=management` / `route_kind=management` 选择 Matrix/Synapse/MBR；`pin.bus.mb.in` 是 management transport ingress，不是浏览器 submit 入口。早期 direct target-cell 入口只作为 historical / superseded 口径保留在旧 iteration 记录中，不再是本页 current behavior。
 
 ## 1. 为什么需要这份规约
 
@@ -76,7 +76,7 @@ Conflict behavior:
 ### 2.1 当前事实
 
 - 前端正式业务事件提交为 `bus_event_v2`。
-- `Model 0 (0,0,0) pin.bus.cb.in` 是同工作区正式业务 ingress 的默认统一入口；`pin.bus.mb.in` 只用于显式管理语义。
+- `Model 0 (0,0,0) pin.bus.cb.in` 是同工作区所有浏览器正式业务 ingress 的统一入口；`pin.bus.mb.in` 仅接收已经由目标模型外发选择、再经本地 Matrix/Synapse/MBR 进入的 management transport packet，绝不是浏览器 submit 入口。
 - imported app 导入后，可以自己定义内部 pin 链、helper、root relay。
 - 输入草稿、本地 overlay、on_blur / on_submit 延后同步已经成立。
 

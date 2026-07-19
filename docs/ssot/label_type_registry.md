@@ -2,7 +2,7 @@
 title: "Label Type Registry"
 doc_type: ssot
 status: active
-updated: 2026-07-01
+updated: 2026-07-16
 source: ai
 ---
 
@@ -13,7 +13,7 @@ source: ai
 >
 > 0356 起，PIN 连接合同由 `docs/ssot/pin_connection_contract_v2.md` 接管。0357 起，runtime 对 `pin.connect.model`、`pin.log.*`、`(self, ...)` / `(func, ...)` 端点写法执行硬拒绝；它们不是当前输入面，也不得通过兼容层恢复。
 > 0424 起，principal-scoped subtable namespace 目标合同由 `docs/ssot/principal_scoped_subtable_namespace_v1.md` 接管。0431 起，`model.subtable` / `model.submt` 是子侧声明，`model.subtableconnection` / `model.submtconnection` 是父侧索引；二者不是互相替代的 pin wiring 写法。
-> 0430 起，正式 bus / pin transport 目标是 `pin_payload.v2` Temporary ModelTable record array。业务 records 必须在同一数组中出现，并由 `payload_model_id` 指向；不得嵌套在 `payload.v`、`bundle_payload.v` 或其他 `json` label 中。
+> 0430 起，正式 bus / pin transport 使用 `pin_payload.v2` Temporary ModelTable record array；0457 起，公开 Feishu Message API input hard cut 到 v2。业务 records 必须在同一数组中出现，并由 `payload_model_id` 指向；不得嵌套在 `payload.v`、`bundle_payload.v` 或其他 `json` label 中。
 
 Authority:
 - Below `CLAUDE.md`, architecture SSOT, and runtime semantics.
@@ -68,6 +68,7 @@ Conflict behavior:
 补充约束：
 - `model.submt` / `model.subtable` 只声明子侧身份，不承载父侧索引。
 - `model.submtconnection` / `model.subtableconnection` 只声明父侧/主侧索引，不替代 `pin.connect.cell`。
+- `model.submtconnect` 是 Feishu source typo，未注册且不得增加 alias；唯一合法名称是 `model.submtconnection`。
 - `model.submtconnection` 是 single-parent 索引：同一个 child model 在任一时刻只能被一个父模型索引为直接 child。
 - child model 的正式输入/输出仍必须通过父侧 connection Cell 暴露出来的 pin relay 进入；最终落盘只能由 child root 默认程序（如 `mt_write`）、child owner materializer 或 importer/installer 明确执行。
 - 删除 `model.submtconnection` 仅删除父子索引关系，不自动删除 child model 数据；只有删除 child model 自己的 `(0,0,0)` 根声明后，才删除整个 child model。
@@ -133,7 +134,7 @@ Conflict behavior:
 - 正式业务 pin 的非空 value 必须是 `docs/ssot/temporary_modeltable_payload_v1.md` 定义的 record array。
 - 对象 envelope（如 `{op, records}` / `{action, target}`）不再是正式 pin value。
 - pin 名称 / 接收程序模型决定动作语义；payload 本身只表达数据。
-- 正式 bus / pin transport 目标为 `pin_payload.v2`。如果需要区分 envelope metadata 和业务数据，必须使用 `payload_model_id` 指向同一 record array 中的业务 records；不得把 ModelTable records 嵌套进 `payload.v`、`bundle_payload.v` 或其他 `json` label。
+- 正式 bus / pin transport 当前协议为 `pin_payload.v2`。如果需要区分 envelope metadata 和业务数据，必须使用 `payload_model_id` 指向同一 record array 中的业务 records；不得把 ModelTable records 嵌套进 `payload.v`、`bundle_payload.v` 或其他 `json` label。
 
 0347 message / materialization 约束：
 - pin value 中的 record array 是 Temporary ModelTable Message：`format is ModelTable-like; persistence is explicit materialization`。
@@ -154,9 +155,9 @@ Conflict behavior:
 
 ### 3.3 连接规则
 
-- `pin.in` ↔ `pin.out` 互连；`pin.login` ↔ `pin.logout` 互连。
+- 普通数据端口按 `pin.in` ↔ `pin.out` 互连；`pin.login` ↔ `pin.logout` 互连。
 - 数据通道与日志通道不可混连。
-- 同层级内 `in` 只连 `out`。
+- 普通端口同层级内 `in` 只连 `out`。系统总线是明确例外：bus-in 只作为 source 接入内部目标，bus-out 只作为 target 接收内部 source；不得反向套用普通端口规则。
 - 子模型对外连接只通过 (0,0,0) 的边界端口。
 
 ---
@@ -170,10 +171,15 @@ Conflict behavior:
 
 `pin.connect.model` 已从 0356 目标合同中移除。跨模型通信必须通过父侧 `model.submtconnection` Cell 暴露的父模型内 Cell 引脚、子模型 root `(0,0,0)` 的边界引脚，以及父模型内 `pin.connect.cell` 完成。
 
+系统总线方向硬约束：`pin.bus.cb.in` / `pin.bus.mb.in` 只能作为连接 source，`pin.bus.cb.out` / `pin.bus.mb.out` 只能作为连接 target。该规则同时校验 route 声明和 endpoint add/replace，且与声明顺序无关。反向连接分别以 `bus_in_connection_destination_forbidden` / `bus_out_connection_source_forbidden` 拒绝，并写入 `pin_connection_error:json`；被拒绝的声明不得改变既有 label、路由图或 persistence。已有真实函数的 `{funcName}:in|out|logout` 保持函数端点优先；没有真实函数的同形 key 仍须按 raw endpoint role 校验。
+
+`pin_connection_error` 是 runtime-reserved key：外部 `addLabel` 写入必须以 `runtime_error_label_reserved` 拒绝。runtime 内部错误路径和持久化 loader 的 trusted `hydrateLabel` 可经同一 `addLabel` pipeline 写入；hydration 只绕过 reserved-key authorship，label type、placement、结构值、方向等其他校验仍必须执行，loader 不得 fallback 到外部 `addLabel`。合法 label type replacement 必须同步清除被替换 route graph 或 bus registry/subscription，不得保留 stale state。
+
 `pin.connect.label` 端点规则：
 
 - 端点直接使用同一个 Cell 内的引脚 key。
 - 可连接当前 Cell 上的 `pin.in` / `pin.out` / `pin.login` / `pin.logout`。
+- 在软件工人 Model 0 `(0,0,0)`，可连接 `pin.bus.cb.*` / `pin.bus.mb.*`，但必须服从系统总线方向硬约束。
 - 可连接当前 Cell 上函数自动拥有的 `{funcName}:in` / `{funcName}:out` / `{funcName}:logout`。
 - 不允许 `(self, x)` / `(func, f:in)` / numeric prefix。
 - 不允许引用其他 Cell 或其他 model id。
@@ -182,6 +188,7 @@ Conflict behavior:
 
 - 端点必须是同一模型内 `[p,r,c,"pinName"]`。
 - `"pinName"` 必须是目标 Cell 上声明的 Cell 引脚 key。
+- Model 0 `(0,0,0)` 的 `pin.bus.cb.*` / `pin.bus.mb.*` 可以作为端点，但必须服从系统总线方向硬约束。
 - 不允许在 `pin.connect.cell` 中直接引用函数引脚。
 - 函数触发必须先到函数所在 Cell 的普通引脚，再由该 Cell 的 `pin.connect.label` 转给函数引脚。
 

@@ -8,7 +8,7 @@ source: ai
 
 # User-Isolated UI State Projection Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use executing-plans-style task execution with a sub-agent `codex-code-review` checkpoint after every stage.
+> **For Claude:** Execute this plan task by task and run a `codex-code-review` checkpoint after every stage.
 
 **Goal:** Make UI Server safe for multiple users while making common UI interactions local-first, responsive, and explicitly materialized only when required.
 

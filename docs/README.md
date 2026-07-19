@@ -2,13 +2,34 @@
 title: "Docs Index"
 doc_type: governance
 status: active
-updated: 2026-05-10
+updated: 2026-07-10
 source: ai
 ---
 
 # Docs Index
 
 本页是 `docs/` 的导航地图，不是新的规约来源。执行优先级始终是 `CLAUDE.md` > current SSOT / charter / workflow > user-guide > plan / handover / historical evidence。
+
+## 0. Human entry 与共享产品合同
+
+本页是 Human entry。人类与 LLM 使用不同导航入口，但读取同一套当前产品合同：
+
+1. 产品与架构语义从 `docs/architecture_mantanet_and_workers.md` 和对应 `docs/ssot/*.md` 读取。
+2. `docs/ssot/contract_surface_manifest.json` 只负责把合同路由到 SSOT、实现、测试和待决事项；它不是新的产品 SSOT。
+3. `docs/ssot/feishu_alignment_decisions_v0.md` 记录 Feishu 公司共识如何被本仓库采纳，不替代运行时 SSOT。
+4. LLM 从 `../CLAUDE.md` 与 `../AGENTS.md` 进入，但不得形成另一套产品合同。
+
+权威按职责分域，不使用一条跨域总排序：
+
+| 领域 | 权威 | 边界 |
+|---|---|---|
+| 公司共识 | Feishu `UpstreamConsensus` | 变更不会自动改变代码或 repo SSOT |
+| 阅读视图与支持材料 | Feishu `DerivedView` / `SupportingSource` | 无独立裁决权 |
+| 当前可执行合同 | 经 iteration 审核的 repo SSOT | 决定当前实现与测试口径 |
+| 执行治理 | `CLAUDE.md`、`docs/WORKFLOW.md` | 决定如何修改、审核和验证，不替代具体产品 SSOT |
+| 历史证据 | iteration、runlog、report | 保留事实，但不能覆盖 current SSOT |
+
+发现 Feishu 与 repo 不一致时，记录为“公司共识变化、尚未本地采纳”，经用户确认和 Approved iteration 后再更新 repo；禁止自动双向覆盖。
 
 使用本文时先判断文件类型：
 
@@ -45,7 +66,8 @@ source: ai
 - `docs/charters/dongyu_app_next_runtime.md`
   - Next Runtime rewrite 的项目级 charter，低于系统 SSOT，高于 iteration 计划。
 - `docs/ssot/`
-  - 其他当前有效的运行时、payload、PIN、data model、host API、执行治理等规约。
+  - 只有被明确归类为 current executable contract 的 runtime、payload、PIN、data model、host API 或执行治理文档属于当前规约。
+  - routing indexes、generated summaries 和 decision backlogs 不属于产品 SSOT；目录位置本身不授予权威。
 
 ## 3. 执行与治理
 

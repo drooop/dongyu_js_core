@@ -261,11 +261,57 @@ bash scripts/ops/ensure_runtime_baseline.sh \
 ```
 
 PASS 判定：
-- baseline 5 个 deployment ready
+- baseline 6 个 deployment ready：`mosquitto`、`synapse`、`remote-worker`、`workspace-manager`、`mbr-worker`、`ui-server`
 - 验证输出包含：
-  - submit response `result=ok`
-  - `loading/inflight=true -> processed/inflight=false`
-  - final state `ready=true` 且 `ui_event_error=null`
+  - readiness/snapshot 来自 `GET /snapshot?profile=full`，且 Model 100 存在
+  - submit 只使用 `POST /bus_event` + `type=bus_event_v2`
+  - submit response `result=ok`、`routed_by=model0_busin`
+  - final state `status=processed`、`submit_inflight=false`、`bg_color` 已变化
+  - `bus_event_error` 字段存在且为 `null`
+  - `bus_event_last_op_id` 精确等于本次唯一 `op_id`
+
+`mbr_ready`、已删除的 `system_ready`、legacy `type=ui_event` 和旧 mailbox `ui_event_error` 都不是当前验收条件。脚本的 HTTP、Model presence 与 roundtrip 等待均使用真实 wall-clock deadline；`--timeout-sec`、`--model-timeout-sec`、`--poll-interval-sec` 必须是正数。
+
+---
+
+## 0457 Feishu Message API v2 本地 OrbStack 验收
+
+用途：
+- 在本地 `orbstack` context、`dongyu` namespace 中验证 role-correct MBR/R1/WM1、local Synapse/Mosquitto、v2 control/management 双链路、legacy v1 rejection、无远端 Matrix/MQTT/OIDC 依赖和卸载后零残留。
+- local-only infrastructure 不等于 air-gapped；E2E 只允许 exact `https://open.feishu.cn:443` read-only evidence，不授权 Feishu write。
+
+命令顺序：
+
+```bash
+test "$(kubectl config current-context)" = "orbstack"
+bash scripts/ops/ensure_runtime_baseline.sh --force-rebuild
+bash scripts/ops/check_runtime_baseline.sh
+node scripts/test_e2e_0457_feishu_message_api_v2_orbstack.mjs
+bash scripts/ops/verify_model100_submit_roundtrip.sh --base-url http://127.0.0.1:30900
+```
+
+`deploy_local.sh` 在应用 Synapse/Mosquitto ConfigMap 后会显式 restart 两个 deployment，再等待 rollout；Synapse rollout 还受 `/_matrix/client/versions` HTTP readiness 约束。不能把仅更新 ConfigMap 或 Pod 已启动当作运行中服务已经加载配置并可用。
+
+PASS 判定：
+- control request/response 通过本地 MQTT 在 UI Server 与 R1 间直达，MBR 无 echo；
+- management request/response 只通过本地 Matrix/Synapse MBR plane 一次；
+- deployed legacy v1 public input 可观察地 fail closed；
+- acceptance-window network evidence 无 remote Matrix/MQTT/OIDC，允许的 Feishu evidence 仅 read-only exact host；
+- test app 经 normal owner `direct_pin` uninstall，registry/model/table/persistence 均无 0457 residue；
+- Model 100 current `bus_event_v2` roundtrip 同时 PASS。
+
+### 0457 预部署快照与回滚
+
+两个脚本默认都是 dry-run：
+
+```bash
+bash scripts/ops/prepare_0457_local_rollback.sh
+bash scripts/ops/prepare_0457_local_rollback.sh --apply --confirm PREPARE-0457
+bash scripts/ops/rollback_0457_local.sh --backup <backup-dir>
+bash scripts/ops/rollback_0457_local.sh --backup <backup-dir> --apply --confirm ROLLBACK-0457
+```
+
+prepare 的 PASS 是 snapshot 自检、SQLite 一致性、image tags、env/assets/secrets/manifests 均可读；rollback 的 PASS 是旧资产/数据/配置恢复后重新通过 baseline。失败部署不得被当作 acceptance evidence。
 
 ---
 
@@ -432,7 +478,7 @@ bash scripts/ops/verify_0155_prompt_filltable.sh --base-url http://127.0.0.1:309
 ```
 
 PASS 判定：
-- `check_runtime_baseline.sh` 输出 5 个 deployment 全部 ready。
+- `check_runtime_baseline.sh` 输出 6 个 deployment 全部 ready：`mosquitto`、`synapse`、`remote-worker`、`workspace-manager`、`mbr-worker`、`ui-server`。
 - `verify_0155_prompt_filltable.sh` 输出：
   - `preview_response ... result:"ok"`
   - `apply_response ... result:"ok"`

@@ -9,6 +9,16 @@
       "p": 0,
       "r": 0,
       "c": 0,
+      "k": "model_type",
+      "t": "model.v1n",
+      "v": ""
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
       "k": "sys_worker_id",
       "t": "worker.id",
       "v": "5/10/28/36/16"

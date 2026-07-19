@@ -1,8 +1,18 @@
 {
   "version": "mt.v0",
-  "op_id": "remote_worker_config_v1",
-  "description": "Remote worker MQTT config + explicit subscription list",
+  "op_id": "remote_worker_config_v2",
+  "description": "R1 worker root, Model 0 control ingress, and Model -10 endpoint dispatcher",
   "records": [
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.v1n",
+      "v": ""
+    },
     {
       "op": "add_label",
       "model_id": 0,
@@ -65,6 +75,54 @@
     },
     {
       "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mqtt_ingress_pin",
+      "t": "str",
+      "v": "r1_cb_in"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_cb_in",
+      "t": "pin.bus.cb.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "remote_result_bus",
+      "t": "pin.bus.cb.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": "System.IntentRuntime"
+    },
+    {
+      "op": "rm_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "intent_dispatch"
+    },
+    {
+      "op": "add_label",
       "model_id": -10,
       "p": 0,
       "r": 0,
@@ -81,6 +139,132 @@
     },
     {
       "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_endpoint_route_table",
+      "t": "json",
+      "v": [
+        {
+          "model_id": 100,
+          "pin": "submit",
+          "output_pin": "r1_dispatch_100_submit"
+        },
+        {
+          "model_id": 1010,
+          "pin": "submit",
+          "output_pin": "r1_dispatch_1010_submit"
+        },
+        {
+          "model_id": 1019,
+          "pin": "submit",
+          "output_pin": "r1_dispatch_1019_submit"
+        },
+        {
+          "model_id": 3000,
+          "pin": "submit1",
+          "output_pin": "r1_dispatch_3000_submit1"
+        },
+        {
+          "model_id": 3100,
+          "pin": "bundle_request",
+          "output_pin": "r1_dispatch_3100_bundle_request"
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_100_submit",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_1010_submit",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_1019_submit",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3000_submit1",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_3100_bundle_request",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_dispatch_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "r1_dispatch_in",
+          "to": [
+            "r1_endpoint_dispatch:in"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "r1_endpoint_dispatch",
+      "t": "func.js",
+      "v": {
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst rootRecord = (key) => records.find((record) => record && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null;\nconst readString = (key) => { const record = rootRecord(key); return record && record.t === 'str' && typeof record.v === 'string' ? record.v : ''; };\nconst readInt = (key) => { const record = rootRecord(key); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst routeLabel = V1N.readLabel(0, 0, 0, 'r1_endpoint_route_table');\nconst routes = routeLabel && Array.isArray(routeLabel.v) ? routeLabel.v : [];\nconst endpointWorkerId = readString('endpoint_worker_id');\nconst endpointModelId = readInt('endpoint_model_id');\nconst endpointPin = readString('endpoint_pin');\nconst messageRole = readString('message_role');\nconst route = routes.find((candidate) => candidate && candidate.model_id === endpointModelId && candidate.pin === endpointPin);\nif (messageRole !== 'request' || endpointWorkerId !== 'R1' || !route || typeof route.output_pin !== 'string') {\n  V1N.addLabel('r1_dispatch_error', 'json', { code: 'endpoint_route_not_declared', endpoint_worker_id: endpointWorkerId, endpoint_model_id: endpointModelId, endpoint_pin: endpointPin, ts: Date.now() });\n  return;\n}\nV1N.removeLabel('r1_dispatch_error');\nV1N.addLabel(route.output_pin, 'pin.out', records);",
+        "modelName": "r1_endpoint_dispatch"
+      }
+    },
+    {
+      "op": "add_label",
       "model_id": 0,
       "p": 1,
       "r": 0,
@@ -92,12 +276,197 @@
     {
       "op": "add_label",
       "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_in",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_100_submit",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_1010_submit",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_1019_submit",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3000_submit1",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 1,
+      "k": "r1_dispatch_3100_bundle_request",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "submit",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 10,
+      "k": "submit",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 10,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 19,
+      "k": "submit",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 19,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 30,
+      "k": "submit1",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 30,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 31,
+      "k": "bundle_request",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 31,
+      "k": "result",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "remote_result_bus",
-      "t": "pin.bus.cb.out",
-      "v": null
+      "k": "r1_dispatch_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [0, 0, 0, "r1_cb_in"],
+          "to": [[1, 0, 1, "r1_dispatch_in"]]
+        },
+        {
+          "from": [1, 0, 1, "r1_dispatch_100_submit"],
+          "to": [[1, 0, 0, "submit"]]
+        },
+        {
+          "from": [1, 0, 1, "r1_dispatch_1010_submit"],
+          "to": [[1, 0, 10, "submit"]]
+        },
+        {
+          "from": [1, 0, 1, "r1_dispatch_1019_submit"],
+          "to": [[1, 0, 19, "submit"]]
+        },
+        {
+          "from": [1, 0, 1, "r1_dispatch_3000_submit1"],
+          "to": [[1, 0, 30, "submit1"]]
+        },
+        {
+          "from": [1, 0, 1, "r1_dispatch_3100_bundle_request"],
+          "to": [[1, 0, 31, "bundle_request"]]
+        }
+      ]
     },
     {
       "op": "add_label",
@@ -109,84 +478,24 @@
       "t": "pin.connect.cell",
       "v": [
         {
-          "from": [
-            1,
-            0,
-            0,
-            "result"
-          ],
-          "to": [
-            [
-              0,
-              0,
-              0,
-              "remote_result_bus"
-            ]
-          ]
+          "from": [1, 0, 0, "result"],
+          "to": [[0, 0, 0, "remote_result_bus"]]
         },
         {
-          "from": [
-            1,
-            0,
-            10,
-            "result"
-          ],
-          "to": [
-            [
-              0,
-              0,
-              0,
-              "remote_result_bus"
-            ]
-          ]
+          "from": [1, 0, 10, "result"],
+          "to": [[0, 0, 0, "remote_result_bus"]]
         },
         {
-          "from": [
-            1,
-            0,
-            19,
-            "result"
-          ],
-          "to": [
-            [
-              0,
-              0,
-              0,
-              "remote_result_bus"
-            ]
-          ]
+          "from": [1, 0, 19, "result"],
+          "to": [[0, 0, 0, "remote_result_bus"]]
         },
         {
-          "from": [
-            1,
-            0,
-            30,
-            "result"
-          ],
-          "to": [
-            [
-              0,
-              0,
-              0,
-              "remote_result_bus"
-            ]
-          ]
+          "from": [1, 0, 30, "result"],
+          "to": [[0, 0, 0, "remote_result_bus"]]
         },
         {
-          "from": [
-            1,
-            0,
-            31,
-            "result"
-          ],
-          "to": [
-            [
-              0,
-              0,
-              0,
-              "remote_result_bus"
-            ]
-          ]
+          "from": [1, 0, 31, "result"],
+          "to": [[0, 0, 0, "remote_result_bus"]]
         }
       ]
     }

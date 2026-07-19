@@ -2,7 +2,7 @@
 title: "Feishu Alignment Decisions v0"
 doc_type: ssot
 status: active
-updated: 2026-07-08
+updated: 2026-07-16
 source: ai
 ---
 
@@ -25,6 +25,27 @@ source: ai
 - 必须以更高层规约为准
 - 本文件需要被修订，而不是反向覆盖上位约束
 
+## Approved authority model (0455)
+
+- `UpstreamConsensus`：公司共识来源；当前锁定为 `feishu-model2` 与 `feishu-message-api`。
+- `DerivedView`：从上游共识派生的阅读视图；当前锁定为 `main`、`rules`、`examples`、`planning`，无独立裁决权。
+- `SupportingSource`：背景或解释材料，无独立裁决权；`supporting-source-1` 与 `supporting-source-2` 在身份核验前保持 `identity_pending`，不参与自动追踪或冲突裁决。
+- repo SSOT：经 iteration 审核后的当前可执行合同。Feishu 上游变化不能自动覆盖它。
+- Human entry 与 LLM entry 共享同一套 repo SSOT；差别只在导航和执行职责。
+
+## 0456 裁决与当前实施状态
+
+以下用户裁决已进入正式采纳决议面。F-01 已由 0457 完成本地实现与 OrbStack live acceptance；冻结候选 `3b2a902` 已获得 runtime、SSOT/docs/compat、deploy/rollback/E2E 三路 Step 11 whole-candidate approval，因此当前 repo 合同关闭为 `aligned/completed`。其余项目继续保持各自边界。
+
+| Finding | 已采纳方向 | 当前状态 |
+|---|---|---|
+| F-01 | 整体 Feishu Message API 输入 envelope 升级到 `pin_payload.v2`。 | `aligned/completed`；0457 当前公开输入已 hard cut 到 v2，legacy v1 fail closed，R1 Model 3200 拥有业务行为；未修改 Feishu。 |
+| F-04 | `model.submtconnect` 确认为来源笔误；repo 保持 no alias。 | `decision_recorded_source_correction_pending`；当前 repo 行为无需修改。 |
+| F-05 | `ui.refresh_data` 通过授权的 ModelTable 写入表达状态变化；frontend 保持 projection-only。 | `decision_recorded_implementation_pending`；当前 Model 3200 以 `ui_action_pending:refresh_data` fail closed，不写 refresh state、不产出 response。 |
+| F-08 | `add_task_return` 必须成为真实 PIN 消息。 | `decision_recorded_implementation_pending`；当前 Model 3200 以 `task_action_pending:add_task_return` fail closed，generic `result` 不算真实 `add_task_return` PIN。 |
+
+F-06 与 F-07 仍为 `requires_user_confirmation`，本轮没有替用户补全决策。F-04 的 Feishu 来源纠错以及任何 `DerivedView` 更新都不在本轮授权内；Feishu 写入仍需单独授权。
+
 0431 correction:
 - `model.submt` and `model.subtable` are child-side declarations.
 - `model.submtconnection` and `model.subtableconnection` are parent/main-side
@@ -34,24 +55,27 @@ source: ai
 
 ---
 
-# 1. 对齐来源
+# 1. 对齐来源与角色
 
-本决议基于以下外部文档：
+## 1.1 UpstreamConsensus
 
-- 主文档：`软件工人模型2`
-- 直接引用文档：
-  - `软件工人支持的Label标签`
-  - `标签的基本操作`
-  - `简单模型的基本操作`
-  - `矩阵模型的基本操作`
-  - `模型表的基本操作`
+| ID | 文档 | 地址 | 权威范围 |
+|---|---|---|---|
+| `feishu-model2` | `软件工人模型2` | `https://bob3y2gxxp.feishu.cn/wiki/JYNWwQOOjiWcOLktv07cBvIVnOh` | 模型、Label、Connection、Tier 等公司共识 |
+| `feishu-message-api` | `软件工人消息API文档` | `https://bob3y2gxxp.feishu.cn/wiki/WBZjwY3DSil6pAkQ8DZcpsrWnUf` | 公开消息结构、路由字段、回包语义等公司共识 |
 
-这些 Feishu 文档被视为：
-- 架构方向输入
-- 历史语义来源
-- 未来能力规划参考
+两篇上游文档共同表达公司共识。文内矛盾、跨文档冲突或与 repo SSOT 不一致时，统一进入 `requires_user_confirmation`，不得使用“更新者优先”自动裁决。
 
-它们**不自动成为**本仓库的运行时 SSOT。
+## 1.2 SupportingSource
+
+`supporting-source-1` 与 `supporting-source-2` 是已批准的两个支持来源槽位，但当前身份仍为 `identity_pending`：
+
+- 不写入猜测标题、URL 或 token；
+- 不参与自动同步；
+- 不解决上游冲突；
+- 其中的新主张只能形成 Change Proposal。
+
+四篇 `DerivedView` 及其维护边界见 §8。
 
 ---
 
@@ -59,7 +83,8 @@ source: ai
 
 ## 2.1 总原则
 
-- Feishu 规约是**方向来源**，不是逐字实现模板。
+- Feishu `UpstreamConsensus` 是公司共识来源，但不是可直接执行的逐字实现模板。
+- `DerivedView` 与 `SupportingSource` 不得新增或裁决产品语义。
 - 当前仓库已经冻结的 runtime 边界、结构性声明模型、负数模型边界、ctx API 边界，不因 Feishu 原文而回退。
 - 采纳策略为：
   - 概念层尽量对齐 Feishu
@@ -299,27 +324,27 @@ source: ai
 
 # 7. 一句话裁决
 
-- Feishu 文档定义了**方向**。
-- 当前仓库定义了**裁决面**。
-- 今后实现时，必须以当前仓库 SSOT 的运行时边界为准，
-  在此基础上吸收 Feishu 文档中对 `Data` / `Flow` / `matrix` 的目标能力设计。
+- Feishu `UpstreamConsensus` 定义公司共识。
+- 当前仓库 SSOT 定义当前可执行合同。
+- `DerivedView`、`SupportingSource`、backlog、generated summary 与 iteration evidence 都不能成为第二套合同。
+- 两个权威面不一致时，保留差异并走用户确认与 iteration Gate，不自动覆盖任一侧。
 
 ---
 
 # 8. Feishu 协作文档组（维护入口）
 
-以下 4 篇 Feishu 文档是当前维护中的协作文档组：
+以下 4 篇 Feishu 文档是当前维护中的 `DerivedView` 协作文档组，均从 `feishu-model2` 与 `feishu-message-api` 上游组合派生：
 
-| 文档 | 地址 | 用途 |
-|---|---|---|
-| 主文档：`软件工人模型2（整理改写版 v0）` | `https://bob3y2gxxp.feishu.cn/wiki/Wurow8wi2iFyJqkDu81cyySQnlf` | 总览、核心规则、阅读入口 |
-| 规则文档：`软件工人模型2-标签与连接规则 v0` | `https://bob3y2gxxp.feishu.cn/wiki/QnzqwrqRgiUOjUkzTA3chrVfnBd` | 标签、引脚、连接、配置等正式规则 |
-| 例子文档：`软件工人模型2-完整模型表示例 v0` | `https://bob3y2gxxp.feishu.cn/wiki/LlBKwio3MiaIEBkLnaOcfzx4nuh` | 完整模型表总览与填写顺序 |
-| 规划文档：`软件工人模型2-Tier2实现与模型ID规划 v0` | `https://bob3y2gxxp.feishu.cn/wiki/RazQwQpPjiZXtZkBIoocZq9Unuc` | Tier2 边界、model_id 放置、后续实现方向 |
+| ID | 文档 | 地址 | 用途 |
+|---|---|---|---|
+| `main` | `软件工人模型2（整理改写版 v0）` | `https://bob3y2gxxp.feishu.cn/wiki/Wurow8wi2iFyJqkDu81cyySQnlf` | 面向人类的总览与导航，不新增规则 |
+| `rules` | `软件工人模型2-标签与连接规则 v0` | `https://bob3y2gxxp.feishu.cn/wiki/QnzqwrqRgiUOjUkzTA3chrVfnBd` | 规则查询视图，不独立裁决冲突 |
+| `examples` | `软件工人模型2-完整模型表示例 v0` | `https://bob3y2gxxp.feishu.cn/wiki/LlBKwio3MiaIEBkLnaOcfzx4nuh` | 非规范性例子，不通过例子创造规则 |
+| `planning` | `软件工人模型2-Tier2实现与模型ID规划 v0` | `https://bob3y2gxxp.feishu.cn/wiki/RazQwQpPjiZXtZkBIoocZq9Unuc` | 规划视图，不把未来计划写成现行合同 |
 
 维护规则：
 
-- 这 4 篇 Feishu 文档属于协作层文档，不自动高于当前仓库 SSOT。
+- 这 4 篇 Feishu 文档属于 `DerivedView`，无独立裁决权，也不自动高于当前仓库 SSOT。
 - 若 Feishu 文档与 `CLAUDE.md`、架构 SSOT、运行时语义、标签注册表冲突，以当前仓库高优先级规约为准。
 - 若 Feishu 文档中的改动影响了正式规则，必须回写到当前仓库规约链路。
 - 这 4 篇 Feishu 文档的持续追踪入口为

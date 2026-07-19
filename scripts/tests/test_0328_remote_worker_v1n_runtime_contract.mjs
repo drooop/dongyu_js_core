@@ -63,6 +63,12 @@ async function waitForSettle(ms = 1200) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function positiveModelSnapshot(rt) {
+  const snapshot = rt.snapshot();
+  return Object.fromEntries(Object.entries(snapshot.models || {})
+    .filter(([modelId]) => Number(modelId) > 0));
+}
+
 async function test_model100_submit_updates_root_state() {
   const rt = createConfiguredRuntime();
   const handled = rt.mqttIncoming(
@@ -81,26 +87,44 @@ async function test_model100_submit_updates_root_state() {
   return { key: 'model100_submit_updates_root_state', status: 'PASS' };
 }
 
-async function test_model100_rejects_missing_table_refs() {
+async function test_model100_rejects_missing_table_refs_without_positive_model_pollution() {
   for (const missingKey of ['endpoint_table_id', 'origin_table_id', 'reply_target_table_id']) {
     const rt = createConfiguredRuntime();
+    const packet = pinPayloadMissing({
+      endpointModelId: 100,
+      missingKey,
+      payload: [
+        { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'must-not-process' },
+      ],
+    });
+    const parsed = rt._parsePinPayloadValue(packet.payload, {
+      expectedEndpoint: { worker_id: 'R1', model_id: 100, pin: 'submit' },
+    });
+    assert.equal(parsed.ok, false, `model100_parser_must_reject_without_${missingKey}`);
+    assert.equal(parsed.code, `missing_${missingKey}`, `model100_parser_must_report_missing_${missingKey}`);
+    const before = positiveModelSnapshot(rt);
     const handled = rt.mqttIncoming(
       'UIPUT/ws/dam/pic/de/R1/100/submit',
-      pinPayloadMissing({
-        endpointModelId: 100,
-        missingKey,
-        payload: [
-          { id: 0, p: 0, r: 0, c: 0, k: 'input_value', t: 'str', v: 'must-not-process' },
-        ],
-      }),
+      packet,
     );
     assert.equal(handled, false, `model100_mqtt_incoming_must_reject_without_${missingKey}`);
     await waitForSettle();
-    const root = rt.getCell(rt.getModel(100), 0, 0, 0).labels;
-    assert.notEqual(root.get('status')?.v, 'processed', `model100_must_not_process_missing_${missingKey}`);
-    assert.equal(root.get('mqtt_inbound_error')?.v?.code, `missing_${missingKey}`, `model100_must_write_visible_missing_${missingKey}_error`);
+    assert.deepEqual(
+      positiveModelSnapshot(rt),
+      before,
+      `malformed R1 ingress must not mutate any positive model when ${missingKey} is absent`,
+    );
+    assert.equal(
+      rt.mqttTrace.list().some((entry) => entry.type === 'inbound_rejected' && entry.payload?.reason === 'invalid_pin_payload_records'),
+      true,
+      `missing_${missingKey}_rejection_must_be_traceable`,
+    );
+    const model0Error = rt.getCell(rt.getModel(0), 0, 0, 0).labels.get('mqtt_inbound_error');
+    assert.equal(model0Error?.t, 'json', `missing_${missingKey}_must_write_model0_visible_error`);
+    assert.equal(model0Error?.v?.code, `missing_${missingKey}`, `missing_${missingKey}_must_preserve_exact_error_code`);
+    assert.equal(model0Error?.v?.ingress_pin, 'r1_cb_in', `missing_${missingKey}_must_name_declared_ingress`);
   }
-  return { key: 'model100_rejects_missing_table_refs', status: 'PASS' };
+  return { key: 'model100_rejects_missing_table_refs_without_positive_model_pollution', status: 'PASS' };
 }
 
 function test_remote_worker_patches_stop_using_legacy_ctx_mutators() {
@@ -139,7 +163,7 @@ async function test_model1010_submit_updates_root_state() {
 const tests = [
   test_remote_worker_patches_stop_using_legacy_ctx_mutators,
   test_model100_submit_updates_root_state,
-  test_model100_rejects_missing_table_refs,
+  test_model100_rejects_missing_table_refs_without_positive_model_pollution,
   test_model1010_submit_updates_root_state,
 ];
 

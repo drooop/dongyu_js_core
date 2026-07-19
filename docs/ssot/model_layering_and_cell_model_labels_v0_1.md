@@ -2,7 +2,7 @@
 title: "Model Layering and Cell Model Labels v0.1"
 doc_type: ssot
 status: active
-updated: 2026-07-01
+updated: 2026-07-16
 source: ai
 ---
 
@@ -22,7 +22,7 @@ source: ai
 - `model_id` 的三层空间与负数模型内部层级
 - Model 0 / 负数模型 / 正数模型的关系
 - 每个 Cell 的唯一有效模型标签（effective model label）
-- `model.single / model.matrix / model.table / model.submt / model.submtconnection / model.subtable / model.subtableconnection` 的规范化含义
+- `model.single / model.matrix / model.v1n / model.table / model.submt / model.submtconnection / model.subtable / model.subtableconnection` 的规范化含义
 - 子模型/子模型表声明、父侧索引、删除语义、引脚共存规则
 - “禁止默认兼容”的规范口径
 
@@ -62,7 +62,7 @@ source: ai
 ### 2.1 Model 0
 
 - Model 0 是模型层级的根。
-- Model 0 `(0,0,0)` 必须显式带 `model.table`。
+- 软件工人 host table 的 Model 0 `(0,0,0)` 必须显式带 `model.v1n`；普通非 worker ModelTable root 使用 `model.table`。
 - 系统边界端口位于 Model 0 `(0,0,0)`。
 - Model 0 不承载用户业务逻辑。
 
@@ -84,6 +84,7 @@ source: ai
 - 有效模型标签集合为：
   - `model.single`
   - `model.matrix`
+  - `model.v1n`
   - `model.table`
   - `model.submt`
   - `model.submtconnection`
@@ -116,6 +117,12 @@ source: ai
 - 表示 table 模型根声明。
 - 必须出现在该模型自己的 `(0,0,0)`。
 - 是创建该 table 模型时的必填项。
+
+### 4.2a `model.v1n`
+
+- 表示软件工人 host table 的 Model 0 root 声明。
+- 只允许出现在软件工人 Model 0 `(0,0,0)`；worker identity / role 仍分别由 `sys_worker_id:worker.id` 与 `sys_worker_role:worker.role` 表达。
+- 不得用 `model.table` 作为软件工人 root 的兼容别名。
 
 ### 4.3 `model.matrix`
 

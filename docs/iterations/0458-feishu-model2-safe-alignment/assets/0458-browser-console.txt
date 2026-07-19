@@ -1,0 +1,6 @@
+Total messages: 2 (Errors: 1, Warnings: 0)
+
+[INFO] [dy] debug helpers loaded from the local UI bundle.
+[ERROR expected] GET http://127.0.0.1:30900/auth/dev/fake-login/options -> 404 Not Found
+
+result=PASS; the only error is the contractually disabled fake-login endpoint.

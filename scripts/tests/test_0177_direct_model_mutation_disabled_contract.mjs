@@ -34,7 +34,7 @@ function mailboxEnvelope(action, extra = {}) {
 
 function submitToAdapter(adapter, runtime, envelope) {
   const mailboxModel = runtime.getModel(-1);
-  runtime.addLabel(mailboxModel, 0, 0, 1, { k: 'ui_event', t: 'event', v: envelope });
+  runtime.addLabel(mailboxModel, 0, 0, 1, { k: 'bus_event', t: 'event', v: envelope });
   return adapter.consumeOnce();
 }
 
@@ -97,8 +97,12 @@ function test_ui_server_patch_api_disabled_and_runtime_mode_endpoint_contract() 
 }
 
 function test_ui_server_allows_editor_state_label_updates_but_still_blocks_business_mutation_contract() {
-  assert.match(serverSource, /const allowUiLocalMutation = isUiLocalMutableModelId\(directMutationTarget\);/, 'ui_local_mutation_gate_missing');
-  assert.match(serverSource, /finishError\('direct_model_mutation_disabled', action\)/, 'direct_model_mutation_guard_missing');
+  assert.match(serverSource, /const allowUiLocalMutation = isUiLocalMutableTarget\(target, action\);/, 'ui_local_mutation_gate_missing');
+  assert.match(
+    serverSource,
+    /isDirectModelMutationAction\(action\)[\s\S]*finishError\('direct_model_mutation_disabled', action\)/,
+    'direct_model_mutation_guard_missing',
+  );
   assert.match(serverSource, /const uiLocalAdapter = createLocalBusAdapter\(\{/, 'ui_local_adapter_missing');
   assert.match(serverSource, /editorStateModelId: directMutationTarget/, 'ui_local_adapter_target_missing');
   assert.match(serverSource, /updateDerived\(\);\s*await programEngine\.tick\(\);\s*return result;/, 'ui_local_mutation_followup_missing');

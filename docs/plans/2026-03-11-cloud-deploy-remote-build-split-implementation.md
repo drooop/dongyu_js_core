@@ -8,7 +8,7 @@ source: ai
 
 # Cloud Deploy Remote Build Split Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Replace the cloud deploy main path with remote source sync + remote build, and split remote deploy into `full` and `app` flows without touching forbidden `rke2` host boundaries.
 
@@ -273,4 +273,3 @@ Expected:
 git add docs/iterations/0183-cloud-deploy-remote-build-split/runlog.md
 git commit -m "test: verify remote build split cloud deploy"
 ```
-

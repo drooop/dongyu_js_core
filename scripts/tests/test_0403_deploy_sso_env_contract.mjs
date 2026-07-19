@@ -74,19 +74,128 @@ function assertManifestReadsSecretKeys(relPath) {
   );
 }
 
-function assertEnvExampleDocumentsOidc(relPath, expectedRedirect) {
+function assertEnvExampleDocumentsOidc(relPath, expectedRedirect, { expectRoleScope = true } = {}) {
   const source = read(relPath);
   for (const key of requiredSecretKeys.filter((key) => key !== 'MATRIX_HOMESERVER_URL')) {
     assert.match(source, new RegExp(`^${key}=`, 'm'), `${relPath}_must_document_${key}`);
   }
   assert.match(source, new RegExp(`^DY_OIDC_REDIRECT_URI=${expectedRedirect.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'));
-  assert.match(source, /^DY_OIDC_SCOPE=".*urn:zitadel:iam:org:projects:roles"$/m, `${relPath}_must_document_quoted_role_scope`);
+  if (expectRoleScope) {
+    assert.match(source, /^DY_OIDC_SCOPE=".*urn:zitadel:iam:org:projects:roles"$/m, `${relPath}_must_document_quoted_role_scope`);
+  } else {
+    assert.match(source, /^DY_OIDC_SCOPE=$/m, `${relPath}_must_leave_oidc_scope_empty_when_local_auth_is_disabled`);
+  }
   if (relPath.includes('cloud')) {
     assert.match(source, /Required when DY_AUTH=1 on non-loopback domains/, `${relPath}_must_warn_remote_secret_required_when_auth_enabled`);
     assert.match(source, /^DY_OIDC_STATE_SECRET=$/m);
     assert.match(source, /^DY_SESSION_SECRET=$/m);
     assert.doesNotMatch(source, /:\?set DY_REMOTE_/, `${relPath}_must_not_fail_source_when_auth_disabled`);
     assert.doesNotMatch(source, /ChangeMeRemote/, `${relPath}_must_not_ship_public_remote_secret_values`);
+  }
+}
+
+function assertSharedSecretWriterPreservesCloudOidcWhenAuthIsDisabled() {
+  const script = String.raw`
+set -euo pipefail
+source scripts/ops/_deploy_common.sh
+resolve_runtime_secret_literal() { printf 'generated-runtime-secret'; }
+replace_or_create_secret_from_literals() {
+  local ns="$1" secret_name="$2"
+  shift 2
+  if [ "$secret_name" = "ui-server-secret" ]; then
+    printf '%s\n' "$@"
+  fi
+}
+
+NAMESPACE=dongyu
+MATRIX_HOMESERVER_URL=https://matrix.example.test
+SYNAPSE_SERVER_NAME=matrix.example.test
+SERVER_USER=drop
+SERVER_PASSWORD=cloud-matrix-password
+MBR_USER=mbr
+MQTT_HOST=cloud-mqtt.example.test
+MQTT_PORT=1883
+DY_AUTH=0
+DY_DEV_FAKE_LOGIN=0
+DY_OIDC_ISSUER=https://sso.example.test
+DY_OIDC_CLIENT_ID=cloud-client
+DY_OIDC_CLIENT_SECRET=cloud-client-secret
+DY_OIDC_REDIRECT_URI=https://app.example.test/auth/sso/callback
+DY_OIDC_SCOPE='openid profile email'
+DY_OIDC_PROXY_URL=https://proxy.example.test
+DY_OIDC_STATE_SECRET=cloud-state-secret
+update_k8s_secrets server-token mbr-token '!room:matrix.example.test'
+`;
+  const result = spawnSync('bash', ['-s'], {
+    input: script,
+    encoding: 'utf8',
+    cwd: repoRoot,
+  });
+  assert.equal(result.status, 0, `shared_secret_writer_harness_must_run stderr=${result.stderr}`);
+  for (const expected of [
+    '--from-literal=DY_OIDC_ISSUER=https://sso.example.test',
+    '--from-literal=DY_OIDC_CLIENT_ID=cloud-client',
+    '--from-literal=DY_OIDC_CLIENT_SECRET=cloud-client-secret',
+    '--from-literal=DY_OIDC_REDIRECT_URI=https://app.example.test/auth/sso/callback',
+    '--from-literal=DY_OIDC_SCOPE=openid profile email',
+    '--from-literal=DY_OIDC_PROXY_URL=https://proxy.example.test',
+    '--from-literal=DY_OIDC_STATE_SECRET=cloud-state-secret',
+  ]) {
+    assert.match(result.stdout, new RegExp(`^${expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'), `shared_secret_writer_must_preserve_${expected}`);
+  }
+}
+
+function assertSharedSecretWriterKeepsExplicitLocalOidcEmpty() {
+  const script = String.raw`
+set -euo pipefail
+source scripts/ops/_deploy_common.sh
+resolve_runtime_secret_literal() { printf 'generated-runtime-secret'; }
+replace_or_create_secret_from_literals() {
+  local ns="$1" secret_name="$2"
+  shift 2
+  if [ "$secret_name" = "ui-server-secret" ]; then
+    printf '%s\n' "$@"
+  fi
+}
+NAMESPACE=dongyu
+MATRIX_HOMESERVER_URL=http://synapse.dongyu.svc.cluster.local:8008
+SYNAPSE_SERVER_NAME=localhost
+SERVER_USER=drop
+SERVER_PASSWORD=local-matrix-password
+MBR_USER=mbr
+MQTT_HOST=mosquitto.dongyu.svc.cluster.local
+MQTT_PORT=1883
+DY_AUTH=0
+DY_DEV_FAKE_LOGIN=0
+DY_OIDC_ISSUER=
+DY_OIDC_CLIENT_ID=
+DY_OIDC_CLIENT_SECRET=
+DY_OIDC_REDIRECT_URI=
+DY_OIDC_SCOPE=
+DY_OIDC_PROXY_URL=
+DY_OIDC_STATE_SECRET=
+update_k8s_secrets server-token mbr-token '!room:localhost'
+`;
+  const result = spawnSync('bash', ['-s'], {
+    input: script,
+    encoding: 'utf8',
+    cwd: repoRoot,
+  });
+  assert.equal(result.status, 0, `local_secret_writer_harness_must_run stderr=${result.stderr}`);
+  for (const key of [
+    'DY_OIDC_ISSUER',
+    'DY_OIDC_CLIENT_ID',
+    'DY_OIDC_CLIENT_SECRET',
+    'DY_OIDC_REDIRECT_URI',
+    'DY_OIDC_SCOPE',
+    'DY_OIDC_PROXY_URL',
+    'DY_OIDC_STATE_SECRET',
+  ]) {
+    assert.match(
+      result.stdout,
+      new RegExp(`^--from-literal=${key}=$`, 'm'),
+      `local_secret_writer_must_keep_${key}_empty`,
+    );
   }
 }
 
@@ -169,8 +278,10 @@ async function main() {
   assertDeployCommonWritesSecretKeys();
   assertManifestReadsSecretKeys('k8s/local/workers.yaml');
   assertManifestReadsSecretKeys('k8s/cloud/workers.yaml');
-  assertEnvExampleDocumentsOidc('deploy/env/local.env.example', 'http://localhost:30900/auth/sso/callback');
+  assertEnvExampleDocumentsOidc('deploy/env/local.env.example', '', { expectRoleScope: false });
   assertEnvExampleDocumentsOidc('deploy/env/cloud.env.example', 'https://app.dongyudigital.com/auth/sso/callback');
+  assertSharedSecretWriterPreservesCloudOidcWhenAuthIsDisabled();
+  assertSharedSecretWriterKeepsExplicitLocalOidcEmpty();
   assertCloudAppDeployGuardsUiServerSecret();
   assertCloudFullDoesNotApplyLegacyMbrSecretUpdate();
   assertCloudAppDeployGuardExecutes();

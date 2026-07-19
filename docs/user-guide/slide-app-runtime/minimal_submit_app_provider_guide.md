@@ -2,7 +2,7 @@
 title: "最小 Submit 双总线示例"
 doc_type: user-guide
 status: active
-updated: 2026-07-01
+updated: 2026-07-16
 source: ai
 ---
 
@@ -13,7 +13,7 @@ source: ai
 一句话链路：
 
 ```text
-UI click -> Model 0 control bus -> MBR -> remote provider public pin -> response_topic -> reply_target records -> ui-server -> local UI model
+UI click -> Model 0 control bus -> local MQTT -> remote provider public pin -> response_topic -> reply_target records -> ui-server -> local UI model
 ```
 
 当前规约的关键点是：
@@ -23,7 +23,7 @@ UI click -> Model 0 control bus -> MBR -> remote provider public pin -> response
 | request topic | `UIPUT/ws/dam/pic/de/R1/3000/submit1` |
 | response topic | 以请求 records 中实际 `response_topic` 为准；Workspace Manager 安装的 App table 示例为 `UIPUT/ws/dam/pic/de/U1/1051/result`，这是 host transport endpoint，不是 App table 内部 root id |
 | topic 含义 | `topic` 表示当前这条消息实际投递到哪里；请求投递到远端 endpoint，回包投递到 `response_topic` |
-| 默认总线 | 同工作区请求默认走控制总线：`pin.bus.cb.out` -> MBR -> MQTT topic |
+| 默认总线 | 同工作区请求默认走控制总线：`pin.bus.cb.out` -> local MQTT -> R1；MBR no-echo |
 | 回包目标 | 由 UI Server 写入 `response_topic` 与 `reply_target_*`：`reply_target_worker_id = U1`、`reply_target_table_id = app:<...>`、`reply_target_model_id = 0`、`reply_target_pin = result` |
 | 请求来源 | 放在 payload records：`origin_worker_id`、`origin_table_id`、`origin_model_id`、`origin_pin` |
 | 消息方向 | 放在 payload records：`message_role = request` 或 `message_role = response` |
@@ -319,7 +319,7 @@ handle_submit writes input_text / last_submit_payload / submit_inflight / remote
 handle_submit writes business payload to submit1 pin.out
 dual_bus_model.egress_pins contains submit1
 generated host egress adapter wraps topic / route_kind / message_role / endpoint_worker_id / origin_worker_id / reply_target_worker_id
-Model 0 mt_bus_send_in -> pin.bus.cb.out -> MBR -> UIPUT/ws/dam/pic/de/R1/3000/submit1
+Model 0 mt_bus_send_in -> pin.bus.cb.out -> local MQTT -> R1 -> UIPUT/ws/dam/pic/de/R1/3000/submit1
 ```
 
 `handle_submit` 只准备业务 payload：
@@ -457,6 +457,8 @@ UIPUT/ws/dam/pic/de/U1/1051/result
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "__mt_request_id", "t": "str", "v": "manual_result_app_table_001" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "op_id", "t": "str", "v": "manual_result_app_table_001" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "message_role", "t": "str", "v": "response" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "bus", "t": "str", "v": "control" },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "route_kind", "t": "str", "v": "control" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/result" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "response_topic", "t": "str", "v": "UIPUT/ws/dam/pic/de/U1/1051/result" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "endpoint_worker_id", "t": "str", "v": "U1" },
@@ -472,6 +474,7 @@ UIPUT/ws/dam/pic/de/U1/1051/result
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_model_id", "t": "int", "v": 0 },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "reply_target_pin", "t": "str", "v": "result" },
     { "id": 0, "p": 0, "r": 0, "c": 0, "k": "payload_model_id", "t": "int", "v": 1 },
+    { "id": 0, "p": 0, "r": 0, "c": 0, "k": "timestamp", "t": "int", "v": 1700000000000 },
     { "id": 1, "p": 0, "r": 0, "c": 0, "k": "display_text", "t": "str", "v": "Submitted: hello from external client" },
     { "id": 1, "p": 0, "r": 0, "c": 0, "k": "remote_status", "t": "str", "v": "remote_processed" },
     { "id": 1, "p": 0, "r": 0, "c": 0, "k": "last_submit_payload", "t": "json", "v": [] },
@@ -480,7 +483,7 @@ UIPUT/ws/dam/pic/de/U1/1051/result
 }
 ```
 
-MBR 收到 `message_role=response` 后仍按当前 `topic` record 转发；因为这个 `topic` 已经等于 `response_topic`，所以消息会投递回本地 UI Server。UI Server 仍以 `reply_target_*` records 作为正式写回目标，不从 request topic 推断本地 model id。
+默认 control 回包由 provider/R1 直接发布到 `response_topic` 对应的 local MQTT topic，UI Server 直接接收，MBR 不得转发或回显。只有请求显式使用 `route_kind=management` 时，response 才经 Matrix/Synapse 与 MBR 返回一次。UI Server 始终以 `reply_target_*` records 作为正式写回目标，不从 request topic 推断本地 model id。
 
 ## 6. 导出与交付
 

@@ -2,7 +2,7 @@
 title: "Feishu Model Label Alignment v1"
 doc_type: ssot
 status: target
-updated: 2026-07-01
+updated: 2026-07-16
 source: feishu
 iteration_id: 0428-feishu-model-label-ssot-plan
 ---
@@ -22,7 +22,8 @@ Focus sections:
 - `model: 模型标签`
 - `Worker：软件工人类型标签`
 - `pin: 引脚标签`
-- `pin_payload.v1` message structure and UI / task examples
+- Feishu source `pin_payload.v1` message structure and UI / task examples
+- repo `pin_payload.v2` adoption, 0457 hard cut, and actor/bus placement
 
 Authority:
 
@@ -30,13 +31,12 @@ Authority:
 - This file owns the 0428 target naming and alignment decisions for model labels.
 - `docs/ssot/label_type_registry.md`, `docs/ssot/runtime_semantics_modeltable_driven.md`,
   `docs/ssot/pin_connection_contract_v2.md`, and
-  `docs/ssot/temporary_modeltable_payload_v1.md` remain the operational SSOTs
-  until a follow-up implementation iteration updates them.
+  `docs/ssot/temporary_modeltable_payload_v1.md` are the operational SSOTs.
 
 Conflict behavior:
 
-- If current runtime or current SSOT differs from this file, treat the difference
-  as implementation debt for the follow-up iteration.
+- If current runtime or current SSOT differs from this file, stop and reconcile
+  the conflict through the iteration workflow; do not silently prefer Feishu text.
 - Do not add compatibility aliases to make old and new labels both work.
 - If this file conflicts with `CLAUDE.md` or architecture SSOT, fix this file.
 
@@ -208,6 +208,9 @@ Feishu mapping:
 - Feishu child model declaration semantics map to project `model.submt`.
 - Feishu child model connection/index semantics map to project
   `model.submtconnection`.
+- Feishu `model.submtconnect` is an upstream typo. The repo does not register or
+  alias it; the only accepted parent-side name is `model.submtconnection`.
+  Correcting Feishu itself still requires separate write authorization.
 
 ### 2.4 Do not restore `pin.connect.model`
 
@@ -327,18 +330,21 @@ In this shape:
 
 ### 3.3 R1 / UI Server update path
 
-Target flow:
+Current flow:
 
 ```text
 UI App instance table
   -> app root pin.out
   -> host model.subtableconnection boundary
   -> UI Server Model 0 pin.bus.cb.out / pin.bus.mb.out
-  -> transport topic
-  -> R1 ModelTable root public pin
-  -> R1 program model
+  -> control: local MQTT directly to R1
+     management: local Matrix/Synapse to MBR, then local MQTT to R1
+  -> R1 Model -10 declared dispatcher
+  -> R1 Model 3200 public pin and Tier 2 program chain
   -> response Temporary ModelTable message
-  -> UI Server Model 0 ingress
+  -> control: local MQTT directly to UI Server
+     management: local MQTT to MBR, then local Matrix/Synapse to UI Server
+  -> UI Server Model 0 ingress (exactly once)
   -> host model.subtableconnection boundary
   -> app instance table materializer
   -> visible label update
@@ -347,6 +353,8 @@ UI App instance table
 Rules:
 
 - R1 must return a Temporary ModelTable message.
+- MBR must not echo or bridge control responses; it bridges only management
+  responses and only once.
 - UI Server materializes the response only after validating request correlation,
   endpoint, response topic, table-qualified reply target, and capability.
 - UI update data must be a temporary model / temporary child table in the same
@@ -407,8 +415,9 @@ Adopted:
 Adjusted for project target:
 
 - The source `pin_payload.v1` examples use `model.subtableconnection` as a
-  relationship/index label. The project target now accepts the documented
-  child ModelTable payload shape such as `0.1` for Feishu message API parsing.
+  relationship/index label. Their documented child ModelTable shape such as
+  `0.1` is preserved as source/history evidence; current public input expresses
+  the business temporary model through v2 `payload_model_id` in one flat array.
 - The source examples use full topic strings in `origin_pin`, `endpoint_pin`,
   and `response_pin`. The project target separates transport truth from
   semantic endpoint truth:
@@ -422,9 +431,31 @@ Adjusted for project target:
   - `reply_target_worker_id` / `reply_target_table_id` /
     `reply_target_model_id` / `reply_target_pin` describe where the response
     should be materialized.
-- The source document calls this family `pin_payload.v1`; 0442 reintroduces
-  `pin_payload.v1` as the Feishu-current message API input shape while keeping
-  existing table-qualified runtime paths for durable App instance traffic.
+0457 current supersession:
+
+- Public Feishu Message API input accepts only a flat `pin_payload.v2`
+  Temporary ModelTable record array. Legacy v1 child-table envelopes,
+  `route_kind="manage"`, `response_pin`, nested payload arrays, and unknown or
+  invalid root metadata fail closed before business execution.
+- R1 Model 3200 is the Tier 2 owner for schema dispatch and resource/data/UI/task
+  state. It exposes the documented request pins plus one generic `result:pin.out`;
+  generic runtime owns only transport, PIN routing, and materialization.
+- Control request/response traffic is direct between UI Server and R1 over the
+  local MQTT control plane. Management request/response traffic alone crosses
+  the local Matrix/Synapse MBR plane; MBR never echoes a control response.
+- Local actor declarations are loaded from authoritative fill-table assets:
+  MBR=`DEM`, R1=`V1N`, WM1=`DEM`, with only role-legal split-bus pins.
+- F-05 remains pending: `ui.refresh_data` rejects visibly with
+  `ui_action_pending:refresh_data`, writes no refresh state, and emits no result.
+- F-08 remains pending: `add_task_return` rejects visibly with
+  `task_action_pending:add_task_return`; the generic `result` response is not a
+  dedicated `add_task_return` PIN message.
+
+Historical implementation evidence (0442-0450; superseded by 0457):
+
+- The source document calls this family `pin_payload.v1`; 0442 reintroduced
+  `pin_payload.v1` as the then-current Feishu message API input shape while keeping
+  table-qualified runtime paths for durable App instance traffic.
 - 0442 validates the Feishu-current API envelope before it reaches bus ingress:
   `route_kind` accepts the source values `"control"` / `"manage"`;
   optional `message_server` must be `"local"` / `"global"`; optional
@@ -461,7 +492,7 @@ Adjusted for project target:
   a `Data` payload root and at least one non-metadata record. `refresh_data`
   records pending refresh parameters but does not directly mutate UI labels or
   synthesize a response packet.
-- 0448 adds the first response outbox bridge from Feishu-current
+- 0448 added the first response outbox bridge from then-current
   `pin_payload.v1` requests to formal `pin_payload.v2` responses. If
   `is_need_response=true` and both `response_pin` and `endpoint_pin` are valid
   full v2 topics, runtime writes `feishu_message_api_response_out` on Model 0 as
@@ -486,20 +517,21 @@ Adjusted for project target:
   not leave partial materialization, and rejects foreign or missing reply targets
   without falling back to host/shared runtime.
 
-## 5. Follow-Up Implementation Scope
+## 5. Implementation Status And Follow-Up Boundaries
 
-A follow-up implementation iteration must update at least:
+Iteration 0457 implements and locally verifies the v2 public hard cut, the R1
+Model 3200 actor, role-correct MBR/R1/WM1 assets, split-bus routing, v1 rejection,
+and table-qualified response materialization. Current behavior is governed by
+the operational SSOT files listed above and by the versioned actor patches.
 
-- `docs/ssot/label_type_registry.md`
-- `docs/ssot/runtime_semantics_modeltable_driven.md`
-- `docs/ssot/pin_connection_contract_v2.md`
-- `docs/ssot/temporary_modeltable_payload_v1.md`
-- `docs/ssot/imported_slide_app_host_ingress_semantics_v1.md`
-- UI developer guides and slide app runtime examples
-- runtime label validators and rejected legacy label tests
-- UI Server / R1 / MBR fill-table patches
-- provider bundle request/response payload shape
-- browser E2E tests for installed App request/response materialization
+Remaining decisions are intentionally separate:
+
+- F-04: correct the Feishu typo only after explicit Feishu write authorization;
+  no repo alias is needed.
+- F-05: define the authorized ModelTable write performed by `ui.refresh_data`;
+  frontend remains projection-only.
+- F-08: define and implement the real dedicated `add_task_return` PIN message.
+- F-06/F-07 retain their existing decision states.
 
 ## 6. Non-Goals
 

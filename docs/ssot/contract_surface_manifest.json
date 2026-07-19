@@ -1,0 +1,473 @@
+{
+  "schema": "contract_surface_manifest.v2",
+  "updated": "2026-07-17",
+  "source_manifest": "docs/ssot/feishu_source_watch_manifest.json",
+  "generated_summary": "docs/ssot/contract_coverage_summary.md",
+  "generated_index": "test_files/generated/contract_surface_index.json",
+  "principles": [
+    "This manifest is the only maintained source for contract routing cards, not a replacement for product SSOT.",
+    "Source consensus, executable SSOT, open decisions, and historical evidence use separate fields.",
+    "The Markdown summary is generated and must not introduce new facts.",
+    "Every declared SSOT, implementation, and test layer has its own required anchor terms."
+  ],
+  "contracts": [
+    {
+      "contract_id": "model.v1n.worker_root",
+      "status": "aligned",
+      "risk_level": "medium",
+      "source_refs": ["feishu-model2"],
+      "ssot_files": [
+        "docs/ssot/label_type_registry.md",
+        "docs/ssot/runtime_semantics_modeltable_driven.md"
+      ],
+      "decision_files": [],
+      "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
+      "implementation_files": [
+        "packages/worker-base/src/runtime.mjs",
+        "packages/worker-base/src/runtime.js"
+      ],
+      "test_files": ["scripts/tests/test_0442_feishu_current_contract_alignment.mjs"],
+      "anchor_terms": {
+        "ssot_files": ["model.v1n"],
+        "implementation_files": ["model.v1n"],
+        "test_files": ["test_model_v1n_is_accepted_at_worker_root"]
+      },
+      "verification_commands": ["node scripts/tests/test_0442_feishu_current_contract_alignment.mjs"],
+      "owner_iterations": ["0442-feishu-current-contract-alignment", "0454-feishu-focused-current-diff"],
+      "open_findings": [],
+      "notes": "Worker root model.v1n is accepted only at host Model 0 root."
+    },
+    {
+      "contract_id": "model.relationship.naming_and_numeric_subtable",
+      "status": "decision_recorded_source_correction_pending",
+      "risk_level": "high",
+      "source_refs": ["feishu-model2"],
+      "ssot_files": [
+        "docs/ssot/label_type_registry.md",
+        "docs/ssot/runtime_semantics_modeltable_driven.md",
+        "docs/ssot/principal_scoped_subtable_namespace_v1.md"
+      ],
+      "decision_files": [
+        "docs/ssot/feishu_alignment_decisions_v0.md",
+        "docs/ssot/feishu_contract_backlog.md"
+      ],
+      "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
+      "implementation_files": [
+        "packages/worker-base/src/runtime.mjs",
+        "packages/worker-base/src/runtime.js"
+      ],
+      "test_files": [
+        "scripts/tests/test_0442_feishu_current_contract_alignment.mjs",
+        "scripts/tests/test_0432_subtable_connection_runtime_contract.mjs"
+      ],
+      "anchor_terms": {
+        "ssot_files": ["model.subtableconnection"],
+        "implementation_files": ["_normalizeSubtableConnectionDescriptor"],
+        "test_files": ["test_numeric_subtableconnection_is_normalized_from_feishu_input"]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_0442_feishu_current_contract_alignment.mjs",
+        "node scripts/tests/test_0432_subtable_connection_runtime_contract.mjs"
+      ],
+      "owner_iterations": ["0432-subtable-connection-impl", "0442-feishu-current-contract-alignment", "0454-feishu-focused-current-diff", "0456-feishu-watcher-tls-preflight"],
+      "open_findings": [{"id": "F-04", "class": "decision_recorded_source_correction_pending"}],
+      "notes": "Numeric subtable references are implemented; model.submtconnect is confirmed as a Feishu source typo, no runtime alias is allowed, and source correction still needs separate Feishu write authorization."
+    },
+    {
+      "contract_id": "pin_payload.formal_v2",
+      "status": "aligned",
+      "risk_level": "high",
+      "source_refs": ["docs/ssot/temporary_modeltable_payload_v1.md"],
+      "ssot_files": [
+        "docs/ssot/temporary_modeltable_payload_v1.md",
+        "docs/ssot/runtime_semantics_modeltable_driven.md",
+        "docs/ssot/feishu_model_label_alignment_v1.md"
+      ],
+      "decision_files": [],
+      "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
+      "implementation_files": [
+        "packages/worker-base/src/runtime.mjs",
+        "packages/worker-base/src/runtime.js",
+        "scripts/lib/pin_payload_v2_test_helpers.mjs"
+      ],
+      "test_files": [
+        "scripts/tests/test_0332_modeltable_pin_payload_contract.mjs",
+        "scripts/tests/test_0396_dual_topic_submit_response_contract.mjs"
+      ],
+      "anchor_terms": {
+        "ssot_files": ["pin_payload.v2"],
+        "implementation_files": ["payload_model_id"],
+        "test_files": ["test_endpoint_packet_requires_response_topic_for_requests"]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_0332_modeltable_pin_payload_contract.mjs",
+        "node scripts/tests/test_0396_dual_topic_submit_response_contract.mjs"
+      ],
+      "owner_iterations": ["0332-modeltable-pin-payload-contract", "0396-dual-topic-submit-response-contract", "0451-feishu-legacy-v2-test-refresh"],
+      "open_findings": [],
+      "notes": "Formal bus and response transport uses v2 Temporary ModelTable records."
+    },
+    {
+      "contract_id": "feishu_message_api.input_version",
+      "status": "aligned",
+      "risk_level": "high",
+      "source_refs": ["feishu-message-api"],
+      "ssot_files": [
+        "docs/ssot/runtime_semantics_modeltable_driven.md",
+        "docs/ssot/feishu_model_label_alignment_v1.md"
+      ],
+      "decision_files": [
+        "docs/ssot/feishu_alignment_decisions_v0.md",
+        "docs/ssot/feishu_contract_backlog.md"
+      ],
+      "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
+      "implementation_files": [
+        "deploy/sys-v1ns/remote-worker/patches/15_model3200_feishu_message_api.json",
+        "packages/worker-base/src/runtime.mjs",
+        "packages/worker-base/src/runtime.js"
+      ],
+      "test_files": [
+        "scripts/tests/test_0442_feishu_current_contract_alignment.mjs",
+        "scripts/tests/test_0457_feishu_message_api_v2_hard_cut.mjs",
+        "scripts/tests/test_0457_feishu_model3200_actor_contract.mjs",
+        "scripts/tests/test_0457_orbstack_e2e_verifier_contract.mjs"
+      ],
+      "anchor_terms": {
+        "ssot_files": ["pin_payload.v2", "R1 Model 3200"],
+        "implementation_files": ["pin_payload.v2", "legacy_feishu_message_api_v1_removed"],
+        "test_files": [
+          "test_worker_root_bus_in_rejects_complete_legacy_feishu_message_api_v1_shape",
+          "test_generic_v2_requires_exact_transport_envelope",
+          "revision4_live_verified"
+        ]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_0442_feishu_current_contract_alignment.mjs",
+        "node scripts/tests/test_0457_feishu_message_api_v2_hard_cut.mjs",
+        "node scripts/tests/test_0457_feishu_model3200_actor_contract.mjs",
+        "node scripts/tests/test_0457_orbstack_e2e_verifier_contract.mjs"
+      ],
+      "owner_iterations": ["0442-feishu-current-contract-alignment", "0454-feishu-focused-current-diff", "0456-feishu-watcher-tls-preflight", "0457-feishu-message-api-v2-local-de"],
+      "open_findings": [],
+      "notes": "0457 hard-cut the current public Feishu Message API input to flat pin_payload.v2, rejects the removed legacy v1 shape, and places business behavior in R1 Model 3200."
+    },
+    {
+      "contract_id": "feishu_message_api.response_outbox",
+      "status": "aligned",
+      "risk_level": "high",
+      "source_refs": ["feishu-message-api"],
+      "ssot_files": [
+        "docs/ssot/runtime_semantics_modeltable_driven.md",
+        "docs/ssot/feishu_model_label_alignment_v1.md"
+      ],
+      "decision_files": [],
+      "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
+      "implementation_files": [
+        "deploy/sys-v1ns/remote-worker/patches/15_model3200_feishu_message_api.json",
+        "packages/worker-base/src/runtime.mjs",
+        "packages/worker-base/src/runtime.js"
+      ],
+      "test_files": [
+        "scripts/tests/test_0448_feishu_message_api_response_outbox.mjs",
+        "scripts/tests/test_0449_feishu_response_outbox_publish.mjs",
+        "scripts/tests/test_0452_feishu_response_e2e_smoke.mjs",
+        "scripts/tests/test_0457_feishu_model3200_actor_contract.mjs"
+      ],
+      "anchor_terms": {
+        "ssot_files": ["result:pin.out", "response_topic"],
+        "implementation_files": ["pin_payload.v2", "response_topic"],
+        "test_files": ["test_resource_response_uses_generic_v2_result_and_response_topic"]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_0448_feishu_message_api_response_outbox.mjs",
+        "node scripts/tests/test_0449_feishu_response_outbox_publish.mjs",
+        "node scripts/tests/test_0452_feishu_response_e2e_smoke.mjs",
+        "node scripts/tests/test_0457_feishu_model3200_actor_contract.mjs"
+      ],
+      "owner_iterations": ["0448-feishu-message-api-response-outbox", "0449-feishu-response-outbox-publish", "0452-feishu-response-e2e-smoke", "0457-feishu-message-api-v2-local-de"],
+      "open_findings": [],
+      "notes": "R1 Model 3200 returns flat v2 records through generic result:pin.out; the Model 0 control-bus adapter publishes only to the explicit response_topic."
+    },
+    {
+      "contract_id": "feishu_message_api.response_materialization",
+      "status": "aligned",
+      "risk_level": "high",
+      "source_refs": ["docs/ssot/feishu_model_label_alignment_v1.md"],
+      "ssot_files": [
+        "docs/ssot/runtime_semantics_modeltable_driven.md",
+        "docs/ssot/feishu_model_label_alignment_v1.md"
+      ],
+      "decision_files": [],
+      "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
+      "implementation_files": [
+        "packages/worker-base/src/runtime.mjs",
+        "packages/worker-base/src/runtime.js"
+      ],
+      "test_files": [
+        "scripts/tests/test_0450_feishu_response_materialization.mjs",
+        "scripts/tests/test_0452_feishu_response_e2e_smoke.mjs"
+      ],
+      "anchor_terms": {
+        "ssot_files": ["pin_payload_response_materialize"],
+        "implementation_files": ["_materializePinPayloadResponse"],
+        "test_files": ["test_response_materializes_to_app_table_reply_target"]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_0450_feishu_response_materialization.mjs",
+        "node scripts/tests/test_0452_feishu_response_e2e_smoke.mjs"
+      ],
+      "owner_iterations": ["0450-feishu-response-materialization", "0452-feishu-response-e2e-smoke"],
+      "open_findings": [],
+      "notes": "Inbound responses materialize only to explicit reply targets."
+    },
+    {
+      "contract_id": "feishu_message_api.resource_data_ui_task_handlers",
+      "status": "decision_recorded_implementation_pending",
+      "risk_level": "high",
+      "source_refs": ["feishu-message-api"],
+      "ssot_files": ["docs/ssot/runtime_semantics_modeltable_driven.md"],
+      "decision_files": [
+        "docs/ssot/feishu_alignment_decisions_v0.md",
+        "docs/ssot/feishu_contract_backlog.md"
+      ],
+      "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
+      "implementation_files": [
+        "deploy/sys-v1ns/remote-worker/patches/15_model3200_feishu_message_api.json"
+      ],
+      "test_files": [
+        "scripts/tests/test_0443_feishu_message_api_business_dispatch.mjs",
+        "scripts/tests/test_0444_feishu_task_manager_processor.mjs",
+        "scripts/tests/test_0445_feishu_resource_api_processor.mjs",
+        "scripts/tests/test_0446_feishu_data_api_processor.mjs",
+        "scripts/tests/test_0447_feishu_ui_api_processor.mjs",
+        "scripts/tests/test_0457_feishu_model3200_actor_contract.mjs"
+      ],
+      "anchor_terms": {
+        "ssot_files": ["ui.refresh_data", "task_data"],
+        "implementation_files": ["ui_action_pending:refresh_data", "task_action_pending:add_task_return"],
+        "test_files": ["test_refresh_data_remains_pending_without_state_or_response", "task_action_pending:add_task_return"]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_0443_feishu_message_api_business_dispatch.mjs",
+        "node scripts/tests/test_0444_feishu_task_manager_processor.mjs",
+        "node scripts/tests/test_0445_feishu_resource_api_processor.mjs",
+        "node scripts/tests/test_0446_feishu_data_api_processor.mjs",
+        "node scripts/tests/test_0447_feishu_ui_api_processor.mjs",
+        "node scripts/tests/test_0457_feishu_model3200_actor_contract.mjs"
+      ],
+      "owner_iterations": ["0443-feishu-message-api-business-dispatch", "0444-feishu-task-manager-processor", "0445-feishu-resource-api-processor", "0446-feishu-data-api-processor", "0447-feishu-ui-api-processor", "0454-feishu-focused-current-diff", "0456-feishu-watcher-tls-preflight", "0457-feishu-message-api-v2-local-de"],
+      "open_findings": [
+        {"id": "F-05", "class": "decision_recorded_implementation_pending"},
+        {"id": "F-08", "class": "decision_recorded_implementation_pending"}
+      ],
+      "notes": "Direction is approved but unimplemented: ui.refresh_data must use authorized ModelTable writes while frontend stays projection-only, and add_task_return must become a real PIN message."
+    },
+    {
+      "contract_id": "feishu_source_watch.focused_docs",
+      "status": "aligned",
+      "risk_level": "medium",
+      "source_refs": ["feishu-model2", "feishu-message-api"],
+      "ssot_files": ["docs/ssot/feishu_source_watch_manifest.json"],
+      "decision_files": ["docs/ssot/feishu_contract_backlog.md"],
+      "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
+      "implementation_files": ["scripts/ops/feishu_source_watch.mjs"],
+      "test_files": ["scripts/tests/test_0441_feishu_source_watch_contract.mjs"],
+      "anchor_terms": {
+        "ssot_files": ["feishu_source_watch_manifest.v2"],
+        "implementation_files": ["BASELINE_CREATED", "tlsPreflight"],
+        "test_files": ["test_manifest_records_no_secret_feishu_sources_and_confirmation_policy", "test_tls_disabled_blocks_before_manifest_event_or_state_processing"]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_0441_feishu_source_watch_contract.mjs",
+        "node --check scripts/ops/feishu_source_watch.mjs"
+      ],
+      "owner_iterations": ["0441-feishu-source-watch", "0454-feishu-focused-current-diff", "0456-feishu-watcher-tls-preflight"],
+      "open_findings": [],
+      "notes": "Focused source watching is implemented and now blocks TLS-disabled runs unless an explicit fixture or exact-loopback local-debug override is present."
+    },
+    {
+      "contract_id": "feishu_message_api.route_autofill_permission",
+      "status": "requires_user_confirmation",
+      "risk_level": "high",
+      "source_refs": ["feishu-message-api"],
+      "ssot_files": ["docs/ssot/runtime_semantics_modeltable_driven.md"],
+      "decision_files": ["docs/ssot/feishu_contract_backlog.md"],
+      "evidence_files": ["docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md"],
+      "implementation_files": [
+        "deploy/sys-v1ns/remote-worker/patches/15_model3200_feishu_message_api.json",
+        "packages/worker-base/src/runtime.mjs",
+        "packages/worker-base/src/runtime.js"
+      ],
+      "test_files": [
+        "scripts/tests/test_0442_feishu_current_contract_alignment.mjs",
+        "scripts/tests/test_0457_feishu_model3200_actor_contract.mjs"
+      ],
+      "anchor_terms": {
+        "ssot_files": ["origin_pin", "endpoint_worker_id"],
+        "implementation_files": ["origin_pin", "endpoint_worker_id"],
+        "test_files": ["test_explicit_v2_route_metadata_is_required_without_autofill", "test_generic_v2_requires_exact_transport_envelope"]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_0442_feishu_current_contract_alignment.mjs",
+        "node scripts/tests/test_0457_feishu_model3200_actor_contract.mjs"
+      ],
+      "owner_iterations": ["0442-feishu-current-contract-alignment", "0454-feishu-focused-current-diff", "0457-feishu-message-api-v2-local-de"],
+      "open_findings": [{"id": "F-06", "class": "requires_user_confirmation"}],
+      "notes": "Current flat v2 input requires explicit endpoint/origin/reply routing metadata in Model 3200 and runtime; omitted-field auto-fill and permission policy still require a separate decision."
+    },
+    {
+      "contract_id": "feishu_config_labels.control_manage_mqtt",
+      "status": "requires_user_confirmation",
+      "risk_level": "high",
+      "source_refs": ["feishu-model2"],
+      "ssot_files": ["docs/ssot/feishu_alignment_decisions_v0.md"],
+      "decision_files": ["docs/ssot/feishu_contract_backlog.md"],
+      "evidence_files": [
+        "docs/iterations/0454-feishu-focused-current-diff/current-diff-report.md",
+        "docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md"
+      ],
+      "implementation_files": ["packages/worker-base/src/bootstrap_config.mjs"],
+      "test_files": ["scripts/tests/test_0455_contract_surface_index.mjs"],
+      "anchor_terms": {
+        "ssot_files": ["mqtt.global.*"],
+        "implementation_files": ["mqtt.global.ip"],
+        "test_files": ["F-07"]
+      },
+      "verification_commands": ["node scripts/tests/test_0455_contract_surface_index.mjs"],
+      "owner_iterations": ["0454-feishu-focused-current-diff", "0455-contract-surface-index", "0458-feishu-model2-safe-alignment"],
+      "open_findings": [{"id": "F-07", "class": "requires_user_confirmation"}],
+      "notes": "Revision 14272 strengthens the aggregate config.control/config.manage conflict evidence, but aggregate semantics and mqtt.global_port spelling remain open; current split-label behavior stays authoritative."
+    },
+    {
+      "contract_id": "model.label_key_namespaces",
+      "status": "requires_user_confirmation",
+      "risk_level": "high",
+      "source_refs": ["feishu-model2"],
+      "ssot_files": [
+        "docs/ssot/label_type_registry.md",
+        "docs/ssot/runtime_semantics_modeltable_driven.md"
+      ],
+      "decision_files": ["docs/ssot/feishu_contract_backlog.md"],
+      "evidence_files": ["docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md"],
+      "implementation_files": [
+        "packages/worker-base/src/runtime.mjs",
+        "packages/worker-base/src/runtime.js"
+      ],
+      "test_files": [
+        "scripts/tests/test_0442_feishu_current_contract_alignment.mjs",
+        "scripts/tests/test_0455_contract_surface_index.mjs"
+      ],
+      "anchor_terms": {
+        "ssot_files": ["model_type"],
+        "implementation_files": ["model_type"],
+        "test_files": ["test_model_v1n_is_accepted_at_worker_root", "model.label_key_namespaces"]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_0442_feishu_current_contract_alignment.mjs",
+        "node scripts/tests/test_0455_contract_surface_index.mjs"
+      ],
+      "owner_iterations": ["0458-feishu-model2-safe-alignment"],
+      "open_findings": [{"id": "F-10", "class": "requires_user_confirmation"}],
+      "notes": "Current repo behavior uses registry-defined keys such as model_type. Revision 14272 key-prefix namespaces and sys_model_type/sys_model_size are not adopted or enforced."
+    },
+    {
+      "contract_id": "program_model.lifecycle_and_function_contract",
+      "status": "requires_user_confirmation",
+      "risk_level": "high",
+      "source_refs": ["feishu-model2"],
+      "ssot_files": [
+        "docs/ssot/label_type_registry.md",
+        "docs/ssot/runtime_semantics_modeltable_driven.md"
+      ],
+      "decision_files": ["docs/ssot/feishu_contract_backlog.md"],
+      "evidence_files": ["docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md"],
+      "implementation_files": [
+        "packages/worker-base/src/runtime.mjs",
+        "packages/worker-base/src/runtime.js"
+      ],
+      "test_files": [
+        "scripts/tests/test_0357_pin_connection_hard_cut.mjs",
+        "scripts/tests/test_0455_contract_surface_index.mjs"
+      ],
+      "anchor_terms": {
+        "ssot_files": ["func.js", "func.python"],
+        "implementation_files": ["func.js", "func.python"],
+        "test_files": ["pin.log.* must be rejected", "program_model.lifecycle_and_function_contract"]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_0357_pin_connection_hard_cut.mjs",
+        "node scripts/tests/test_0455_contract_surface_index.mjs"
+      ],
+      "owner_iterations": ["0458-feishu-model2-safe-alignment"],
+      "open_findings": [
+        {"id": "F-11", "class": "requires_user_confirmation"},
+        {"id": "F-12", "class": "requires_user_confirmation"}
+      ],
+      "notes": "Current runtime recognizes func.js/func.python and the existing PIN contract. Revision 14272 program areas, pin.manage lifecycle, renamed function labels, timer, and mode semantics are not adopted or implemented."
+    },
+    {
+      "contract_id": "program_model.log_schema",
+      "status": "requires_user_confirmation",
+      "risk_level": "high",
+      "source_refs": ["feishu-model2"],
+      "ssot_files": [
+        "docs/ssot/label_type_registry.md",
+        "docs/ssot/runtime_semantics_modeltable_driven.md"
+      ],
+      "decision_files": ["docs/ssot/feishu_contract_backlog.md"],
+      "evidence_files": ["docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md"],
+      "implementation_files": [
+        "packages/worker-base/src/runtime.mjs",
+        "packages/worker-base/src/runtime.js"
+      ],
+      "test_files": [
+        "scripts/tests/test_0357_pin_connection_hard_cut.mjs",
+        "scripts/tests/test_0455_contract_surface_index.mjs"
+      ],
+      "anchor_terms": {
+        "ssot_files": ["pin.login", "pin.logout"],
+        "implementation_files": ["pin.login", "pin.logout"],
+        "test_files": ["pin.login must be accepted", "program_model.log_schema"]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_0357_pin_connection_hard_cut.mjs",
+        "node scripts/tests/test_0455_contract_surface_index.mjs"
+      ],
+      "owner_iterations": ["0458-feishu-model2-safe-alignment"],
+      "open_findings": [{"id": "F-13", "class": "requires_user_confirmation"}],
+      "notes": "Current repo behavior defines pin.login/pin.logout as the log channel. The revision 14272 log record fields are not adopted, materialized, or retained by the runtime."
+    },
+    {
+      "contract_id": "model.functional_type_capability_matrix",
+      "status": "requires_user_confirmation",
+      "risk_level": "high",
+      "source_refs": ["feishu-model2"],
+      "ssot_files": [
+        "docs/ssot/label_type_registry.md",
+        "docs/ssot/runtime_semantics_modeltable_driven.md"
+      ],
+      "decision_files": ["docs/ssot/feishu_contract_backlog.md"],
+      "evidence_files": ["docs/iterations/0458-feishu-model2-safe-alignment/revision-diff-report.md"],
+      "implementation_files": [
+        "packages/worker-base/src/runtime.mjs",
+        "packages/worker-base/src/runtime.js"
+      ],
+      "test_files": [
+        "scripts/tests/test_model_in_out.mjs",
+        "scripts/tests/test_0455_contract_surface_index.mjs"
+      ],
+      "anchor_terms": {
+        "ssot_files": ["model.single"],
+        "implementation_files": ["model.single"],
+        "test_files": ["model.single should route root pin.in", "model.functional_type_capability_matrix"]
+      },
+      "verification_commands": [
+        "node scripts/tests/test_model_in_out.mjs",
+        "node scripts/tests/test_0455_contract_surface_index.mjs"
+      ],
+      "owner_iterations": ["0458-feishu-model2-safe-alignment"],
+      "open_findings": [{"id": "F-14", "class": "requires_user_confirmation"}],
+      "notes": "Current runtime supports registered model forms without enforcing the new only-Flow-independent claim. The revision 14272 functional-type capability matrix is not adopted or implemented."
+    }
+  ]
+}

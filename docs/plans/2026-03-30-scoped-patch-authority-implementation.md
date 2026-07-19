@@ -8,7 +8,7 @@ source: ai
 
 # Scoped Patch Authority Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Replace runtime-wide patch authority with model-scoped helper execution so dual-bus return paths and user-authored program models cannot bypass hierarchy and model ownership.
 

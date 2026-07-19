@@ -114,7 +114,11 @@ function test_user_docs_explain_provider_local_identity_split_and_re_wiring() {
     assertIncludes(text, 'reply_target_worker_id', name);
     assertIncludes(text, 'submit1', name);
     assertIncludes(text, '3000', name);
-    assertIncludes(text, '2000', name);
+    assert.equal(
+      /(?:model|Model)\s+`?2000`?/u.test(text),
+      false,
+      `${name}_must_not_teach_the_retired_separate_model_2000_program`,
+    );
     assert.equal(text.includes('UIPUT/ws/dam/pic/de/1050/submit'), false, `${name}_must_not_teach_old_local_id_submit_topic`);
     assert.equal(text.includes('UIPUT/ws/dam/pic/de/1050/result'), false, `${name}_must_not_teach_old_local_id_result_topic`);
     assert.equal(text.includes('bus_event_submit_1050_0_0_0'), false, `${name}_must_not_teach_old_fixed_bus_event_key`);
@@ -336,6 +340,20 @@ async function test_all_seeded_dual_bus_apps_materialize_server_owned_routes() {
   process.env.DY_UI_SERVER_WORKER_ID = 'ui-server-0362-all-seed';
   try {
     await withServerState(async (state) => {
+      const model0 = state.runtime.getModel(0);
+      for (const nestedModelId of [1010, 1019]) {
+        const duplicateDirectMounts = Array.from(model0.cells.values()).filter((cell) => (
+          Array.from(cell.labels.values()).some((label) => (
+            label?.t === 'model.submtconnection'
+            && (Number.isInteger(label.v) ? label.v : label.v?.model_id) === nestedModelId
+          ))
+        ));
+        assert.equal(
+          duplicateDirectMounts.length,
+          0,
+          `nested_model_${nestedModelId}_must_not_gain_second_model0_mount`,
+        );
+      }
       for (const modelId of [100, 1010, 1019]) {
         const model = state.runtime.getModel(modelId);
         assert.ok(model, `seeded_model_${modelId}_must_exist`);

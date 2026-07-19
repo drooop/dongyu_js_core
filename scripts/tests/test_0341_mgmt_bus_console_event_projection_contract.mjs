@@ -6,8 +6,11 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { buildAstFromCellwiseModel } from '../../packages/ui-model-demo-frontend/src/ui_cellwise_projection.js';
+import { deriveMatrixDebugView } from '../../packages/ui-model-demo-frontend/src/editor_page_state_derivers.js';
 import { createRemoteStore } from '../../packages/ui-model-demo-frontend/src/remote_store.js';
 import { deriveMgmtBusConsoleProjection } from '../../packages/ui-model-demo-server/mgmt_bus_console_projection.mjs';
+import { parsePinPayloadRecordEnvelope } from '../../packages/ui-model-demo-server/server.mjs';
+import { mt, pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..');
 const require = createRequire(import.meta.url);
@@ -17,6 +20,7 @@ const workspacePatchPath = 'packages/worker-base/system-models/workspace_positiv
 const serverPath = 'packages/ui-model-demo-server/server.mjs';
 const consoleModelId = 1036;
 const sourceModelId = -2;
+const matrixDebugModelId = -100;
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -150,6 +154,69 @@ function defaultSourceLabels() {
   ];
 }
 
+function traceSnapshot(records, overrides = {}) {
+  const detail = {
+    seq: overrides.seq || 1,
+    ts: overrides.ts || 1714100000000,
+    direction: overrides.direction || 'outbound',
+    hop: overrides.hop || 'server→matrix',
+    payload: {
+      version: 'v1',
+      type: 'pin_payload',
+      payload: records,
+    },
+  };
+  return {
+    models: {
+      [matrixDebugModelId]: {
+        id: matrixDebugModelId,
+        cells: {
+          '0,0,0': {
+            labels: {
+              trace_log_text: {
+                k: 'trace_log_text',
+                t: 'str',
+                v: `trace\x01${JSON.stringify(detail)}`,
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function shadowedPinPayloadV2Records() {
+  const payloadModelId = 7;
+  const records = pinPayloadV2Records({
+    opId: 'envelope-op-0341',
+    endpointWorkerId: 'R1',
+    endpointModelId: 3200,
+    endpointPin: 'message_api_v2',
+    routeKind: 'management',
+    originWorkerId: 'U1',
+    originModelId: 1036,
+    originPin: 'send',
+    replyTargetWorkerId: 'U1',
+    replyTargetModelId: 1036,
+    replyTargetPin: 'result',
+    payloadModelId,
+    payloadRecords: [
+      mt('op_id', 'str', 'business-op-must-not-shadow-envelope'),
+      mt('__mt_payload_kind', 'str', 'mgmt_bus_console.send.v1'),
+      mt('payload_model_id', 'int', 999),
+      mt('origin_model_id', 'int', 777),
+      mt('target_user_id', 'str', 'ou_projection_target'),
+      mt('draft', 'str', 'projection shadowing probe'),
+    ],
+    timestamp: 1714100000000,
+  });
+  return [
+    ...records.filter((record) => record.id === payloadModelId),
+    ...records.filter((record) => record.id === 0),
+  ];
+}
+
 function makeSnapshot(records, sourceLabels = defaultSourceLabels()) {
   const models = {};
   const ensureModel = (modelId) => {
@@ -228,7 +295,7 @@ function assertSourceRef(ref, key, nodeId) {
 }
 
 function assertLocalRef(ref, key, nodeId) {
-  assert.equal(ref?.model_id, consoleModelId, `${nodeId} must read local Model ${consoleModelId}`);
+  assert.equal(ref?.model_id, undefined, `${nodeId} must use the current-model default for local Model ${consoleModelId}`);
   assert.equal(ref?.p, 0, `${nodeId} local p must be 0`);
   assert.equal(ref?.r, 0, `${nodeId} local r must be 0`);
   assert.equal(ref?.c, 0, `${nodeId} local c must be 0`);
@@ -316,7 +383,7 @@ function test_local_event_selection_is_not_formal_bus_ingress() {
   assert.equal(selection.bind?.write?.commit_policy, 'immediate', 'selected event input must commit immediately in the real UI');
   assert.deepEqual(
     selection.bind?.write?.target_ref,
-    { model_id: consoleModelId, p: 0, r: 0, c: 0, k: 'selected_event_id' },
+    { p: 0, r: 0, c: 0, k: 'selected_event_id' },
     'selection write target must stay local to Model 1036',
   );
   assert.equal(selection.bind?.write?.bus_event_v2, undefined, 'selection must not declare bus_event_v2');
@@ -455,6 +522,138 @@ function test_projection_deriver_honors_selected_event_id_and_invalid_selection(
     'invalid selected_event_id must not fall back to unrelated event truth',
   );
   return { key: 'projection_deriver_honors_selected_event_id_and_invalid_selection', status: 'PASS' };
+}
+
+function test_projection_deriver_requires_typed_root_v2_preview_records() {
+  const payloadModelId = 7;
+  const baseRecords = pinPayloadV2Records({
+    opId: 'typed-preview-0341',
+    payloadModelId,
+    payloadRecords: [mt('draft', 'str', 'typed preview is visible')],
+  });
+  const projectPreview = (records, eventId) => deriveMgmtBusConsoleProjection({
+    matrixProjection: {
+      events: [{
+        event_id: eventId,
+        payload: { version: 'v1', type: 'pin_payload', payload: records },
+      }],
+    },
+    readRootLabel: () => undefined,
+  }).eventRows[0].preview;
+  const replaceRecord = (records, key, id, patch) => records.map((record) => (
+    record.id === id && record.k === key ? { ...record, ...patch } : record
+  ));
+
+  assert.equal(
+    projectPreview(baseRecords, 'typed-preview-valid'),
+    'typed preview is visible',
+    'valid v2 preview must come from a typed root-coordinate str record in the payload Model',
+  );
+
+  const malformedCases = [
+    [
+      'wrong_typed_envelope_kind',
+      replaceRecord(baseRecords, '__mt_payload_kind', 0, { t: 'int' }),
+      'typed preview is visible',
+    ],
+    [
+      'non_root_envelope_kind',
+      replaceRecord(baseRecords, '__mt_payload_kind', 0, { r: 1 }),
+      'typed preview is visible',
+    ],
+    [
+      'string_payload_model_id',
+      replaceRecord(baseRecords, 'payload_model_id', 0, { t: 'str', v: String(payloadModelId) }),
+      'typed preview is visible',
+    ],
+    [
+      'zero_payload_model_id',
+      replaceRecord(baseRecords, 'payload_model_id', 0, { v: 0 }),
+      'typed preview is visible',
+    ],
+    [
+      'negative_payload_model_id',
+      replaceRecord(baseRecords, 'payload_model_id', 0, { v: -1 }),
+      'typed preview is visible',
+    ],
+    [
+      'non_root_payload_model_id',
+      replaceRecord(baseRecords, 'payload_model_id', 0, { c: 1 }),
+      'typed preview is visible',
+    ],
+    [
+      'wrong_typed_business_preview',
+      replaceRecord(baseRecords, 'draft', payloadModelId, { t: 'int' }),
+      'typed preview is visible',
+    ],
+    [
+      'non_string_business_preview_value',
+      replaceRecord(baseRecords, 'draft', payloadModelId, { v: { text: 'nested preview must stay hidden' } }),
+      'nested preview must stay hidden',
+    ],
+    [
+      'non_root_business_preview',
+      replaceRecord(baseRecords, 'draft', payloadModelId, { p: 1 }),
+      'typed preview is visible',
+    ],
+  ];
+  for (const [name, records, forbiddenPreview] of malformedCases) {
+    const preview = projectPreview(records, name);
+    assert.equal(preview, '', `${name} must not produce a v2 business preview`);
+    assert.doesNotMatch(preview, new RegExp(forbiddenPreview, 'u'), `${name} must not leak the rejected preview value`);
+  }
+
+  const legacyRecords = [
+    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
+    mt('payload', 'json', [mt('draft', 'str', 'legacy nested preview must stay hidden')]),
+  ];
+  assert.equal(
+    projectPreview(legacyRecords, 'legacy-preview'),
+    '',
+    'legacy pin_payload.v1 must not be accepted by the v2 preview reader',
+  );
+
+  return { key: 'projection_deriver_requires_typed_root_v2_preview_records', status: 'PASS' };
+}
+
+function test_trace_projection_reads_only_typed_v2_envelope_root_metadata() {
+  const shadowedRecords = shadowedPinPayloadV2Records();
+  assert.equal(
+    parsePinPayloadRecordEnvelope({ version: 'v1', type: 'pin_payload', payload: shadowedRecords }).ok,
+    true,
+    'business metadata names and record ordering must remain legal under the strict pin_payload.v2 contract',
+  );
+  const [event] = deriveMatrixDebugView(traceSnapshot(shadowedRecords), consoleModelId).events;
+
+  assert.ok(event, 'valid pin_payload.v2 trace event must be projected');
+  assert.equal(event.event_id, 'envelope-op-0341', 'business op_id must not shadow envelope root op_id');
+  assert.equal(event.op_id, 'envelope-op-0341', 'projected op_id must come from the typed envelope root');
+  assert.equal(event.model_id, 1036, 'business origin_model_id must not shadow envelope root origin_model_id');
+  assert.equal(event.kind, 'mgmt_bus_console.send.v1', 'business kind must come from the declared payload Model');
+  assert.equal(event.route_key, 'mgmt_bus_console_send', 'strict v2 business kind must retain the management route');
+  assert.equal(event.subject_id, 'ou_projection_target', 'business records must be selected by the root payload_model_id');
+  assert.equal(event.preview, 'to ou_projection_target: projection shadowing probe');
+
+  const legacyRecords = shadowedRecords.map((record) => (
+    record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === '__mt_payload_kind'
+      ? { ...record, v: 'pin_payload.v1' }
+      : record
+  ));
+  const [legacyEvent] = deriveMatrixDebugView(traceSnapshot(legacyRecords, { seq: 2 }), consoleModelId).events;
+  assert.equal(legacyEvent.kind, 'pin_payload.v1', 'legacy v1 must not be projected through the v2 business-record path');
+  assert.equal(legacyEvent.route_key, '', 'legacy v1 must not gain a management route from business metadata');
+
+  const wrongTypedPayloadIdRecords = shadowedRecords.map((record) => (
+    record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === 'payload_model_id'
+      ? { ...record, t: 'str', v: '7' }
+      : record
+  ));
+  const [wrongTypedEvent] = deriveMatrixDebugView(traceSnapshot(wrongTypedPayloadIdRecords, { seq: 3 }), consoleModelId).events;
+  assert.equal(wrongTypedEvent.kind, 'pin_payload.v2', 'wrong-typed payload_model_id must not select business metadata');
+  assert.equal(wrongTypedEvent.route_key, '', 'wrong-typed payload_model_id must not gain a management route');
+  assert.equal(wrongTypedEvent.subject_id, 'model0', 'wrong-typed payload_model_id must not expose business subject data');
+
+  return { key: 'trace_projection_reads_only_typed_v2_envelope_root_metadata', status: 'PASS' };
 }
 
 async function test_server_local_selected_event_updates_inspector_projection() {
@@ -609,6 +808,8 @@ async function main() {
     test_local_event_selection_is_not_formal_bus_ingress,
     test_projection_deriver_emits_redacted_event_rows_and_inspector,
     test_projection_deriver_honors_selected_event_id_and_invalid_selection,
+    test_projection_deriver_requires_typed_root_v2_preview_records,
+    test_trace_projection_reads_only_typed_v2_envelope_root_metadata,
     test_server_local_selected_event_updates_inspector_projection,
     test_remote_store_syncs_local_selection_via_ui_event_not_bus_event,
     test_server_syncs_event_projection_labels,

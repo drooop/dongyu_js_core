@@ -123,8 +123,7 @@ kind: ConfigMap
 metadata:
   name: mbr-worker-config
   namespace: dongyu
-data:
-  NODE_TLS_REJECT_UNAUTHORIZED: "0"
+data: {}
 ---
 # MBR Worker Deployment
 apiVersion: apps/v1
@@ -287,8 +286,6 @@ spec:
             secretKeyRef:
               name: ui-server-secret
               key: MATRIX_HOMESERVER_URL
-        - name: NODE_TLS_REJECT_UNAUTHORIZED
-          value: "0"
         - name: DY_LLM_BASE_URL
           value: "http://host.docker.internal:11434"
         - name: DY_LLM_MODEL

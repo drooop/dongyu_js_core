@@ -8,7 +8,7 @@ source: ai
 
 # Cloud Worker Sync And Color Proxy Import Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Restore the public color generator by syncing cloud workers, then produce and verify a color-generator proxy import zip.
 

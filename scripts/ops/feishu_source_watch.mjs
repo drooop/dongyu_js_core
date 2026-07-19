@@ -42,10 +42,37 @@ function parseArgs(argv) {
 function usage() {
   return [
     'Usage:',
-    '  node scripts/ops/feishu_source_watch.mjs --manifest <path> --state-dir <dir> --report <path> [--fixture <dir>] [--event-file <path>] [--doc-id <id[,id]>]',
+    '  node scripts/ops/feishu_source_watch.mjs --manifest <path> --state-dir <dir> --report <path> [--fixture <dir>] [--event-file <path>] [--doc-id <id[,id]>] [--allow-insecure-tls-local-debug]',
     '',
     'Real Feishu mode requires FEISHU_TENANT_ACCESS_TOKEN or FEISHU_ACCESS_TOKEN.',
+    'Insecure TLS override is allowed only with --fixture or an exact loopback FEISHU_API_BASE.',
   ].join('\n');
+}
+
+function isExactLoopbackApiBase(apiBase) {
+  try {
+    const hostname = new URL(apiBase).hostname;
+    return hostname === 'localhost'
+      || hostname === '127.0.0.1'
+      || hostname === '::1'
+      || hostname === '[::1]';
+  } catch {
+    return false;
+  }
+}
+
+function tlsPreflight({ fixtureDir, allowInsecureTlsLocalDebug }) {
+  if (process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0') {
+    return 'ENABLED';
+  }
+  const localDebugContext = Boolean(fixtureDir) || isExactLoopbackApiBase(FEISHU_API_BASE);
+  if (allowInsecureTlsLocalDebug === true && localDebugContext) {
+    return 'DISABLED_FOR_LOCAL_DEBUG';
+  }
+  throw new Error(
+    'TLS verification is disabled by NODE_TLS_REJECT_UNAUTHORIZED=0. '
+      + 'Remove that environment setting, or use --allow-insecure-tls-local-debug only with --fixture or an exact loopback FEISHU_API_BASE.',
+  );
 }
 
 function readJson(filePath) {
@@ -66,6 +93,10 @@ function shortHash(text) {
 
 function normalizeLineEndings(text) {
   return String(text || '').replace(/\r\n?/gu, '\n');
+}
+
+function normalizeMarkdownPunctuationEscapes(text) {
+  return String(text || '').replace(/\\([!-/:-@[-`{-~])/gu, '$1');
 }
 
 function extractUrlToken(url) {
@@ -146,47 +177,57 @@ function splitSections(markdown) {
   return sections;
 }
 
-function changedLineSummary(before, after) {
-  const beforeSet = new Set(normalizeLineEndings(before).split('\n').map((line) => line.trim()).filter(Boolean));
-  const afterLines = normalizeLineEndings(after).split('\n').map((line) => line.trim()).filter(Boolean);
-  const added = afterLines.filter((line) => !beforeSet.has(line) && !line.startsWith('#'));
-  return added.slice(0, 4);
-}
-
-function countLines(lines) {
+function countLinesByNormalizedValue(lines) {
   const counts = new Map();
   for (const line of lines) {
-    counts.set(line, (counts.get(line) || 0) + 1);
+    counts.set(line.normalized, (counts.get(line.normalized) || 0) + 1);
   }
   return counts;
 }
 
-function changedLineDiff(before, after, maxLines = 40) {
-  const beforeLines = normalizeLineEndings(before).split('\n').map((line) => line.trim()).filter(Boolean);
-  const afterLines = normalizeLineEndings(after).split('\n').map((line) => line.trim()).filter(Boolean);
-  const afterCounts = countLines(afterLines);
-  const deletions = [];
-  for (const line of beforeLines) {
-    const remaining = afterCounts.get(line) || 0;
+function comparableContentLines(content) {
+  return normalizeLineEndings(content)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+    .map((raw) => ({
+      raw,
+      normalized: normalizeMarkdownPunctuationEscapes(raw),
+    }));
+}
+
+function subtractLineMultiset(sourceLines, targetLines) {
+  const targetCounts = countLinesByNormalizedValue(targetLines);
+  const unmatched = [];
+  for (const line of sourceLines) {
+    const remaining = targetCounts.get(line.normalized) || 0;
     if (remaining > 0) {
-      afterCounts.set(line, remaining - 1);
-    } else if (!line.startsWith('#')) {
-      deletions.push(`- ${line}`);
+      targetCounts.set(line.normalized, remaining - 1);
+    } else {
+      unmatched.push(line);
     }
   }
+  return unmatched;
+}
 
-  const beforeCounts = countLines(beforeLines);
-  const additions = [];
-  for (const line of afterLines) {
-    const remaining = beforeCounts.get(line) || 0;
-    if (remaining > 0) {
-      beforeCounts.set(line, remaining - 1);
-    } else if (!line.startsWith('#')) {
-      additions.push(`+ ${line}`);
-    }
-  }
+function changedLineMultiset(before, after) {
+  const beforeLines = comparableContentLines(before);
+  const afterLines = comparableContentLines(after);
+  return {
+    deletions: subtractLineMultiset(beforeLines, afterLines),
+    additions: subtractLineMultiset(afterLines, beforeLines),
+  };
+}
 
-  const diffLines = [...deletions, ...additions];
+function changedLineSummary(lineChanges) {
+  return lineChanges.additions.map((line) => line.raw).slice(0, 4);
+}
+
+function changedLineDiff(lineChanges, maxLines = 40) {
+  const diffLines = [
+    ...lineChanges.deletions.map((line) => `- ${line.raw}`),
+    ...lineChanges.additions.map((line) => `+ ${line.raw}`),
+  ];
   if (diffLines.length <= maxLines) return diffLines;
   return [
     ...diffLines.slice(0, maxLines),
@@ -194,32 +235,48 @@ function changedLineDiff(before, after, maxLines = 40) {
   ];
 }
 
-function classifyChange(doc, heading, before, after) {
-  const combined = `${heading}\n${after}`;
-  const keywordHit = (doc.confirmation_keywords || []).find((keyword) => combined.includes(keyword));
+function classifyChange(doc, heading, lineChanges) {
+  const changedLines = [...lineChanges.deletions, ...lineChanges.additions]
+    .map((line) => line.normalized);
+  const normalizedHeading = normalizeMarkdownPunctuationEscapes(heading).trim();
+  const headingHit = (doc.confirmation_headings || []).find(
+    (candidate) => normalizeMarkdownPunctuationEscapes(candidate).trim() === normalizedHeading,
+  );
+  const keywordHit = (doc.confirmation_keywords || []).find((keyword) => {
+    const normalizedKeyword = normalizeMarkdownPunctuationEscapes(keyword);
+    return normalizedKeyword && changedLines.some((line) => line.includes(normalizedKeyword));
+  });
+  const changedLinesMatch = (pattern) => changedLines.some((line) => pattern.test(line));
 
-  if (/直接修改业务状态|UI\s*可以|UI\s*直接|绕过/u.test(combined)) {
+  if (headingHit) {
+    return {
+      reviewClass: 'requires_user_confirmation',
+      reason: `protected heading "${headingHit}" requires user/team confirmation for any section change.`,
+      stop: true,
+    };
+  }
+  if (changedLinesMatch(/直接修改业务状态|UI\s*可以|UI\s*直接|绕过/u)) {
     return {
       reviewClass: 'requires_user_confirmation',
       reason: 'current SSOT conflict: UI is projection only and business-state side effects must stay on the ModelTable path.',
       stop: true,
     };
   }
-  if (/pin\.connect\.model/u.test(combined)) {
+  if (changedLinesMatch(/pin\.connect\.model/u)) {
     return {
       reviewClass: 'requires_user_confirmation',
       reason: 'current SSOT conflict: pin.connect.model is not a current project wiring surface.',
       stop: true,
     };
   }
-  if (/延后|暂不实现|废弃/u.test(combined)) {
+  if (changedLinesMatch(/延后|暂不实现|废弃/u)) {
     return {
       reviewClass: 'requires_user_confirmation',
       reason: 'meeting-consensus scheduling or deprecation decision requires user/team confirmation before defer/reject wording.',
       stop: true,
     };
   }
-  if (/兼容/u.test(combined)) {
+  if (changedLinesMatch(/兼容/u)) {
     return {
       reviewClass: 'requires_user_confirmation',
       reason: 'compatibility behavior requires explicit project approval before SSOT update.',
@@ -249,13 +306,14 @@ function diffMarkdown(doc, before, after) {
     const oldContent = beforeSections.get(heading) || '';
     const newContent = afterSections.get(heading) || '';
     if (sha256(oldContent) === sha256(newContent)) continue;
-    const classification = classifyChange(doc, heading, oldContent, newContent);
+    const lineChanges = changedLineMultiset(oldContent, newContent);
+    const classification = classifyChange(doc, heading, lineChanges);
     changes.push({
       heading,
       oldHash: shortHash(oldContent),
       newHash: shortHash(newContent),
-      summary: changedLineSummary(oldContent, newContent),
-      diffLines: changedLineDiff(oldContent, newContent),
+      summary: changedLineSummary(lineChanges),
+      diffLines: changedLineDiff(lineChanges),
       ...classification,
     });
   }
@@ -380,7 +438,7 @@ function writeSnapshot({ stateDir, doc, content }) {
   writeFileSync(snapshotPath(stateDir, doc.id), normalizeLineEndings(content));
 }
 
-function renderReport({ manifestPath, stateDir, docs, results, eventInfo }) {
+function renderReport({ manifestPath, stateDir, docs, results, eventInfo, tlsVerification }) {
   const changedResults = results.filter((result) => result.changes.length > 0);
   const baselineResults = results.filter((result) => result.baselineCreated);
   let status = 'NO_CHANGE';
@@ -396,6 +454,7 @@ function renderReport({ manifestPath, stateDir, docs, results, eventInfo }) {
     `Generated At: ${new Date().toISOString()}`,
     `Manifest: ${manifestPath}`,
     `State Dir: ${stateDir}`,
+    `TLS Verification: ${tlsVerification}`,
   ];
 
   if (eventInfo) {
@@ -476,7 +535,7 @@ function renderBlockedReport({ manifestPath, stateDir, error }) {
   const safeMessage = rawMessage
     .replace(/tenant_access_token[=:]\s*[A-Za-z0-9._-]+/giu, 'tenant_access_token=<masked>')
     .replace(/app_secret[=:]\s*[^,\s]+/giu, 'app_secret=<masked>');
-  return [
+  const lines = [
     '# Feishu Source Watch Report',
     '',
     'Status: BLOCKED',
@@ -491,10 +550,15 @@ function renderBlockedReport({ manifestPath, stateDir, error }) {
     '',
     '## Next Action',
     '',
-    '- If the blocker is missing credentials, provide FEISHU_TENANT_ACCESS_TOKEN or FEISHU_ACCESS_TOKEN.',
-    '- If the blocker is missing Wiki permissions, enable one of wiki:node:read, wiki:wiki:readonly, or wiki:wiki for the Feishu app and rerun.',
-    '',
-  ].join('\n');
+  ];
+  if (safeMessage.includes('NODE_TLS_REJECT_UNAUTHORIZED=0')) {
+    lines.push('- Restore TLS verification. Local debugging requires the explicit override plus fixture or exact loopback mode.');
+  } else {
+    lines.push('- If the blocker is missing credentials, provide FEISHU_TENANT_ACCESS_TOKEN or FEISHU_ACCESS_TOKEN.');
+    lines.push('- If the blocker is missing Wiki permissions, enable one of wiki:node:read, wiki:wiki:readonly, or wiki:wiki for the Feishu app and rerun.');
+  }
+  lines.push('');
+  return lines.join('\n');
 }
 
 async function main() {
@@ -510,6 +574,11 @@ async function main() {
   if (!manifestPath || !stateDir || !reportPath) {
     throw new Error(`missing required arguments\n${usage()}`);
   }
+
+  const tlsVerification = tlsPreflight({
+    fixtureDir,
+    allowInsecureTlsLocalDebug: args['allow-insecure-tls-local-debug'] === true,
+  });
 
   const manifest = readJson(manifestPath);
   const eventPayload = args['event-file'] ? readJson(args['event-file']) : null;
@@ -530,13 +599,20 @@ async function main() {
       doc,
       changes,
       baselineCreated: !previous.exists,
-      summary: !previous.exists ? changedLineSummary('', current) : [],
+      summary: !previous.exists ? changedLineSummary(changedLineMultiset('', current)) : [],
       sourceFormat: loaded.sourceFormat,
       sourceNote: loaded.sourceNote,
     });
   }
 
-  const report = renderReport({ manifestPath, stateDir, docs: results.map((result) => result.doc), results, eventInfo });
+  const report = renderReport({
+    manifestPath,
+    stateDir,
+    docs: results.map((result) => result.doc),
+    results,
+    eventInfo,
+    tlsVerification,
+  });
   writeFileSync(reportPath, report);
   console.log(`wrote ${reportPath}`);
 }

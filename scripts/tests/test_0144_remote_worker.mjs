@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import assert from 'node:assert';
+import { pinPayloadV2Records } from '../lib/pin_payload_v2_test_helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { ModelTableRuntime } = require('../../packages/worker-base/src/runtime.js');
@@ -49,29 +50,22 @@ function pinPayloadRecords({
   payload,
   timestamp = 1700000000000,
 }) {
-  const topic = `UIPUT/ws/dam/pic/de/${endpointWorkerId}/${endpointModelId}/${endpointPin}`;
-  const responseTopic = `UIPUT/ws/dam/pic/de/${replyTargetWorkerId}/${replyTargetModelId}/${replyTargetPin}`;
-  return [
-    mt('__mt_payload_kind', 'str', 'pin_payload.v1'),
-    mt('__mt_request_id', 'str', opId),
-    mt('op_id', 'str', opId),
-    mt('message_role', 'str', messageRole),
-    mt('topic', 'str', topic),
-    mt('response_topic', 'str', responseTopic),
-    mt('route_kind', 'str', routeKind),
-    mt('bus', 'str', routeKind),
-    mt('endpoint_worker_id', 'str', endpointWorkerId),
-    mt('endpoint_model_id', 'int', endpointModelId),
-    mt('endpoint_pin', 'str', endpointPin),
-    mt('origin_worker_id', 'str', originWorkerId),
-    mt('origin_model_id', 'int', originModelId),
-    mt('origin_pin', 'str', originPin),
-    mt('reply_target_worker_id', 'str', replyTargetWorkerId),
-    mt('reply_target_model_id', 'int', replyTargetModelId),
-    mt('reply_target_pin', 'str', replyTargetPin),
-    mt('payload', 'json', payload),
-    mt('timestamp', 'int', timestamp),
-  ];
+  return pinPayloadV2Records({
+    opId,
+    messageRole,
+    endpointWorkerId,
+    endpointModelId,
+    endpointPin,
+    originWorkerId,
+    originModelId,
+    originPin,
+    replyTargetWorkerId,
+    replyTargetModelId,
+    replyTargetPin,
+    routeKind,
+    payloadRecords: payload,
+    timestamp,
+  });
 }
 
 function externalPacket(records) {
@@ -80,8 +74,18 @@ function externalPacket(records) {
 
 function payloadRecords(records) {
   if (!Array.isArray(records)) return [];
+  const payloadModelId = records.find((record) => record && record.id === 0 && record.k === 'payload_model_id')?.v;
+  if (Number.isInteger(payloadModelId)) {
+    return records.filter((record) => record && record.id === payloadModelId);
+  }
   const nested = records.find((record) => record && record.k === 'payload' && Array.isArray(record.v));
   return nested ? nested.v : records;
+}
+
+async function settlePropagation() {
+  for (let index = 0; index < 8; index += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
 }
 
 function test_patches_load_successfully() {
@@ -109,7 +113,7 @@ function test_remote_subscription_config_registered() {
 
 function test_root_submit_wiring_declared() {
   const rt = createConfiguredRuntime();
-  const cellKey = '100|0|0|0';
+  const cellKey = 'host|100|0|0|0';
   assert(rt.cellConnectGraph.has(cellKey), 'CELL_CONNECT graph should have model100 root cell');
   const graph = rt.cellConnectGraph.get(cellKey);
   assert(graph.has('self:submit'), 'root graph should have self:submit endpoint');
@@ -122,7 +126,7 @@ function test_root_submit_wiring_declared() {
 
 function test_root_result_wiring_declared() {
   const rt = createConfiguredRuntime();
-  const cellKey = '100|0|0|0';
+  const cellKey = 'host|100|0|0|0';
   assert(rt.cellConnectGraph.has(cellKey), 'CELL_CONNECT graph should have model100 root cell');
   const graph = rt.cellConnectGraph.get(cellKey);
   assert(graph.has('func:on_model100_submit_in:out'), 'root graph should expose function out endpoint');
@@ -133,7 +137,7 @@ function test_root_result_wiring_declared() {
   return { key: 'root_result_wiring_declared', status: 'PASS' };
 }
 
-function test_mqtt_incoming_routes_to_model100() {
+async function test_mqtt_incoming_routes_through_model0_to_model100() {
   const rt = createConfiguredRuntime();
 
   // Simulate MQTT message arriving on Model 100 event topic
@@ -149,15 +153,24 @@ function test_mqtt_incoming_routes_to_model100() {
   const handled = rt.mqttIncoming(topic, payload);
   assert(handled, 'mqttIncoming should handle the message');
 
-  // Verify IN label written to Model 100 root cell
+  // Transport ingress must first enter the declared Model 0 control bus.
+  const model0 = rt.getModel(0);
+  const ingressLabel = rt.getCell(model0, 0, 0, 0).labels.get('r1_cb_in');
+  assert(ingressLabel, 'r1_cb_in must be written on Model 0');
+  assert.strictEqual(ingressLabel.t, 'pin.bus.cb.in');
+  assert.deepStrictEqual(ingressLabel.v, payload.payload);
+
+  // The declared Model 0 -> Model -10 -> mounted endpoint chain delivers the request.
+  await settlePropagation();
   const model100 = rt.getModel(100);
   const rootCell = rt.getCell(model100, 0, 0, 0);
   const eventLabel = rootCell.labels.get('submit');
-  assert(eventLabel, 'submit IN label should be written to root cell');
+  assert(eventLabel, 'dispatcher must deliver submit to model100 root cell');
   assert.strictEqual(eventLabel.t, 'pin.in');
   assert.ok(Array.isArray(eventLabel.v), 'submit pin must carry temporary-modeltable payload array');
+  assert.deepStrictEqual(eventLabel.v, payload.payload);
 
-  return { key: 'mqtt_incoming_routes_to_model100', status: 'PASS' };
+  return { key: 'mqtt_incoming_routes_through_model0_to_model100', status: 'PASS' };
 }
 
 function test_root_submit_triggers_processing() {
@@ -223,11 +236,11 @@ const syncTests = [
   test_remote_subscription_config_registered,
   test_root_submit_wiring_declared,
   test_root_result_wiring_declared,
-  test_mqtt_incoming_routes_to_model100,
   test_root_submit_triggers_processing,
 ];
 
 const asyncTests = [
+  test_mqtt_incoming_routes_through_model0_to_model100,
   test_full_chain_async,
 ];
 

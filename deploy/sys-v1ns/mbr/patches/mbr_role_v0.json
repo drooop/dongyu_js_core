@@ -1,12 +1,22 @@
 {
   "version": "mt.v0",
-  "op_id": "mbr_role_v0_seed",
+  "op_id": "mbr_role_v1_modeltable_bus_chain",
   "records": [
     {
       "op": "create_model",
       "model_id": -10,
       "name": "system",
       "type": "system"
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.v1n",
+      "v": ""
     },
     {
       "op": "add_label",
@@ -54,38 +64,18 @@
       "p": 0,
       "r": 0,
       "c": 0,
-      "k": "mbr_cb_in_wiring",
-      "t": "pin.connect.label",
-      "v": [
-        {
-          "from": "mbr_cb_in",
-          "to": [
-            "mbr_cb_dispatch:in"
-          ]
-        }
-      ]
-    },
-    {
-      "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_cb_dispatch",
-      "t": "func.js",
-      "v": {
-        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\n\nconst hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);\nconst isRecord = (record) => record && typeof record === 'object' && !Array.isArray(record) && Object.keys(record).sort().join(',') === 'c,id,k,p,r,t,v' && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0 && hasOwn(record, 'v');\nconst payloadRecord = (records, key, id = 0) => Array.isArray(records) ? records.find((record) => isRecord(record) && record.id === id && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null : null;\nconst payloadString = (records, key, fallback = '', id = 0) => { const record = payloadRecord(records, key, id); return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v ? record.v : fallback; };\nconst payloadInt = (records, key, id = 0) => { const record = payloadRecord(records, key, id); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst safeSegment = (value) => typeof value === 'string' && value.trim() === value && value.length > 0 && !value.includes('/') && !value.includes('+') && !value.includes('#');\nconst safeTopic = (value) => {\n  if (typeof value !== 'string' || value.trim() !== value || value.length === 0 || value.includes('+') || value.includes('#')) return false;\n  const parts = value.split('/');\n  return parts.length === 8 && parts[0] === 'UIPUT' && parts.every(safeSegment) && /^[1-9][0-9]*$/.test(parts[6]);\n};\nconst topicParts = (value) => safeTopic(value) ? value.split('/') : [];\nconst endpointFrom = (records, prefix) => {\n  const tableRecord = payloadRecord(records, prefix + '_table_id');\n  const endpoint = { worker_id: payloadString(records, prefix + '_worker_id'), table_id: tableRecord && tableRecord.t === 'str' ? tableRecord.v : '', table_id_present: Boolean(tableRecord), model_id: payloadInt(records, prefix + '_model_id'), pin: payloadString(records, prefix + '_pin') };\n  if (!safeSegment(endpoint.worker_id) || !endpoint.table_id_present || !safeSegment(endpoint.table_id) || !Number.isInteger(endpoint.model_id) || endpoint.model_id <= 0 || !safeSegment(endpoint.pin)) return null;\n  return endpoint;\n};\nconst endpointMatches = (left, right) => Boolean(left && right && left.worker_id === right.worker_id && left.model_id === right.model_id && left.pin === right.pin);\nconst topicForEndpoint = (topic, target) => {\n  if (!target || !safeTopic(topic)) return '';\n  const parts = topic.split('/');\n  return parts.slice(0, 5).concat([target.worker_id, String(target.model_id), target.pin]).join('/');\n};\nconst validRouteKind = (value) => value === 'control' || value === 'management';\nconst parsePinPayload = (packet) => {\n  if (!packet || typeof packet !== 'object' || Array.isArray(packet)) return { ok: false, code: 'invalid_packet' };\n  if (Object.keys(packet).sort().join(',') !== 'payload,type,version') return { ok: false, code: 'loose_pin_payload_fields_removed' };\n  if (packet.version !== 'v1' || packet.type !== 'pin_payload' || !Array.isArray(packet.payload)) return { ok: false, code: 'invalid_packet' };\n  const records = packet.payload;\n  if (records.length === 0 || !records.every(isRecord)) return { ok: false, code: 'temporary_modeltable_required' };\n  if (payloadString(records, '__mt_payload_kind') !== 'pin_payload.v2') return { ok: false, code: 'invalid_payload_kind' };\n  if (payloadRecord(records, 'payload')) return { ok: false, code: 'nested_payload_removed' };\n  const opId = payloadString(records, 'op_id') || payloadString(records, '__mt_request_id');\n  if (!opId) return { ok: false, code: 'missing_request_correlation' };\n  const messageRole = payloadString(records, 'message_role');\n  if (messageRole !== 'request' && messageRole !== 'response') return { ok: false, code: 'invalid_message_role' };\n  const topic = payloadString(records, 'topic');\n  const responseTopic = payloadString(records, 'response_topic');\n  const routeKind = payloadString(records, 'route_kind') || 'control';\n  const endpoint = endpointFrom(records, 'endpoint');\n  const origin = endpointFrom(records, 'origin', true);\n  const replyTarget = endpointFrom(records, 'reply_target', true);\n  const payloadModelId = payloadInt(records, 'payload_model_id');\n  const payloadRecords = Number.isInteger(payloadModelId) && payloadModelId > 0 ? records.filter((record) => isRecord(record) && record.id === payloadModelId) : [];\n  if (!endpoint || !origin || !replyTarget || !safeTopic(topic) || !safeTopic(responseTopic) || !validRouteKind(routeKind) || payloadRecords.length === 0) return { ok: false, code: 'invalid_pin_payload_records' };\n  const parts = topicParts(topic);\n  if (parts[5] !== endpoint.worker_id || Number(parts[6]) !== endpoint.model_id || parts[7] !== endpoint.pin) return { ok: false, code: 'endpoint_mismatch' };\n  if (topicForEndpoint(topic, replyTarget) !== responseTopic) return { ok: false, code: 'response_topic_mismatch' };\n  if (messageRole === 'request' && topic === responseTopic) return { ok: false, code: 'response_topic_mismatch' };\n  if (messageRole === 'response' && (topic !== responseTopic || !endpointMatches(endpoint, replyTarget))) return { ok: false, code: 'response_topic_mismatch' };\n  return { ok: true, records, endpoint, origin, replyTarget, payloadRecords, opId, messageRole, topic, responseTopic, routeKind };\n};\nconst fail = (detail) => { V1N.addLabel('mbr_cb_error', 'json', { code: 'invalid_control_bus_payload', detail, ts: Date.now() }); };\nconst parsed = parsePinPayload({ version: 'v1', type: 'pin_payload', payload: records });\nif (!parsed.ok) { fail(parsed.code); return; }\nif (parsed.routeKind === 'management') {\n  V1N.addLabel('mbr_mb_out', 'pin.bus.mb.out', records);\n} else {\n  V1N.addLabel('mbr_cb_out', 'pin.bus.cb.out', records);\n}",
-        "modelName": "mbr_role_v0"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": 0,
-      "p": 0,
-      "r": 0,
-      "c": 0,
       "k": "mbr_cb_out",
       "t": "pin.bus.cb.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_mb_in",
+      "t": "pin.bus.mb.in",
       "v": null
     },
     {
@@ -110,6 +100,83 @@
     },
     {
       "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_cb_ingress",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_mb_ingress",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_cb_egress",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 1,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_mb_egress",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": 0,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_bus_routes",
+      "t": "pin.connect.cell",
+      "v": [
+        {
+          "from": [0, 0, 0, "mbr_cb_in"],
+          "to": [[1, 0, 0, "mbr_cb_ingress"]]
+        },
+        {
+          "from": [0, 0, 0, "mbr_mb_in"],
+          "to": [[1, 0, 0, "mbr_mb_ingress"]]
+        },
+        {
+          "from": [1, 0, 0, "mbr_cb_egress"],
+          "to": [[0, 0, 0, "mbr_cb_out"]]
+        },
+        {
+          "from": [1, 0, 0, "mbr_mb_egress"],
+          "to": [[0, 0, 0, "mbr_mb_out"]]
+        }
+      ]
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "model_type",
+      "t": "model.submt",
+      "v": "Flow.MessageBridge"
+    },
+    {
+      "op": "add_label",
       "model_id": -10,
       "p": 0,
       "r": 0,
@@ -127,59 +194,6 @@
       "k": "mbr_matrix_event_filter",
       "t": "str",
       "v": "pin_payload"
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_matrix_inbox_label",
-      "t": "str",
-      "v": "mbr_mgmt_inbox"
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_matrix_func",
-      "t": "str",
-      "v": "mbr_mgmt_dispatch"
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_mgmt_dispatch",
-      "t": "func.js",
-      "v": {
-        "code": "const host = ctx.hostApi;\nif (!host) throw new Error('host_api_missing');\nconst mtRead = (modelId, p, r, c, k, fallback = null) => {\n  const result = host.readCrossModel(modelId, p, r, c, k);\n  return result && result.ok && result.data && Object.prototype.hasOwnProperty.call(result.data, 'v') ? result.data.v : fallback;\n};\nconst mtAdd = (modelId, p, r, c, k, t, v) => {\n  const result = host.writeCrossModel(modelId, p, r, c, k, t, v);\n  if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_add_failed');\n  return result;\n};\nconst mtDrop = (modelId, p, r, c, k) => {\n  const result = host.rmCrossModel(modelId, p, r, c, k);\n  if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_remove_failed');\n  return result;\n};\n\nconst hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);\nconst isRecord = (record) => record && typeof record === 'object' && !Array.isArray(record) && Object.keys(record).sort().join(',') === 'c,id,k,p,r,t,v' && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0 && hasOwn(record, 'v');\nconst payloadRecord = (records, key, id = 0) => Array.isArray(records) ? records.find((record) => isRecord(record) && record.id === id && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null : null;\nconst payloadString = (records, key, fallback = '', id = 0) => { const record = payloadRecord(records, key, id); return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v ? record.v : fallback; };\nconst payloadInt = (records, key, id = 0) => { const record = payloadRecord(records, key, id); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst safeSegment = (value) => typeof value === 'string' && value.trim() === value && value.length > 0 && !value.includes('/') && !value.includes('+') && !value.includes('#');\nconst safeTopic = (value) => {\n  if (typeof value !== 'string' || value.trim() !== value || value.length === 0 || value.includes('+') || value.includes('#')) return false;\n  const parts = value.split('/');\n  return parts.length === 8 && parts[0] === 'UIPUT' && parts.every(safeSegment) && /^[1-9][0-9]*$/.test(parts[6]);\n};\nconst topicParts = (value) => safeTopic(value) ? value.split('/') : [];\nconst endpointFrom = (records, prefix) => {\n  const tableRecord = payloadRecord(records, prefix + '_table_id');\n  const endpoint = { worker_id: payloadString(records, prefix + '_worker_id'), table_id: tableRecord && tableRecord.t === 'str' ? tableRecord.v : '', table_id_present: Boolean(tableRecord), model_id: payloadInt(records, prefix + '_model_id'), pin: payloadString(records, prefix + '_pin') };\n  if (!safeSegment(endpoint.worker_id) || !endpoint.table_id_present || !safeSegment(endpoint.table_id) || !Number.isInteger(endpoint.model_id) || endpoint.model_id <= 0 || !safeSegment(endpoint.pin)) return null;\n  return endpoint;\n};\nconst endpointMatches = (left, right) => Boolean(left && right && left.worker_id === right.worker_id && left.model_id === right.model_id && left.pin === right.pin);\nconst topicForEndpoint = (topic, target) => {\n  if (!target || !safeTopic(topic)) return '';\n  const parts = topic.split('/');\n  return parts.slice(0, 5).concat([target.worker_id, String(target.model_id), target.pin]).join('/');\n};\nconst validRouteKind = (value) => value === 'control' || value === 'management';\nconst parsePinPayload = (packet) => {\n  if (!packet || typeof packet !== 'object' || Array.isArray(packet)) return { ok: false, code: 'invalid_packet' };\n  if (Object.keys(packet).sort().join(',') !== 'payload,type,version') return { ok: false, code: 'loose_pin_payload_fields_removed' };\n  if (packet.version !== 'v1' || packet.type !== 'pin_payload' || !Array.isArray(packet.payload)) return { ok: false, code: 'invalid_packet' };\n  const records = packet.payload;\n  if (records.length === 0 || !records.every(isRecord)) return { ok: false, code: 'temporary_modeltable_required' };\n  if (payloadString(records, '__mt_payload_kind') !== 'pin_payload.v2') return { ok: false, code: 'invalid_payload_kind' };\n  if (payloadRecord(records, 'payload')) return { ok: false, code: 'nested_payload_removed' };\n  const opId = payloadString(records, 'op_id') || payloadString(records, '__mt_request_id');\n  if (!opId) return { ok: false, code: 'missing_request_correlation' };\n  const messageRole = payloadString(records, 'message_role');\n  if (messageRole !== 'request' && messageRole !== 'response') return { ok: false, code: 'invalid_message_role' };\n  const topic = payloadString(records, 'topic');\n  const responseTopic = payloadString(records, 'response_topic');\n  const routeKind = payloadString(records, 'route_kind') || 'control';\n  const endpoint = endpointFrom(records, 'endpoint');\n  const origin = endpointFrom(records, 'origin', true);\n  const replyTarget = endpointFrom(records, 'reply_target', true);\n  const payloadModelId = payloadInt(records, 'payload_model_id');\n  const payloadRecords = Number.isInteger(payloadModelId) && payloadModelId > 0 ? records.filter((record) => isRecord(record) && record.id === payloadModelId) : [];\n  if (!endpoint || !origin || !replyTarget || !safeTopic(topic) || !safeTopic(responseTopic) || !validRouteKind(routeKind) || payloadRecords.length === 0) return { ok: false, code: 'invalid_pin_payload_records' };\n  const parts = topicParts(topic);\n  if (parts[5] !== endpoint.worker_id || Number(parts[6]) !== endpoint.model_id || parts[7] !== endpoint.pin) return { ok: false, code: 'endpoint_mismatch' };\n  if (topicForEndpoint(topic, replyTarget) !== responseTopic) return { ok: false, code: 'response_topic_mismatch' };\n  if (messageRole === 'request' && topic === responseTopic) return { ok: false, code: 'response_topic_mismatch' };\n  if (messageRole === 'response' && (topic !== responseTopic || !endpointMatches(endpoint, replyTarget))) return { ok: false, code: 'response_topic_mismatch' };\n  return { ok: true, records, endpoint, origin, replyTarget, payloadRecords, opId, messageRole, topic, responseTopic, routeKind };\n};\nconst inbox = mtRead(-10, 0, 0, 0, 'mbr_mgmt_inbox');\nif (!inbox || typeof inbox !== 'object' || Array.isArray(inbox)) return;\nconst cleanup = () => { mtDrop(-10, 0, 0, 0, 'mbr_mgmt_inbox'); };\nconst reject = (detail, opId = '') => { mtAdd(-10, 0, 0, 0, 'mbr_mgmt_error', 'json', { op_id: opId, code: 'direct_model_mutation_disabled', detail }); cleanup(); };\nconst parsed = parsePinPayload(inbox);\nif (!parsed.ok) { reject(parsed.code); return; }\nif (parsed.messageRole !== 'request') { cleanup(); return; }\nmtAdd(-10, 0, 0, 0, 'run_mbr_mgmt_to_mqtt', 'str', '1');",
-        "modelName": "mbr_role_v0"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_mqtt_inbox_label",
-      "t": "str",
-      "v": "mbr_mqtt_inbox"
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_mqtt_func",
-      "t": "str",
-      "v": "mbr_mqtt_to_mgmt"
     },
     {
       "op": "add_label",
@@ -210,8 +224,8 @@
       "k": "mbr_mgmt_to_mqtt",
       "t": "func.js",
       "v": {
-        "code": "const host = ctx.hostApi;\nif (!host) throw new Error('host_api_missing');\nconst mtRead = (modelId, p, r, c, k, fallback = null) => {\n  const result = host.readCrossModel(modelId, p, r, c, k);\n  return result && result.ok && result.data && Object.prototype.hasOwnProperty.call(result.data, 'v') ? result.data.v : fallback;\n};\nconst mtAdd = (modelId, p, r, c, k, t, v) => {\n  const result = host.writeCrossModel(modelId, p, r, c, k, t, v);\n  if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_add_failed');\n  return result;\n};\nconst mtDrop = (modelId, p, r, c, k) => {\n  const result = host.rmCrossModel(modelId, p, r, c, k);\n  if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_remove_failed');\n  return result;\n};\n\nconst hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);\nconst isRecord = (record) => record && typeof record === 'object' && !Array.isArray(record) && Object.keys(record).sort().join(',') === 'c,id,k,p,r,t,v' && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0 && hasOwn(record, 'v');\nconst payloadRecord = (records, key, id = 0) => Array.isArray(records) ? records.find((record) => isRecord(record) && record.id === id && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null : null;\nconst payloadString = (records, key, fallback = '', id = 0) => { const record = payloadRecord(records, key, id); return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v ? record.v : fallback; };\nconst payloadInt = (records, key, id = 0) => { const record = payloadRecord(records, key, id); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst safeSegment = (value) => typeof value === 'string' && value.trim() === value && value.length > 0 && !value.includes('/') && !value.includes('+') && !value.includes('#');\nconst safeTopic = (value) => {\n  if (typeof value !== 'string' || value.trim() !== value || value.length === 0 || value.includes('+') || value.includes('#')) return false;\n  const parts = value.split('/');\n  return parts.length === 8 && parts[0] === 'UIPUT' && parts.every(safeSegment) && /^[1-9][0-9]*$/.test(parts[6]);\n};\nconst topicParts = (value) => safeTopic(value) ? value.split('/') : [];\nconst endpointFrom = (records, prefix) => {\n  const tableRecord = payloadRecord(records, prefix + '_table_id');\n  const endpoint = { worker_id: payloadString(records, prefix + '_worker_id'), table_id: tableRecord && tableRecord.t === 'str' ? tableRecord.v : '', table_id_present: Boolean(tableRecord), model_id: payloadInt(records, prefix + '_model_id'), pin: payloadString(records, prefix + '_pin') };\n  if (!safeSegment(endpoint.worker_id) || !endpoint.table_id_present || !safeSegment(endpoint.table_id) || !Number.isInteger(endpoint.model_id) || endpoint.model_id <= 0 || !safeSegment(endpoint.pin)) return null;\n  return endpoint;\n};\nconst endpointMatches = (left, right) => Boolean(left && right && left.worker_id === right.worker_id && left.model_id === right.model_id && left.pin === right.pin);\nconst topicForEndpoint = (topic, target) => {\n  if (!target || !safeTopic(topic)) return '';\n  const parts = topic.split('/');\n  return parts.slice(0, 5).concat([target.worker_id, String(target.model_id), target.pin]).join('/');\n};\nconst validRouteKind = (value) => value === 'control' || value === 'management';\nconst parsePinPayload = (packet) => {\n  if (!packet || typeof packet !== 'object' || Array.isArray(packet)) return { ok: false, code: 'invalid_packet' };\n  if (Object.keys(packet).sort().join(',') !== 'payload,type,version') return { ok: false, code: 'loose_pin_payload_fields_removed' };\n  if (packet.version !== 'v1' || packet.type !== 'pin_payload' || !Array.isArray(packet.payload)) return { ok: false, code: 'invalid_packet' };\n  const records = packet.payload;\n  if (records.length === 0 || !records.every(isRecord)) return { ok: false, code: 'temporary_modeltable_required' };\n  if (payloadString(records, '__mt_payload_kind') !== 'pin_payload.v2') return { ok: false, code: 'invalid_payload_kind' };\n  if (payloadRecord(records, 'payload')) return { ok: false, code: 'nested_payload_removed' };\n  const opId = payloadString(records, 'op_id') || payloadString(records, '__mt_request_id');\n  if (!opId) return { ok: false, code: 'missing_request_correlation' };\n  const messageRole = payloadString(records, 'message_role');\n  if (messageRole !== 'request' && messageRole !== 'response') return { ok: false, code: 'invalid_message_role' };\n  const topic = payloadString(records, 'topic');\n  const responseTopic = payloadString(records, 'response_topic');\n  const routeKind = payloadString(records, 'route_kind') || 'control';\n  const endpoint = endpointFrom(records, 'endpoint');\n  const origin = endpointFrom(records, 'origin', true);\n  const replyTarget = endpointFrom(records, 'reply_target', true);\n  const payloadModelId = payloadInt(records, 'payload_model_id');\n  const payloadRecords = Number.isInteger(payloadModelId) && payloadModelId > 0 ? records.filter((record) => isRecord(record) && record.id === payloadModelId) : [];\n  if (!endpoint || !origin || !replyTarget || !safeTopic(topic) || !safeTopic(responseTopic) || !validRouteKind(routeKind) || payloadRecords.length === 0) return { ok: false, code: 'invalid_pin_payload_records' };\n  const parts = topicParts(topic);\n  if (parts[5] !== endpoint.worker_id || Number(parts[6]) !== endpoint.model_id || parts[7] !== endpoint.pin) return { ok: false, code: 'endpoint_mismatch' };\n  if (topicForEndpoint(topic, replyTarget) !== responseTopic) return { ok: false, code: 'response_topic_mismatch' };\n  if (messageRole === 'request' && topic === responseTopic) return { ok: false, code: 'response_topic_mismatch' };\n  if (messageRole === 'response' && (topic !== responseTopic || !endpointMatches(endpoint, replyTarget))) return { ok: false, code: 'response_topic_mismatch' };\n  return { ok: true, records, endpoint, origin, replyTarget, payloadRecords, opId, messageRole, topic, responseTopic, routeKind };\n};\nconst inbox = mtRead(-10, 0, 0, 0, 'mbr_mgmt_inbox');\nif (!inbox || typeof inbox !== 'object' || Array.isArray(inbox)) return;\nconst cleanup = () => { mtDrop(-10, 0, 0, 0, 'mbr_mgmt_inbox'); };\nconst reject = (detail, opId = '') => { mtAdd(-10, 0, 0, 0, 'mbr_mgmt_error', 'json', { op_id: opId, code: detail === 'snapshot_delta_removed' ? 'direct_model_mutation_disabled' : 'invalid_control_bus_payload', detail }); cleanup(); };\nif (inbox.type !== 'pin_payload') { reject('snapshot_delta_removed'); return; }\nconst parsed = parsePinPayload(inbox);\nif (!parsed.ok) { reject(parsed.code); return; }\nif (parsed.messageRole !== 'request') { cleanup(); return; }\nif (parsed.endpoint.pin.includes(':')) { reject('function_endpoint_not_allowed', parsed.opId); return; }\nmtAdd(0, 0, 0, 0, 'mbr_cb_out', 'pin.bus.cb.out', parsed.records);\ncleanup();",
-        "modelName": "mbr_role_v0"
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);\nconst validRecord = (record) => record && typeof record === 'object' && !Array.isArray(record) && Object.keys(record).sort().join(',') === 'c,id,k,p,r,t,v' && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0 && own(record, 'v');\nconst root = (key) => records.find((record) => validRecord(record) && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null;\nconst str = (key) => { const record = root(key); return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v ? record.v : ''; };\nconst int = (key) => { const record = root(key); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst safe = (value) => typeof value === 'string' && value.length > 0 && value.trim() === value && !value.includes('/') && !value.includes('+') && !value.includes('#');\nconst safeTopic = (value) => { if (typeof value !== 'string' || value.trim() !== value || value.includes('+') || value.includes('#')) return false; const parts = value.split('/'); return parts.length === 8 && parts[0] === 'UIPUT' && parts.every(safe) && /^[1-9][0-9]*$/.test(parts[6]); };\nconst topicMatches = (topicValue, endpointValue) => { const parts = safeTopic(topicValue) ? topicValue.split('/') : []; return parts[5] === endpointValue.worker && Number(parts[6]) === endpointValue.model && parts[7] === endpointValue.pin; };\nconst endpoint = (prefix) => ({ worker: str(prefix + '_worker_id'), table: str(prefix + '_table_id'), model: int(prefix + '_model_id'), pin: str(prefix + '_pin') });\nconst validEndpoint = (value) => safe(value.worker) && safe(value.table) && Number.isInteger(value.model) && (value.table === 'host' ? value.model > 0 : value.model >= 0) && safe(value.pin);\nconst fail = (detail) => V1N.addLabel('mbr_mgmt_error', 'json', { code: 'invalid_management_bus_payload', detail, ts: Date.now() });\nif (records.length === 0 || !records.every(validRecord)) { fail('temporary_modeltable_required'); return; }\nif (str('__mt_payload_kind') !== 'pin_payload.v2') { fail('invalid_payload_kind'); return; }\nconst role = str('message_role'); const bus = str('bus'); const route = str('route_kind');\nconst topic = str('topic'); const responseTopic = str('response_topic'); const target = endpoint('endpoint'); const origin = endpoint('origin'); const reply = endpoint('reply_target'); const payloadModelId = int('payload_model_id');\nif (role !== 'request' || bus !== 'management' || route !== 'management' || target.table !== 'host' || target.model <= 0) { fail('invalid_management_route'); return; }\nif (!validEndpoint(target) || !validEndpoint(origin) || !validEndpoint(reply) || !safeTopic(topic) || !safeTopic(responseTopic) || !topicMatches(topic, target) || (reply.table === 'host' && !topicMatches(responseTopic, reply)) || topic === responseTopic || !Number.isInteger(payloadModelId) || payloadModelId <= 0 || !records.some((record) => record.id === payloadModelId)) { fail('invalid_pin_payload_records'); return; }\nV1N.addLabel('mbr_cb_egress', 'pin.out', records);",
+        "modelName": "mbr_role_v1"
       }
     },
     {
@@ -223,21 +237,8 @@
       "k": "mbr_mqtt_to_mgmt",
       "t": "func.js",
       "v": {
-        "code": "const host = ctx.hostApi;\nif (!host) throw new Error('host_api_missing');\nconst mtRead = (modelId, p, r, c, k, fallback = null) => {\n  const result = host.readCrossModel(modelId, p, r, c, k);\n  return result && result.ok && result.data && Object.prototype.hasOwnProperty.call(result.data, 'v') ? result.data.v : fallback;\n};\nconst mtAdd = (modelId, p, r, c, k, t, v) => {\n  const result = host.writeCrossModel(modelId, p, r, c, k, t, v);\n  if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_add_failed');\n  return result;\n};\nconst mtDrop = (modelId, p, r, c, k) => {\n  const result = host.rmCrossModel(modelId, p, r, c, k);\n  if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_remove_failed');\n  return result;\n};\n\nconst hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);\nconst isRecord = (record) => record && typeof record === 'object' && !Array.isArray(record) && Object.keys(record).sort().join(',') === 'c,id,k,p,r,t,v' && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0 && hasOwn(record, 'v');\nconst payloadRecord = (records, key, id = 0) => Array.isArray(records) ? records.find((record) => isRecord(record) && record.id === id && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null : null;\nconst payloadString = (records, key, fallback = '', id = 0) => { const record = payloadRecord(records, key, id); return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v ? record.v : fallback; };\nconst payloadInt = (records, key, id = 0) => { const record = payloadRecord(records, key, id); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst safeSegment = (value) => typeof value === 'string' && value.trim() === value && value.length > 0 && !value.includes('/') && !value.includes('+') && !value.includes('#');\nconst safeTopic = (value) => {\n  if (typeof value !== 'string' || value.trim() !== value || value.length === 0 || value.includes('+') || value.includes('#')) return false;\n  const parts = value.split('/');\n  return parts.length === 8 && parts[0] === 'UIPUT' && parts.every(safeSegment) && /^[1-9][0-9]*$/.test(parts[6]);\n};\nconst topicParts = (value) => safeTopic(value) ? value.split('/') : [];\nconst endpointFrom = (records, prefix) => {\n  const tableRecord = payloadRecord(records, prefix + '_table_id');\n  const endpoint = { worker_id: payloadString(records, prefix + '_worker_id'), table_id: tableRecord && tableRecord.t === 'str' ? tableRecord.v : '', table_id_present: Boolean(tableRecord), model_id: payloadInt(records, prefix + '_model_id'), pin: payloadString(records, prefix + '_pin') };\n  if (!safeSegment(endpoint.worker_id) || !endpoint.table_id_present || !safeSegment(endpoint.table_id) || !Number.isInteger(endpoint.model_id) || endpoint.model_id <= 0 || !safeSegment(endpoint.pin)) return null;\n  return endpoint;\n};\nconst endpointMatches = (left, right) => Boolean(left && right && left.worker_id === right.worker_id && left.model_id === right.model_id && left.pin === right.pin);\nconst topicForEndpoint = (topic, target) => {\n  if (!target || !safeTopic(topic)) return '';\n  const parts = topic.split('/');\n  return parts.slice(0, 5).concat([target.worker_id, String(target.model_id), target.pin]).join('/');\n};\nconst validRouteKind = (value) => value === 'control' || value === 'management';\nconst parsePinPayload = (packet) => {\n  if (!packet || typeof packet !== 'object' || Array.isArray(packet)) return { ok: false, code: 'invalid_packet' };\n  if (Object.keys(packet).sort().join(',') !== 'payload,type,version') return { ok: false, code: 'loose_pin_payload_fields_removed' };\n  if (packet.version !== 'v1' || packet.type !== 'pin_payload' || !Array.isArray(packet.payload)) return { ok: false, code: 'invalid_packet' };\n  const records = packet.payload;\n  if (records.length === 0 || !records.every(isRecord)) return { ok: false, code: 'temporary_modeltable_required' };\n  if (payloadString(records, '__mt_payload_kind') !== 'pin_payload.v2') return { ok: false, code: 'invalid_payload_kind' };\n  if (payloadRecord(records, 'payload')) return { ok: false, code: 'nested_payload_removed' };\n  const opId = payloadString(records, 'op_id') || payloadString(records, '__mt_request_id');\n  if (!opId) return { ok: false, code: 'missing_request_correlation' };\n  const messageRole = payloadString(records, 'message_role');\n  if (messageRole !== 'request' && messageRole !== 'response') return { ok: false, code: 'invalid_message_role' };\n  const topic = payloadString(records, 'topic');\n  const responseTopic = payloadString(records, 'response_topic');\n  const routeKind = payloadString(records, 'route_kind') || 'control';\n  const endpoint = endpointFrom(records, 'endpoint');\n  const origin = endpointFrom(records, 'origin', true);\n  const replyTarget = endpointFrom(records, 'reply_target', true);\n  const payloadModelId = payloadInt(records, 'payload_model_id');\n  const payloadRecords = Number.isInteger(payloadModelId) && payloadModelId > 0 ? records.filter((record) => isRecord(record) && record.id === payloadModelId) : [];\n  if (!endpoint || !origin || !replyTarget || !safeTopic(topic) || !safeTopic(responseTopic) || !validRouteKind(routeKind) || payloadRecords.length === 0) return { ok: false, code: 'invalid_pin_payload_records' };\n  const parts = topicParts(topic);\n  if (parts[5] !== endpoint.worker_id || Number(parts[6]) !== endpoint.model_id || parts[7] !== endpoint.pin) return { ok: false, code: 'endpoint_mismatch' };\n  if (topicForEndpoint(topic, replyTarget) !== responseTopic) return { ok: false, code: 'response_topic_mismatch' };\n  if (messageRole === 'request' && topic === responseTopic) return { ok: false, code: 'response_topic_mismatch' };\n  if (messageRole === 'response' && (topic !== responseTopic || !endpointMatches(endpoint, replyTarget))) return { ok: false, code: 'response_topic_mismatch' };\n  return { ok: true, records, endpoint, origin, replyTarget, payloadRecords, opId, messageRole, topic, responseTopic, routeKind };\n};\nconst inbox = mtRead(-10, 0, 0, 0, 'mbr_mqtt_inbox');\nif (!inbox || typeof inbox !== 'object' || Array.isArray(inbox)) return;\nconst cleanup = () => { mtDrop(-10, 0, 0, 0, 'mbr_mqtt_inbox'); };\nconst payload = inbox.payload;\nconst parsed = parsePinPayload(payload);\nconst reject = (detail) => {\n  mtAdd(-10, 0, 0, 0, 'mbr_mqtt_error', 'json', { op_id: parsed && parsed.opId ? parsed.opId : '', code: 'invalid_mqtt_pin_payload', detail });\n  cleanup();\n};\nif (!parsed.ok) { reject(parsed.code); return; }\nif (parsed.endpoint.pin.includes(':')) { reject('function_endpoint_not_allowed'); return; }\nif (parsed.messageRole !== 'response') { cleanup(); return; }\nif (parsed.routeKind === 'management') {\n  mtAdd(0, 0, 0, 0, 'mbr_mb_out', 'pin.bus.mb.out', parsed.records);\n} else {\n  mtAdd(0, 0, 0, 0, 'mbr_cb_out', 'pin.bus.cb.out', parsed.records);\n}\ncleanup();",
-        "modelName": "mbr_role_v0"
-      }
-    },
-    {
-      "op": "add_label",
-      "model_id": -10,
-      "p": 0,
-      "r": 0,
-      "c": 0,
-      "k": "mbr_heartbeat",
-      "t": "func.js",
-      "v": {
-        "code": "const host = ctx.hostApi;\nif (!host) throw new Error('host_api_missing');\nconst mtRead = (modelId, p, r, c, k, fallback = null) => {\n  const result = host.readCrossModel(modelId, p, r, c, k);\n  return result && result.ok && result.data && Object.prototype.hasOwnProperty.call(result.data, 'v') ? result.data.v : fallback;\n};\nconst mtAdd = (modelId, p, r, c, k, t, v) => {\n  const result = host.writeCrossModel(modelId, p, r, c, k, t, v);\n  if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_add_failed');\n  return result;\n};\nconst mtDrop = (modelId, p, r, c, k) => {\n  const result = host.rmCrossModel(modelId, p, r, c, k);\n  if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_remove_failed');\n  return result;\n};\nconst opId = 'mbr_heartbeat_' + Date.now();\nmtAdd(-10, 0, 0, 0, 'mbr_heartbeat_status', 'json', { op_id: opId, status: 'ready', ts: Date.now() });",
-        "modelName": "mbr_role_v0"
+        "code": "const records = Array.isArray(label && label.v) ? label.v : [];\nconst own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);\nconst validRecord = (record) => record && typeof record === 'object' && !Array.isArray(record) && Object.keys(record).sort().join(',') === 'c,id,k,p,r,t,v' && Number.isInteger(record.id) && Number.isInteger(record.p) && Number.isInteger(record.r) && Number.isInteger(record.c) && typeof record.k === 'string' && record.k.length > 0 && typeof record.t === 'string' && record.t.length > 0 && own(record, 'v');\nconst root = (key) => records.find((record) => validRecord(record) && record.id === 0 && record.p === 0 && record.r === 0 && record.c === 0 && record.k === key) || null;\nconst str = (key) => { const record = root(key); return record && record.t === 'str' && typeof record.v === 'string' && record.v.trim() === record.v ? record.v : ''; };\nconst int = (key) => { const record = root(key); return record && record.t === 'int' && Number.isInteger(record.v) ? record.v : null; };\nconst safe = (value) => typeof value === 'string' && value.length > 0 && value.trim() === value && !value.includes('/') && !value.includes('+') && !value.includes('#');\nconst safeTopic = (value) => { if (typeof value !== 'string' || value.trim() !== value || value.includes('+') || value.includes('#')) return false; const parts = value.split('/'); return parts.length === 8 && parts[0] === 'UIPUT' && parts.every(safe) && /^[1-9][0-9]*$/.test(parts[6]); };\nconst topicMatches = (topicValue, endpointValue) => { const parts = safeTopic(topicValue) ? topicValue.split('/') : []; return parts[5] === endpointValue.worker && Number(parts[6]) === endpointValue.model && parts[7] === endpointValue.pin; };\nconst endpoint = (prefix) => ({ worker: str(prefix + '_worker_id'), table: str(prefix + '_table_id'), model: int(prefix + '_model_id'), pin: str(prefix + '_pin') });\nconst validEndpoint = (value) => safe(value.worker) && safe(value.table) && Number.isInteger(value.model) && (value.table === 'host' ? value.model > 0 : value.model >= 0) && safe(value.pin);\nconst fail = (detail) => V1N.addLabel('mbr_mqtt_error', 'json', { code: 'invalid_control_bus_payload', detail, ts: Date.now() });\nif (records.length === 0 || !records.every(validRecord)) { fail('temporary_modeltable_required'); return; }\nif (str('__mt_payload_kind') !== 'pin_payload.v2') { fail('invalid_payload_kind'); return; }\nconst role = str('message_role'); const bus = str('bus'); const route = str('route_kind');\nconst topic = str('topic'); const responseTopic = str('response_topic'); const target = endpoint('endpoint'); const origin = endpoint('origin'); const reply = endpoint('reply_target'); const payloadModelId = int('payload_model_id');\nif (role !== 'response' || bus !== 'management' || route !== 'management' || target.table !== 'host' || target.model <= 0) { fail('invalid_response_route'); return; }\nif (!validEndpoint(target) || !validEndpoint(origin) || !validEndpoint(reply) || !safeTopic(topic) || !safeTopic(responseTopic) || !topicMatches(topic, target) || (reply.table === 'host' && !topicMatches(responseTopic, reply)) || topic !== responseTopic || !Number.isInteger(payloadModelId) || payloadModelId <= 0 || !records.some((record) => record.id === payloadModelId)) { fail('invalid_pin_payload_records'); return; }\nV1N.addLabel('mbr_mb_egress', 'pin.out', records);",
+        "modelName": "mbr_role_v1"
       }
     },
     {
@@ -249,9 +250,81 @@
       "k": "mbr_ready",
       "t": "func.js",
       "v": {
-        "code": "const host = ctx.hostApi;\nif (!host) throw new Error('host_api_missing');\nconst mtRead = (modelId, p, r, c, k, fallback = null) => {\n  const result = host.readCrossModel(modelId, p, r, c, k);\n  return result && result.ok && result.data && Object.prototype.hasOwnProperty.call(result.data, 'v') ? result.data.v : fallback;\n};\nconst mtAdd = (modelId, p, r, c, k, t, v) => {\n  const result = host.writeCrossModel(modelId, p, r, c, k, t, v);\n  if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_add_failed');\n  return result;\n};\nconst mtDrop = (modelId, p, r, c, k) => {\n  const result = host.rmCrossModel(modelId, p, r, c, k);\n  if (!result || result.ok !== true) throw new Error(result && result.code ? result.code : 'mt_remove_failed');\n  return result;\n};\nconst opId = 'mbr_ready_' + Date.now();\nmtAdd(-10, 0, 0, 0, 'mbr_ready_status', 'json', { op_id: opId, status: 'ready', ts: Date.now() });",
-        "modelName": "mbr_role_v0"
+        "code": "V1N.addLabel('mbr_ready_status', 'json', { status: 'ready', ts: Date.now() });",
+        "modelName": "mbr_role_v1"
       }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_heartbeat",
+      "t": "func.js",
+      "v": {
+        "code": "V1N.addLabel('mbr_heartbeat_status', 'json', { status: 'ready', ts: Date.now() });",
+        "modelName": "mbr_role_v1"
+      }
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_cb_ingress",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_mb_ingress",
+      "t": "pin.in",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_cb_egress",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_mb_egress",
+      "t": "pin.out",
+      "v": null
+    },
+    {
+      "op": "add_label",
+      "model_id": -10,
+      "p": 0,
+      "r": 0,
+      "c": 0,
+      "k": "mbr_dispatch_wiring",
+      "t": "pin.connect.label",
+      "v": [
+        {
+          "from": "mbr_mb_ingress",
+          "to": ["mbr_mgmt_to_mqtt:in"]
+        },
+        {
+          "from": "mbr_cb_ingress",
+          "to": ["mbr_mqtt_to_mgmt:in"]
+        }
+      ]
     }
   ]
 }

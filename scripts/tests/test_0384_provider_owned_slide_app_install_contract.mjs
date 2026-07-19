@@ -90,7 +90,7 @@ function test_user_guides_explain_provider_install_path() {
     'provider_route_kind',
     'slide_app_bundle_request.v1',
     'slide_app_bundle_response.v1',
-    'bundle_payload',
+    'bundle_record_id_offset',
     'pending install state',
     '0384 current contract',
     '现在是 current truth',
@@ -102,9 +102,22 @@ function test_user_guides_explain_provider_install_path() {
     'Workspace Manager DEM ModelTable',
     'slide_app_bundle_request.v1',
     'slide_app_bundle_response.v1',
-    'bundle_payload',
+    'bundle_record_id_offset',
     '`source_model_id` 不再是 Workspace Manager 安装来源',
   ], files.modeltableGuide);
+  assert.equal(
+    developerGuide.includes('用 `bundle_payload`'),
+    false,
+    'current developer guide must not advertise the retired nested bundle_payload transport',
+  );
+  assertIncludes(developerGuide, '外层 transport packet 仍是', files.developerGuide);
+  assertIncludes(developerGuide, '"version": "v1"', files.developerGuide);
+  assertIncludes(developerGuide, '内部 records 的 `__mt_payload_kind = pin_payload.v2`', files.developerGuide);
+  assert.equal(
+    developerGuide.includes('response packet 外层仍是 `pin_payload.v2`'),
+    false,
+    'developer guide must distinguish the outer v1 packet from inner pin_payload.v2 records',
+  );
   return { key: 'user_guides_explain_provider_install_path', status: 'PASS' };
 }
 

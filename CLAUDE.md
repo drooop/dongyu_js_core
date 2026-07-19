@@ -9,8 +9,21 @@ DOC_PRIORITY  high → low
 7  docs/ITERATIONS.md                                 (iteration registry)
 8  docs/ssot/execution_governance_ultrawork_doit.md   (governance)
 9  docs/ssot/*.md  docs/roadmaps/*.md  docs/user-guide/*.md
+   (`docs/ssot/*.md` excludes routing indexes, generated summaries, decision backlogs,
+   and evidence-only artifacts unless a higher-priority document explicitly promotes them)
 
 lower doc MUST NOT override higher doc.
+
+AUTHORITY_SCOPE
+
+- `DOC_PRIORITY` defines document conflict precedence. Only entries explicitly classified as
+  executable contracts participate in repository execution authority; directory placement alone
+  does not grant SSOT authority.
+- Human entry (`docs/README.md`) and LLM entry (`AGENTS.md` / this file) share the same product SSOT; entry documents MUST NOT create parallel product semantics.
+- `docs/ssot/contract_surface_manifest.json` is a routing/coverage index, not product SSOT.
+- `docs/ssot/feishu_alignment_decisions_v0.md` records adoption decisions from Feishu company consensus.
+- Feishu `UpstreamConsensus` can define company intent, but it changes the executable repository contract only through an Approved iteration.
+- Feishu `DerivedView`, `SupportingSource`, generated summaries, backlogs, and iteration evidence have no independent authority to override repo SSOT.
 
 
 HARD_RULES
@@ -104,7 +117,8 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
                   other ordinary Cells inside the matrix default effectively to model.single unless explicitly overridden.
                   matrix absolute origin may differ from global (0,0,0); spec must define relative→absolute mapping.
 
-  model.table    table root Cell. the model root (0,0,0) MUST be explicitly labeled model.table.
+  model.table    ordinary/non-worker table root Cell. an ordinary/non-worker model root
+                  (0,0,0) MUST be explicitly labeled model.table.
                   other ordinary Cells inside the table default effectively to model.single unless explicitly overridden.
                   (0323) (0,0,0) MUST contain 3 default func.js infrastructure programs:
                     mt_write         — accepts write requests, executes addLabel/rmLabel on any Cell within this model.table
@@ -114,6 +128,12 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
                   user programs MUST NOT override or delete these func.js labels.
                   replaces (0,1,0) helper executor for model.table only (DEPRECATED here);
                   model.single scenario retains helper scaffold — see runtime_semantics §5.2f.
+
+  model.v1n      software worker host-table root declaration. it is valid only on
+                  host Model 0 (0,0,0), and uses the same table execution semantics
+                  as model.table. worker identity and role remain separate in
+                  sys_worker_id:worker.id and sys_worker_role:worker.role.
+                  ordinary/non-worker ModelTable roots MUST continue to use model.table.
 
   model.subtable child ModelTable root declaration. written on the child ModelTable's
                   own Model 0 (0,0,0). it states that this table is a child ModelTable,
@@ -135,9 +155,9 @@ for sparse/unmaterialized ordinary Cells inside a table/matrix scope, effective 
 
   model_type label encodes two dimensions:
     label.t = form / relationship type
-              (model.single | model.matrix | model.table | model.subtable | model.submt |
+              (model.single | model.matrix | model.table | model.v1n | model.subtable | model.submt |
                model.subtableconnection | model.submtconnection)
-    label.v = type (Code.JS | Data.Array.One | Flow | Doc.Markdown | ...) for model.single/model.matrix/model.table/model.subtable/model.submt
+    label.v = type (Code.JS | Data.Array.One | Flow | Doc.Markdown | ...) for model.single/model.matrix/model.table/model.v1n/model.subtable/model.submt
               child table ref for model.subtableconnection
               child model id for model.submtconnection
     invalid form×type combinations MUST be rejected at registration.
@@ -327,7 +347,7 @@ ARCH_INVARIANTS
 - app-as-OS: IA organized by apps/workstations, not single function
 - three model forms: simple (sandbox) / matrix (spatial, deferred) / table (dynamic)
 - PIN decoupling: 0356 target uses 2 connection declarations (label/cell), type-based differentiation
-- bus decoupling: management bus (user-facing) + control bus (execution) + MBR bridge
+- bus decoupling: management bus (user-facing) + control bus (execution) + MBR management-only bridge
 - workspace isolation: data separated, comms encrypted, trust revocable
 - capability detection: worker base must degrade gracefully, never crash silently
 - application-layer = positive model_id user-created models; system-level = negative model_id software-worker capability layers.
@@ -353,7 +373,7 @@ two tiers. clearly separated. do not mix.
 tier 1: runtime base (基座运行能力)
   = the interpreter. only changes via iteration + code review.
   what it provides:
-  - model form enforcement: model.single / model.matrix / model.table constraints
+  - model form enforcement: model.single / model.matrix / model.table / model.v1n constraints
   - label type interpretation: _applyBuiltins dispatches on label.t
     0363 target recognized types after implementation migration:
       pin.in, pin.out,
@@ -378,7 +398,7 @@ tier 2: model definitions (填表能力)
   - all system infrastructure functions (via system model labels)
   - data model subtypes (Data.Array.One/Two/Three, Data.Queue, Data.Stack, etc.) as JSON patch templates
   - flow model (flow.* labels + flow manager function) as JSON patch templates
-  - MBR routing rules (via mbr_route_* labels)
+  - MBR management routing/dispatch (via pin.connect.* and function labels; legacy `mbr_route_*` labels MUST NOT be restored)
   - MGMT send/receive (via function labels)
   - intent dispatch (via function labels)
   files: packages/worker-base/system-models/*.json, deploy/sys-v1ns/**/*.json
@@ -418,7 +438,8 @@ allocation rules (authoritative):
 
   Model 0        system root / intermediate layer. worker root bus boundary pins and root-side routing live here.
                  the only model with system boundary ports. never holds user business logic.
-                 Model 0 (0,0,0) MUST explicitly carry model.table.
+                 A software worker host-table Model 0 (0,0,0) MUST explicitly carry model.v1n.
+                 An ordinary/non-worker ModelTable root MUST explicitly carry model.table.
 
   Model -1       system capability layer: legacy/compat bus-event mailbox + status surface.
                  Cell(0,0,1) remains reserved for compat/status observation only; it is NOT the current frontend/server first ingress.
@@ -431,7 +452,7 @@ allocation rules (authoritative):
                   reserved for login flow; do not reuse for cognition/system routing.
 
   Model -10      system capability layer: infrastructure logic expressed as function labels:
-                  mgmt_send, mgmt_receive, intent_dispatch, mbr_route_*, mqtt config helpers.
+                  mgmt_send, mgmt_receive, intent_dispatch, management routing functions, mqtt config helpers.
                   all MBR/MGMT/intent capabilities live here as "filled table" entries.
 
   Model -12      system capability layer: cognition context model. scene_context and feedback-loop state carrier
@@ -576,7 +597,7 @@ PERMISSION_MODEL
 
 MODEL_TYPE_REGISTRY
 
-  form (label.t): model.single | model.matrix | model.table
+  form (label.t): model.single | model.matrix | model.table | model.v1n | model.subtable | model.submt
   type (label.v): {Category}.{SubType} or {Category}
 
   registered types (initial set):
@@ -601,11 +622,16 @@ MODEL_TYPE_REGISTRY
 
 RUNTIME_BASELINE
 
-default: Docker + K8s (not local MBR JS)
+default: local OrbStack Docker + Kubernetes (not host-side MBR JS)
 
 always-on:
-  docker: element-docker-demo (Matrix/Element), mosquitto
-  k8s (docker-desktop, default ns): deployment/mbr-worker=1, deployment/remote-worker=1
+  context: docker=orbstack, kubernetes=orbstack
+  namespace: dongyu
+  k8s: deployment/mosquitto=1, deployment/synapse=1,
+       deployment/remote-worker=1, deployment/workspace-manager=1,
+       deployment/mbr-worker=1, deployment/ui-server=1
+  transport: Matrix=http://synapse.dongyu.svc.cluster.local:8008,
+             MQTT=mosquitto.dongyu.svc.cluster.local:1883
 
 test classification:
   unit    = in-process ModelTableRuntime, no network, no Docker.
@@ -618,7 +644,7 @@ test classification:
             pre-req: Docker + K8s running. MUST run pre-flight first.
 
 pre-flight (MANDATORY before e2e/deploy tests):
-  bash scripts/ops/ensure_runtime_baseline.sh
+  bash scripts/ops/ensure_runtime_baseline.sh  # mutating; may build/sync/deploy
   bash scripts/ops/check_runtime_baseline.sh
 
 violation protocol:
@@ -636,6 +662,10 @@ mbr location record: prefer ModelTable Cell Label (model_id=-10, p=0, r=0, c=0, 
 DATA_SOURCES
 
 default external: Git / GitHub only.
+repo-governed exception: Feishu UpstreamConsensus may be fetched read-only from
+  exact https://open.feishu.cn:443 when an Approved iteration needs source evidence.
+  this does not authorize Feishu writes; every Feishu write requires separate explicit user approval.
+  local-only test infrastructure does not mean air-gapped execution.
 do not assume: Sentry, Linear, Notion, Figma (unless user confirms).
 if information is missing but work can still proceed reliably →
   state the assumption and how to validate it.

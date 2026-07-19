@@ -8,7 +8,7 @@ source: ai
 
 # Static Workspace Rebuild Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **Execution:** Follow the repository's own workflow and execute this plan task-by-task.
 
 **Goal:** Rebuild the old Static page as a formal Workspace app using a positive app host plus child truth model, while keeping the `/p/<projectName>/...` serving rule and validating real uploads.
 
@@ -168,4 +168,3 @@ Run:
 - upload `docs/user-guide/workspace_ui_filltable_example_visualized.html`
 
 **Step 4: Record evidence**
-

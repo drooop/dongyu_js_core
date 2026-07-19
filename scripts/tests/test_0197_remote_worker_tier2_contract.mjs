@@ -33,7 +33,14 @@ function test_remote_worker_patch_uses_current_tier2_shape() {
     && record.k === 'model_type'
   ));
   assert.ok(rootType, 'remote worker patch must declare model100 root model_type');
-  assert.equal(rootType.t, 'model.table', 'remote worker patch must use model.table for model100');
+  assert.equal(rootType.t, 'model.submt', 'remote worker patch must use model.submt for mounted model100');
+
+  const parentMount = modelRecords.find((record) => (
+    record && record.op === 'add_label' && record.model_id === 0
+    && record.k === 'model_type' && record.t === 'model.submtconnection'
+    && record.v === 100
+  ));
+  assert.ok(parentMount, 'remote worker patch must mount model100 through a declared parent connection Cell');
 
   const rootEventPin = modelRecords.find((record) => (
     record && record.op === 'add_label' && record.model_id === 100
